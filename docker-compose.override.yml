@@ -1,0 +1,19 @@
+# Development overrides — active automatically when running `docker compose up`
+# Exposes ports directly for debugging and enables API hot reload.
+
+services:
+  api:
+    build:
+      target: development
+    volumes:
+      - ./api/src:/app/src:ro
+      - ./sparql/files:/shex-files:ro
+    environment:
+      NODE_ENV: development
+      LOG_LEVEL: debug
+    ports:
+      - "3000:3000"   # direct API access for curl/Postman
+
+  qlever:
+    ports:
+      - "7001:7001"   # direct QLever SPARQL access for debugging

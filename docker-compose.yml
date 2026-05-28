@@ -1,0 +1,73 @@
+services:
+
+  # ─── Nginx reverse proxy + React SPA ──────────────────────────────────────
+  nginx:
+    build:
+      context: .
+      dockerfile: docker/nginx/Dockerfile
+    ports:
+      - "8080:80"
+    depends_on:
+      - api
+      - qlever
+    networks:
+      - sulo-net
+    restart: unless-stopped
+
+  # ─── Node.js / Fastify API ─────────────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: docker/api/Dockerfile
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      QLEVER_SPARQL_URL: http://qlever:7001/sparql
+      QLEVER_UPDATE_URL: http://qlever:7001/update
+      QLEVER_ACCESS_TOKEN: ${QLEVER_ACCESS_TOKEN:-sulo-dev-token}
+    depends_on:
+      qlever-init:
+        condition: service_completed_successfully
+    networks:
+      - sulo-net
+    restart: unless-stopped
+
+  # ─── QLever index initialiser (runs once, exits) ──────────────────────────
+  qlever-init:
+    image: adfreiburg/qlever:latest
+    user: "0"
+    entrypoint: ["/bin/sh", "/scripts/init-index.sh"]
+    environment:
+      RESTORE_FROM: ${RESTORE_FROM:-}
+      BASE_NAMESPACE: ${BASE_NAMESPACE:-https://w3id.org/sulo/schema/}
+    volumes:
+      - qlever-data:/data
+      - ./sparql:/sparql-data:ro
+      - ./docker/qlever:/scripts:ro
+      - ./sparql/backup:/backups:ro
+    working_dir: /data
+    networks:
+      - sulo-net
+
+  # ─── QLever SPARQL server ──────────────────────────────────────────────────
+  qlever:
+    image: adfreiburg/qlever:latest
+    entrypoint: ["sh", "-c",
+      "qlever-server -i sulo -j 8 -p 7001 -m 5G -c 2G -e 1G -k 200 -s 30s -a \"${QLEVER_ACCESS_TOKEN:-sulo-dev-token}\""
+    ]
+    volumes:
+      - qlever-data:/data
+    working_dir: /data
+    depends_on:
+      qlever-init:
+        condition: service_completed_successfully
+    networks:
+      - sulo-net
+    restart: unless-stopped
+
+volumes:
+  qlever-data:
+
+networks:
+  sulo-net:
+    driver: bridge

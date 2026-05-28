@@ -1,0 +1,38 @@
+{
+  "name": "sulo-schema-builder-api",
+  "version": "0.1.0",
+  "description": "SULO-Compliant Schema Builder REST API",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "lint": "eslint src",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@fastify/cors": "^11.0.0",
+    "@fastify/helmet": "^13.0.0",
+    "@fastify/sensible": "^6.0.0",
+    "dotenv": "^16.0.0",
+    "fastify": "^5.0.0",
+    "fastify-plugin": "^5.0.0",
+    "n3": "^1.17.0",
+    "sparql-http-client": "^3.0.0",
+    "uuid": "^11.0.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/n3": "^1.16.0",
+    "@types/node": "^22.0.0",
+    "@types/uuid": "^10.0.0",
+    "pino-pretty": "^13.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.5.0",
+    "vitest": "^2.0.0"
+  }
+}
