@@ -265,6 +265,10 @@ function TriplePatternEditor({ value, onChange, concepts, classes, loading }: Tr
     () => concepts.filter((c) => c.type === 'property'),
     [concepts],
   );
+  const classConcepts = useMemo(
+    () => concepts.filter((c) => c.type === 'class'),
+    [concepts],
+  );
 
   function addTriple() {
     onChange([...value, { subject: '?this', predicate: '', object: '?value' }]);
@@ -318,7 +322,8 @@ function TriplePatternEditor({ value, onChange, concepts, classes, loading }: Tr
               {(() => {
                 const isVar      = OBJECT_VARS.includes(triple.object);
                 const isCls      = classes?.some((c) => c.url === triple.object) ?? false;
-                const isExternal = triple.object && !isVar && !isCls;
+                const isSuloCls  = classConcepts.some((c) => c.iri === triple.object);
+                const isExternal = triple.object && !isVar && !isCls && !isSuloCls;
                 return (
                   <select
                     value={triple.object}
@@ -331,10 +336,19 @@ function TriplePatternEditor({ value, onChange, concepts, classes, loading }: Tr
                       ))}
                     </optgroup>
                     {classes && classes.length > 0 && (
-                      <optgroup label="Classes">
+                      <optgroup label="Schema Classes">
                         {classes.map((cls) => (
                           <option key={cls.url} value={cls.url}>
                             {cls.label ?? cls.name}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+                    {classConcepts.length > 0 && (
+                      <optgroup label="SULO Classes">
+                        {classConcepts.map((c) => (
+                          <option key={c.iri} value={c.iri}>
+                            {c.label ?? c.localName}
                           </option>
                         ))}
                       </optgroup>
@@ -372,6 +386,8 @@ function TriplePatternEditor({ value, onChange, concepts, classes, loading }: Tr
               ? t.object
               : (classes?.find((c) => c.url === t.object)?.label
                   ?? classes?.find((c) => c.url === t.object)?.name
+                  ?? classConcepts.find((c) => c.iri === t.object)?.label
+                  ?? classConcepts.find((c) => c.iri === t.object)?.localName
                   ?? t.object.split(/[/#]/).pop()
                   ?? t.object);
             return (
@@ -563,41 +579,8 @@ function buildReverseOwlExpr(
 }
 
 
-function emitSuloConstraints(
-  subjectVar: string,
-  auxPrefix: string,
-  pattern: TripleTemplate[],
-  mapVar: string,
-  rangeExpr: string,
-  card: string,
-  prefixes: Record<string, string>,
-  into: string[],
-  aux: string[],
-) {
-  const triples = pattern.filter((t) => t.subject === subjectVar && t.predicate);
-  triples.forEach((triple) => {
-    const pred = shortenIri(triple.predicate, prefixes);
-    if (triple.object === '?value') {
-      into.push(`  ${pred} ${rangeExpr}${card} %Map:{ ${mapVar} %}`);
-    } else if (triple.object.startsWith('?')) {
-      const childVar  = triple.object;
-      const childName = `:${auxPrefix}_${childVar.replace('?', '')}`;
-      into.push(`  ${pred} @${childName}${card}`);
-      const childConstraints: string[] = [];
-      const childAux: string[]         = [];
-      emitSuloConstraints(childVar, `${auxPrefix}_${childVar.replace('?', '')}`, pattern, mapVar, rangeExpr, '', prefixes, childConstraints, childAux);
-      aux.push(`${childName} {`);
-      childConstraints.forEach((c, i) => aux.push(c + (i < childConstraints.length - 1 ? ' ;' : '')));
-      aux.push('}');
-      aux.push('');
-      aux.push(...childAux);
-    } else {
-      into.push(`  ${pred} [${shortenIri(triple.object, prefixes)}]`);
-    }
-  });
-}
 
-interface ExportResult { turtlePlain: string; turtleOwl: string; sourceShex: string; targetShex: string; shaclTtl: string; }
+interface ExportResult { turtlePlain: string; turtleOwl: string; shaclTtl: string; }
 
 function generateExports(schema: OntologySchema): ExportResult {
   const base    = schema.url.endsWith('/') ? schema.url : schema.url + '/';
@@ -644,9 +627,6 @@ function generateExports(schema: OntologySchema): ExportResult {
   };
   if (upperPfx) owlPfxMap[upperPfx] = upperNs;
   if (hasSuloMappings && !owlPfxMap['sulo']) owlPfxMap['sulo'] = suloNs;
-
-  const xsdOnly: Record<string, string>   = { xsd: 'http://www.w3.org/2001/XMLSchema#' };
-  const upperOnly: Record<string, string> = upperPfx ? { [upperPfx]: upperNs, ...xsdOnly } : xsdOnly;
 
   const propsByClass = new Map<string, OntologyProperty[]>();
   for (const prop of schema.properties) {
@@ -760,106 +740,6 @@ function generateExports(schema: OntologySchema): ExportResult {
   const turtlePlain = buildTurtle(plainPfxMap, false);
   const turtleOwl   = buildTurtle(owlPfxMap,   true);
 
-  // ── Source ShEx ─────────────────────────────────────────────────────────────
-  const src: string[] = [];
-  src.push(`PREFIX : <${base}>`);
-  src.push(`PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>`);
-  src.push('');
-
-  for (const cls of schema.classes) {
-    const props = propsByClass.get(cls.id) ?? [];
-    src.push(`:${cls.name}Shape {`);
-    if (props.length === 0) {
-      src.push('  # (no properties defined for this class)');
-    }
-    // Group same-name props into union ranges
-    const nameGroups = new Map<string, typeof props>();
-    for (const p of props) {
-      const g = nameGroups.get(p.name) ?? [];
-      g.push(p);
-      nameGroups.set(p.name, g);
-    }
-    const nameGroupEntries = Array.from(nameGroups.entries());
-    nameGroupEntries.forEach(([propName, group], gi) => {
-      const rep = group[0];
-      let rangeExpr: string;
-      if (rep.propertyType === 'object') {
-        const parts = group.map((p) => {
-          const rc = p.rangeClassIri ? schema.classes.find((c) => c.url === p.rangeClassIri) : null;
-          return rc ? `@:${rc.name}Shape` : 'IRI';
-        });
-        rangeExpr = parts.length > 1 ? `(${parts.join(' | ')})` : (parts[0] ?? 'IRI');
-      } else {
-        rangeExpr = rep.rangeClassIri ? shortenIri(rep.rangeClassIri, xsdOnly) : 'xsd:string';
-      }
-      const card    = rep.isRequired ? '' : '?';
-      const sep     = gi < nameGroupEntries.length - 1 ? ' ;' : '';
-      const varName = `?${cls.name}_${propName}`;
-      let mapExpr: string;
-      if (rep.regexPattern) {
-        const regexPart = `regex(/${rep.regexPattern}/)`;
-        mapExpr = rep.regexVariable ? `?${rep.regexVariable} . ${regexPart}` : regexPart;
-      } else {
-        mapExpr = varName;
-      }
-      src.push(`  :${propName} ${rangeExpr}${card} %Map:{ ${mapExpr} %}${sep}`);
-    });
-    src.push('}');
-    src.push('');
-  }
-
-  // ── Target (SULO) ShEx ─────────────────────────────────────────────────────
-  const tgt: string[] = [];
-
-  if (!upperNs) {
-    tgt.push('# No upper-level ontology configured for this schema.');
-    tgt.push('# Set an upper ontology IRI in "Edit info" to generate the target shapes.');
-  } else {
-    tgt.push(`PREFIX : <${base}>`);
-    tgt.push(`PREFIX ${upperPfx}: <${upperNs}>`);
-    tgt.push(`PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>`);
-    tgt.push('');
-
-    for (const cls of schema.classes) {
-      const mappedProps = (propsByClass.get(cls.id) ?? []).filter((p) => p.mappingPattern.length > 0);
-      const typeRef = cls.mapsToConceptIri
-        ? ` / ${shortenIri(cls.mapsToConceptIri, upperOnly)}`
-        : '';
-
-      const direct: string[] = [];
-      const auxShapes: string[] = [];
-
-      for (const prop of mappedProps) {
-        const varName   = `?${cls.name}_${prop.name}`;
-        const rangeExpr = prop.rangeClassIri ? shortenIri(prop.rangeClassIri, xsdOnly) : 'xsd:string';
-        const card      = prop.isRequired ? '' : '?';
-
-        if (prop.regexPattern) {
-          // Regex extraction: list the named groups as comments so the user knows
-          // which variables are available to bind in target predicates.
-          const groups = extractNamedGroups(prop.regexPattern);
-          direct.push(`  # :${prop.name} → regex extracts: ${groups.map((g) => `?${g}`).join(', ')}`);
-          groups.forEach((g) => {
-            direct.push(`  # TODO: bind ?${g} to the appropriate target predicate`);
-          });
-        } else {
-          emitSuloConstraints(
-            '?this', `_${cls.name}_${prop.name}`,
-            prop.mappingPattern, varName, rangeExpr, card,
-            upperOnly, direct, auxShapes,
-          );
-        }
-      }
-
-      tgt.push(`:Sulo${cls.name}Shape${typeRef} {`);
-      if (direct.length === 0) tgt.push('  # (no mapped properties for this class)');
-      direct.forEach((c, i) => tgt.push(c + (i < direct.length - 1 ? ' ;' : '')));
-      tgt.push('}');
-      tgt.push('');
-      tgt.push(...auxShapes);
-    }
-  }
-
   // ── SHACL shapes (schema-native, no SULO) ────────────────────────────────
   const shaclPfxMap: Record<string, string> = {
     '':   base,
@@ -934,7 +814,7 @@ function generateExports(schema: OntologySchema): ExportResult {
     shacl.push('');
   }
 
-  return { turtlePlain, turtleOwl, sourceShex: src.join('\n'), targetShex: tgt.join('\n'), shaclTtl: shacl.join('\n') };
+  return { turtlePlain, turtleOwl, shaclTtl: shacl.join('\n') };
 }
 
 // ─── Mermaid generator ────────────────────────────────────────────────────────
@@ -1234,7 +1114,7 @@ function UmlDiagramView({ schema, onClose }: { schema: OntologySchema; onClose: 
 // ─── Export modal ─────────────────────────────────────────────────────────────
 
 function ExportModal({ schema, onClose }: { schema: OntologySchema; onClose: () => void }) {
-  const [tab, setTab]       = useState<'plain' | 'owl' | 'shacl' | 'source' | 'target' | 'uml'>('plain');
+  const [tab, setTab]       = useState<'plain' | 'owl' | 'shacl' | 'uml'>('plain');
   const [copied, setCopied] = useState(false);
   const [showDiagram, setShowDiagram] = useState(false);
   const exports = useMemo(() => generateExports(schema), [schema]);
@@ -1244,15 +1124,11 @@ function ExportModal({ schema, onClose }: { schema: OntologySchema; onClose: () 
   const content =
     tab === 'plain'  ? exports.turtlePlain :
     tab === 'owl'    ? exports.turtleOwl   :
-    tab === 'shacl'  ? exports.shaclTtl    :
-    tab === 'source' ? exports.sourceShex  :
-    tab === 'target' ? exports.targetShex  : mermaid;
+    tab === 'shacl'  ? exports.shaclTtl    : mermaid;
   const filename =
-    tab === 'plain'  ? `${slug}.ttl`              :
-    tab === 'owl'    ? `${slug}_sulo.owl.ttl`     :
-    tab === 'shacl'  ? `${slug}_shacl.ttl`        :
-    tab === 'source' ? `${slug}_source.shex`      :
-    tab === 'target' ? `${slug}_target_sulo.shex` : `${slug}_uml.mmd`;
+    tab === 'plain'  ? `${slug}.ttl`          :
+    tab === 'owl'    ? `${slug}_sulo.owl.ttl` :
+    tab === 'shacl'  ? `${slug}_shacl.ttl`   : `${slug}_uml.mmd`;
 
   function copy() {
     navigator.clipboard.writeText(content).then(() => {
@@ -1289,12 +1165,10 @@ function ExportModal({ schema, onClose }: { schema: OntologySchema; onClose: () 
         {/* Tabs */}
         <div className="flex gap-1 px-4 pt-3 border-b border-slate-200 shrink-0">
           {([
-            { key: 'plain',  label: 'RDF Schema' },
-            { key: 'owl',    label: 'OWL + SULO' },
-            { key: 'shacl',  label: 'SHACL' },
-            { key: 'source', label: 'Source ShEx' },
-            { key: 'target', label: 'Target ShEx (SULO)' },
-            { key: 'uml',    label: 'UML Diagram' },
+            { key: 'plain', label: 'RDF Schema' },
+            { key: 'owl',   label: 'OWL + SULO' },
+            { key: 'shacl', label: 'SHACL' },
+            { key: 'uml',   label: 'UML Diagram' },
           ] as const).map(({ key, label }) => (
             <button
               key={key}

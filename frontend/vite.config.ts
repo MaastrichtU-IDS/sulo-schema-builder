@@ -7,7 +7,7 @@ export default defineConfig({
     port: 5173,
     proxy: {
       // In dev (outside Docker), proxy API and SPARQL calls to local services
-      '/api': 'http://localhost:3000',
+      '/api': 'http://localhost:3001',
       '/sparql': 'http://localhost:7001',
     },
   },
