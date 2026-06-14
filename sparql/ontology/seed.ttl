@@ -1,0 +1,6 @@
+@prefix owl:        <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs:       <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix suloschema: <https://w3id.org/sulo/schema/ontology#> .
+
+<https://w3id.org/sulo/schema/ontology> a owl:Ontology ;
+  rdfs:label "SULO Schema Builder" .

@@ -1,0 +1,4 @@
+services:
+  qlever:
+    ports:
+      - "7002:7001"

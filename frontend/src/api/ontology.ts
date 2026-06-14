@@ -19,6 +19,11 @@ export interface TripleTemplate {
   object: string;    // e.g. "?value", "?o1", "?o2"
 }
 
+export type PropertyFeature =
+  | 'functional' | 'inverseFunctional'
+  | 'transitive' | 'symmetric' | 'asymmetric'
+  | 'reflexive'  | 'irreflexive';
+
 export interface OntologyProperty {
   id: string;
   url: string;
@@ -32,6 +37,9 @@ export interface OntologyProperty {
   regexPattern?: string;
   regexVariable?: string;
   isRequired: boolean;
+  propertyFeatures: PropertyFeature[];
+  inversePropertyIri?: string;
+  disjointPropertyIris: string[];
 }
 
 export interface OntologySchema {
@@ -157,6 +165,9 @@ export function useAddOntologyProperty(schemaId: string) {
       regexPattern?: string;
       regexVariable?: string;
       isRequired: boolean;
+      propertyFeatures?: PropertyFeature[];
+      inversePropertyIri?: string;
+      disjointPropertyIris?: string[];
     }) => apiClient.post(`/ontology-schemas/${schemaId}/properties`, data).then((r) => r.data as OntologyProperty),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['ontology-schema', schemaId] }),
   });
@@ -172,6 +183,7 @@ export function useUpdateOntologyProperty(schemaId: string) {
         propertyType?: 'object' | 'datatype'; domainClassId?: string;
         rangeClassIri?: string; mappingPattern?: TripleTemplate[];
         regexPattern?: string; regexVariable?: string; isRequired?: boolean;
+        propertyFeatures?: PropertyFeature[]; inversePropertyIri?: string; disjointPropertyIris?: string[];
       };
     }) => apiClient.patch(`/ontology-schemas/${schemaId}/properties/${propId}`, data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['ontology-schema', schemaId] }),

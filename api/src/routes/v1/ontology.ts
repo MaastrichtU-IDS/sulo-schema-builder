@@ -122,6 +122,12 @@ const TripleTemplateBody = z.object({
   object: z.string(),
 });
 
+const PropertyFeatureEnum = z.enum([
+  'functional', 'inverseFunctional',
+  'transitive', 'symmetric', 'asymmetric',
+  'reflexive', 'irreflexive',
+]);
+
 const AddPropertyBody = z.object({
   name: z.string().min(1),
   label: z.string().optional(),
@@ -129,14 +135,13 @@ const AddPropertyBody = z.object({
   propertyType: z.enum(['object', 'datatype']).default('datatype'),
   domainClassId: z.string().optional(),
   rangeClassIri: z.string().optional(),
-  // Array of triple templates { subject, predicate, object } forming the mapping pattern.
-  // e.g. [{ subject: "?this", predicate: "sulo:hasValue", object: "?value" }] for a direct mapping,
-  // or chained: [{ subject: "?this", predicate: "sulo:hasFeature", object: "?o1" },
-  //              { subject: "?o1", predicate: "sulo:hasValue", object: "?value" }]
   mappingPattern: z.array(TripleTemplateBody).optional(),
   regexPattern: z.string().optional(),
   regexVariable: z.string().optional(),
   isRequired: z.boolean().default(false),
+  propertyFeatures: z.array(PropertyFeatureEnum).optional(),
+  inversePropertyIri: z.string().optional(),
+  disjointPropertyIris: z.array(z.string()).optional(),
 });
 
 const UpdateClassBody = z.object({
@@ -158,6 +163,9 @@ const UpdatePropertyBody = z.object({
   regexPattern: z.string().optional(),
   regexVariable: z.string().optional(),
   isRequired: z.boolean().optional(),
+  propertyFeatures: z.array(PropertyFeatureEnum).optional(),
+  inversePropertyIri: z.string().optional(),
+  disjointPropertyIris: z.array(z.string()).optional(),
 });
 
 const IdParam = z.object({ id: z.string().min(1) });
@@ -248,6 +256,9 @@ const ontologyRoutes: FastifyPluginAsync = async (fastify) => {
         OPTIONAL { ?prop <${SM}regexPattern> ?regexPattern }
         OPTIONAL { ?prop <${SM}regexVariable> ?regexVariable }
         OPTIONAL { ?prop <${SM}isRequired> ?isRequired }
+        OPTIONAL { ?prop <${SM}propertyFeatures> ?propertyFeatures }
+        OPTIONAL { ?prop <${SM}inversePropertyIri> ?inversePropertyIri }
+        OPTIONAL { ?prop <${SM}disjointPropertyIris> ?disjointPropertyIris }
       }
       ORDER BY ?name
     `);
@@ -292,6 +303,13 @@ const ontologyRoutes: FastifyPluginAsync = async (fastify) => {
         regexPattern: r['regexPattern']?.value,
         regexVariable: r['regexVariable']?.value,
         isRequired: r['isRequired']?.value === 'true',
+        propertyFeatures: r['propertyFeatures']?.value
+          ? (() => { try { return JSON.parse(r['propertyFeatures']!.value); } catch { return []; } })()
+          : [],
+        inversePropertyIri: r['inversePropertyIri']?.value,
+        disjointPropertyIris: r['disjointPropertyIris']?.value
+          ? (() => { try { return JSON.parse(r['disjointPropertyIris']!.value); } catch { return []; } })()
+          : [],
       };
     });
 
@@ -507,6 +525,16 @@ const ontologyRoutes: FastifyPluginAsync = async (fastify) => {
       stmts.push(setOrDelete(pIri, `${SM}regexPattern`, data.regexPattern || null));
     if (data.regexVariable !== undefined)
       stmts.push(setOrDelete(pIri, `${SM}regexVariable`, data.regexVariable || null));
+    if (data.propertyFeatures !== undefined) {
+      const json = data.propertyFeatures.length > 0 ? JSON.stringify(data.propertyFeatures) : null;
+      stmts.push(setOrDelete(pIri, `${SM}propertyFeatures`, json));
+    }
+    if (data.inversePropertyIri !== undefined)
+      stmts.push(setOrDelete(pIri, `${SM}inversePropertyIri`, data.inversePropertyIri || null, true));
+    if (data.disjointPropertyIris !== undefined) {
+      const json = data.disjointPropertyIris.length > 0 ? JSON.stringify(data.disjointPropertyIris) : null;
+      stmts.push(setOrDelete(pIri, `${SM}disjointPropertyIris`, json));
+    }
 
     if (stmts.length) await sparqlUpdate(fastify, stmts.join(';\n'));
     return reply.code(204).send();
@@ -566,6 +594,15 @@ const ontologyRoutes: FastifyPluginAsync = async (fastify) => {
     if (data.regexVariable) {
       triples += `\n      ${iri(pIri)} <${SM}regexVariable> ${lit(data.regexVariable)} .`;
     }
+    if (data.propertyFeatures && data.propertyFeatures.length > 0) {
+      triples += `\n      ${iri(pIri)} <${SM}propertyFeatures> ${lit(JSON.stringify(data.propertyFeatures))} .`;
+    }
+    if (data.inversePropertyIri) {
+      triples += `\n      ${iri(pIri)} <${SM}inversePropertyIri> ${iri(data.inversePropertyIri)} .`;
+    }
+    if (data.disjointPropertyIris && data.disjointPropertyIris.length > 0) {
+      triples += `\n      ${iri(pIri)} <${SM}disjointPropertyIris> ${lit(JSON.stringify(data.disjointPropertyIris))} .`;
+    }
 
     await sparqlUpdate(fastify, `INSERT DATA { ${triples} }`);
     return reply.code(201).send({
@@ -581,6 +618,9 @@ const ontologyRoutes: FastifyPluginAsync = async (fastify) => {
       regexPattern: data.regexPattern,
       regexVariable: data.regexVariable,
       isRequired: data.isRequired,
+      propertyFeatures: data.propertyFeatures ?? [],
+      inversePropertyIri: data.inversePropertyIri,
+      disjointPropertyIris: data.disjointPropertyIris ?? [],
     });
   });
 
