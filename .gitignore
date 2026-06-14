@@ -5,3 +5,7 @@ dist/
 !.env.example
 *.log
 .DS_Store
+
+# Generated paper artefact (kept locally, not tracked)
+paper.docx
+~$*.docx

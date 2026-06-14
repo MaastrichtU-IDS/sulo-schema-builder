@@ -1,6 +1,10 @@
 # SULO-Compliant Schema Builder
 
-A web application for designing ontology schemas aligned to the [SULO upper-level ontology](https://w3id.org/sulo/). Schemas are stored as RDF in a [QLever](https://github.com/ad-freiburg/qlever) SPARQL triplestore and can be exported as plain RDF/Turtle, OWL with SULO alignments, SHACL shapes, or a UML class diagram.
+A web application that bridges domain **schema design** and formal **OWL ontology engineering**. Domain experts define classes and properties, align them interactively to the [Simplified Upper-Level Ontology (SULO)](https://w3id.org/sulo/), and generate four artefacts from a single schema model — **plain RDF/Turtle**, **OWL DL** with SULO-compliant equivalence axioms and property restrictions, **SHACL** node shapes, and a **Mermaid UML** diagram.
+
+A declarative **mapping-pattern** mechanism, analogous to SPARQL triple templates, compiles domain relations into SULO relations without requiring the user to author OWL by hand. Schemas are stored as RDF in a [QLever](https://github.com/ad-freiburg/qlever) SPARQL triplestore.
+
+> Celebi R, Martínez-Costa C, Schulz S, Dumontier M. *SULO-Compliant Schema Builder: a web-based tool bridging domain schemas with ontologies using SULO.* See [`paper.docx`](paper.docx) for the full manuscript.
 
 ## Architecture
 
@@ -220,19 +224,29 @@ Click **+ Add property** under a class. Each property has:
 - **Domain** — the class this property belongs to.
 - **Range** — target class IRI (object property) or XSD datatype (datatype property).
 - **Required** — whether the property is mandatory (affects SHACL `sh:minCount`).
-- **Mapping pattern** — one or more `subject / predicate / object` triple templates used to express how this property maps to SULO path expressions in the OWL export.
+- **Mapping pattern** — one or more `subject / predicate / object` triple templates expressing how this property "unfolds" into a SULO subgraph. Two reserved placeholders denote the original relation's endpoints: **`?this`** (the subject / domain) and **`?value`** (the object / range). For example, `hasPatient` on `ClinicalVisit` compiles to the three-hop role-bearer pattern:
+
+  ```
+  ?this  sulo:hasParticipant  ?role
+  ?role  rdf:type             :SubjectOfCareRole
+  ?role  sulo:isFeatureOf     ?value
+  ```
+
+  The `buildOwlExpr` compiler recurses over this pattern to emit nested `owl:someValuesFrom` restrictions; `buildReverseOwlExpr` walks it in the inverse direction to emit `owl:inverseOf` restrictions for the range.
+- **Property characteristics** — OWL characteristics declared per property: `Functional`, `Inverse Functional`, `Transitive`, `Symmetric`, `Asymmetric`, `Reflexive`, `Irreflexive`; a single **inverse-of** property; and a set of **disjoint-with** properties (`owl:propertyDisjointWith`). These are emitted in the OWL + SULO export and enable a description-logic reasoner to detect further modelling errors.
 
 ### Loading the example schema
 
-Click **Load Example** to populate a pre-built *Clinical Health Record Schema* covering:
+Click **Load Example** to populate a pre-built *Clinical Health Record Schema* (inspired by the SPHN schema), comprising:
 
-- Clinical visits, patients, care providers, and care units
-- Measurements, measurement processes, and observable entities (SNOMED CT)
-- Medical procedures and SCT procedure concepts (SNOMED CT)
-- Clinical conditions, severity, and diagnostic statements
-- Medication administration, pharmaceutical products, and dose forms
-- Evaluation processes, care plans, and devices
-- A `Code` class modelling the AIDAVA/SPHN terminology-code pattern (`hasIdentifier`, `hasCodingSystemAndVersion`, `hasName`)
+- **28 classes** — 26 aligned to SULO categories (Process, Role, Quality, SpatialObject, InformationObject, Quantity) and 2 aligned to SNOMED CT URIs (`ObservableEntity` → `http://snomed.info/id/363787002`; `SCT_Procedure` → `http://snomed.info/id/71388002`).
+- **83 properties** — 48 object properties linking schema classes and 35 datatype properties mapping to XSD literals.
+- **3 subclass relationships** — `MeasurementProcess`, `EvaluationProcess`, and `MedicationAdministration` under `MedicalProcedure`; `ObservableEntity` and `SCT_Procedure` under `Code`.
+- **16 `hasCode` properties** (one per clinical class) using the single-hop SULO pattern `?this sulo:hasFeature ?value`, demonstrating the SPHN `Code` pattern at scale.
+
+The domain spans clinical visits, patients, care providers, care units, measurements and measurement processes, medical procedures, clinical conditions, severity, diagnostic statements, medication administration, pharmaceutical products and dose forms, evaluation processes, care plans, and devices. The `Code` class models the AIDAVA/SPHN terminology-code pattern (`hasIdentifier`, `hasCodingSystemAndVersion`, `hasName`).
+
+A second **Load OMOP Example** button loads a parallel schema covering the same clinical domain in the OMOP CDM structural style, enabling side-by-side comparison.
 
 ### Exporting
 
@@ -245,7 +259,7 @@ Click **Generate** on any schema to open the export dialog. Four formats are ava
 | **SHACL** | `<name>_shacl.ttl` | SHACL node shapes — one `sh:NodeShape` per class using schema-native predicates; `sh:or` for union ranges; `sh:minCount 1` for required properties |
 | **UML Diagram** | `<name>_uml.mmd` | Mermaid `classDiagram` — paste into [mermaid.live](https://mermaid.live) or any Markdown renderer that supports Mermaid |
 
-Use **Copy** to copy the content to the clipboard or **Download** to save the file.
+Use **Copy** to copy the content to the clipboard or **Download** to save the file. For the example schema, the OWL DL export generates 121 `owl:equivalentClass` axioms and 16 property-restriction blocks; the SHACL export generates 28 node shapes with 83 property constraints (2 with `sh:or` union blocks).
 
 ---
 
@@ -258,6 +272,8 @@ Use **Copy** to copy the content to the clipboard or **Download** to save the fi
 **External class IRIs** — classes whose *Maps to concept* IRI is non-SULO (e.g. SNOMED CT URIs `http://snomed.info/id/363787002`) are referenced as `<full-IRI>` in all exports rather than as a local `:ClassName` prefix.
 
 **QLever as triplestore** — all schema data is stored as RDF triples in QLever under the `https://w3id.org/sulo/schema/` base namespace. The API translates CRUD operations into SPARQL SELECT and SPARQL UPDATE queries.
+
+**OWL DL error detection** — because the OWL + SULO export materialises the SULO class hierarchy, a description-logic reasoner (e.g. HermiT, Pellet, or OWL-RL) can surface modelling errors that are invisible to schema validators and SHACL. SULO declares `Capability`, `InformationObject`, `Quality`, and `Role` mutually disjoint (`owl:AllDisjointClasses`), and `Object` disjoint with `Process`. An individual or class that ends up in two disjoint categories — e.g. conflating a `DiagnosticStatement` (InformationObject) with the `Severity` (Quality) it describes, or a class subclassing both a Process- and an Object-aligned class — yields an unsatisfiable class or a reasoner clash. Switching between the SHACL and OWL + SULO tabs makes this difference concrete, which is the tool's main pedagogical use.
 
 ---
 
