@@ -1,136 +1,68 @@
-# Bridging RDF Schemas and Formal Ontologies: A Web-Based Schema Builder with SULO Alignment and Bidirectional Mapping Patterns
+# SULO-Compliant Schema Builder: a web-based tool bridging domain schemas with ontologies using SULO
 
-**Remzi Celebi¹, Michel Dumontier¹**
+**Remzi Celebi¹, Catalina Martínez-Costa, Stefan Schulz, Michel Dumontier¹**
 
-¹ Institute of Data Science, Maastricht University, Maastricht, The Netherlands  
-{r.celebi, m.dumontier}@maastrichtuniversity.nl
+¹ Institute of Data Science, Maastricht University, Maastricht, The Netherlands
 
 ---
 
 ## Abstract
 
-A persistent divide separates practitioners who design data schemas (relational modellers, FHIR architects, OMOP curators) from ontologists who formalise domain semantics in OWL. Bridging these two worlds requires a tool that speaks both languages simultaneously — one that lets users design familiar class-and-property schemas while transparently generating formal ontology artefacts aligned to an upper-level ontology. This paper presents the **SULO-Compliant Schema Builder**, an open-source web application that addresses three interrelated research questions: (1) how to bridge RDF schemas and formal OWL ontologies through a graphical interface with upper-ontology alignment; (2) how mapping patterns — declarative triple templates attached to each property — can express and evaluate bidirectional transformations between clinical standards such as FHIR and OMOP and a target model such as SULO; and (3) how the tool can serve as an educational instrument for demonstrating the expressive advantages of formal ontologies over lightweight schemas. The tool stores schemas as RDF triples in a SPARQL triplestore, exports plain RDF/Turtle, OWL with SULO-grounded `owl:equivalentClass` restrictions, SHACL node shapes with union-range support, and Mermaid UML diagrams — all from a single web interface. A clinical health record case study covering 28 classes, including the AIDAVA/SPHN `Code` pattern and SNOMED CT concept alignments, demonstrates the practical viability of the approach.
+**Background:** Experts who design biomedical data schemas such as HL7 FHIR, OMOP CDM, or relational databases, and ontologists who formalise domain semantics in OWL operate with fundamentally different representational commitments. Existing tools address one community or the other but not both simultaneously, creating a persistent gap between schemas and formally grounded ontologies.
 
-**Keywords:** ontology alignment, upper-level ontology, SULO, SHACL, OWL, RDF schema, mapping patterns, FHIR, OMOP, schema design
+**Findings:** We present the SULO-Compliant Schema Builder, an open-source web application that enables domain experts to define classes and properties, align them interactively to the Simplified Upper-Level Ontology (SULO), and automatically generate four artefacts from a single schema model: plain RDF/Turtle, OWL DL with SULO-compliant equivalence axioms and property restrictions, SHACL node shapes, and Mermaid UML diagrams. A declarative mapping-pattern mechanism, analogous to SPARQL triple templates, compiles domain relations into SULO relations without requiring the user to author OWL directly. A clinical health record case study, covering 28 classes and 83 properties, demonstrates the practical viability of the approach.
 
----
+**Conclusions:** The SULO-Compliant Schema Builder lowers the barrier between schema design and formal ontology engineering. By embedding upper-ontology alignment and mapping patterns as first-class design features, it makes OWL DL expressivity accessible to practitioners without description-logic expertise, and provides a concrete pedagogical instrument for demonstrating what formal ontologies add over schemas. The tool is freely available at https://github.com/MaastrichtU-IDS/sulo-schema-builder.
 
-## 1. Introduction
-
-The biomedical informatics landscape is populated by a collection of well-established data standards — FHIR, OMOP CDM, openEHR, HL7 v2 — each designed by practitioners who think in terms of tables, resources, and attributes rather than formal logic and description language axioms. At the same time, the semantic web and biomedical ontology communities have invested decades in constructing rigorous upper-level frameworks — BFO [1], DOLCE [2], SULO [3] — that provide principled, interoperable grounding for any domain concept. The gap between these two worlds is real and well-documented [4, 5]: schema designers regard ontologies as unnecessarily complex, while ontologists find flat schemas semantically impoverished and ambiguous.
-
-Several initiatives have attempted to narrow this divide. LinkML [6] provides a YAML-based schema language that supports `class_uri` alignment to external ontology terms and can generate OWL and SHACL artefacts from the same source. Chowlk [7] converts UML diagrams drawn in diagrams.net into OWL Turtle. Model2owl [8] transforms UML XMI models into OWL and SHACL for the European Union's OP-TED publication framework. Astrea [9] generates SHACL shapes automatically from existing OWL ontologies. Yet none of these tools provides an integrated, browser-based experience that combines (a) interactive schema design, (b) live upper-ontology concept alignment, (c) OWL export with formal axioms derived from per-property mapping patterns, and (d) SHACL export with union-range support — from a single coherent model.
-
-This paper describes the **SULO-Compliant Schema Builder**, an open-source web application built to fill this gap. It is motivated by three research questions that emerged from practical work on multi-standard biomedical data integration:
-
-- **RQ1**: How can the gap between RDF schemas and formal ontologies be bridged in a way that preserves the familiar schema vocabulary while generating formally grounded OWL artefacts?
-- **RQ2**: Can property-level mapping patterns — declarative triple templates — facilitate bidirectional transformation between clinical data standards (FHIR, OMOP) and a shared upper-level model (SULO)?
-- **RQ3**: How can a tool serve as an educational instrument that makes the expressive advantages of formal ontologies tangible to practitioners who are fluent in schemas but unfamiliar with OWL?
-
-The remainder of this paper is structured as follows. Section 2 provides background on the relevant formalisms and related tools. Section 3 describes the architecture and feature set of the Schema Builder. Sections 4, 5, and 6 address RQ1, RQ2, and RQ3 respectively, illustrated with a clinical case study. Section 7 discusses limitations and future work. Section 8 concludes.
+**Keywords:** ontology alignment; upper-level ontology; SULO; SHACL; OWL DL; RDF schema; mapping patterns; FHIR; OMOP; schema design
 
 ---
 
-## 2. Background and Related Work
+## Introduction
 
-### 2.1 Upper-Level Ontologies in Biomedical Informatics
+The biomedical informatics landscape is populated by well-established data standards — HL7 FHIR [1], OMOP CDM [2], openEHR, HL7 v2 — designed by experts who think in terms of tables, resources, and attributes rather than description-logic axioms. In parallel, the ontology community has invested decades in constructing upper-level frameworks — the Basic Formal Ontology (BFO) [3], DOLCE [4], and the Simplified Upper-Level Ontology (SULO) [5] — that provide principled, interoperable grounding for domain entities by upper-level categories. The gap between these two worlds is well-documented [6, 7]: schema designers regard ontologies as unnecessarily complex, while ontologists find flat schemas semantically impoverished and ambiguous. Schema designers tailor data structures for specific use cases without committing to the ontological characteristics of the entities those structures refer to, whereas ontologists, concerned primarily with those characteristics, tend to be indifferent to the data structures.
 
-Upper-level ontologies (ULOs) provide a domain-neutral framework of foundational categories — processes, objects, qualities, roles, information artefacts — that ground domain-specific classes in shared semantics. The **Basic Formal Ontology** (BFO) [1] is widely adopted in biomedical ontologies including the Gene Ontology and the OBO Foundry suite. **DOLCE** [2] offers an alternative cognitive orientation. The **Simple Upper-Level Ontology** (SULO) [3], developed at Maastricht University, extends this tradition with a focus on biomedical data integration and cross-standard interoperability. SULO categories include `Process`, `Role`, `Quality`, `SpatialObject`, `InformationObject`, and `Quantity`, among others.
+Several tools have attempted to narrow this gap from different angles. LinkML [8] provides a YAML-based schema language that compiles to OWL, SHACL, JSON Schema, and SQL from a single source, but requires command-line tooling and produces only basic OWL class mappings rather than full property-restriction chains. Chowlk [9] converts UML diagrams drawn in diagrams.net into OWL Turtle, but is a one-directional converter rather than an interactive designer. model2owl [10] transforms UML XMI models into OWL and SHACL for institutional publishing frameworks. Astrea [11] automatically generates SHACL shapes from existing OWL ontologies. Protégé [12], the leading desktop ontology editor, supports full OWL DL authoring but requires ontology expertise and provides no integrated schema-design workflow or live upper-ontology alignment. None of these tools provides an integrated, browser-based environment that combines (a) interactive schema design, (b) live upper-ontology class and relation alignment with SPARQL autocomplete, (c) OWL DL export with formal axioms derived from per-property mapping patterns, and (d) SHACL export with union-range support — all from a single coherent model.
 
-Aligning a domain schema to an ULO is recognised as non-trivial. Surveys of foundational ontology matching [4] confirm that existing alignment tools are typically offline, command-line-driven processes applied after the schema is complete, not integrated into the design workflow. SSSOM [10] standardises the mapping predicate vocabulary (`skos:exactMatch`, `skos:broadMatch`, etc.) but is a file format, not an interactive tool.
+Here we present the SULO-Compliant Schema Builder, an open-source web application that addresses this gap. The tool is motivated by three design objectives: (i) to bridge RDF schemas and formal OWL ontologies through guided upper-ontology alignment without requiring OWL expertise; (ii) to enable declarative mapping patterns supporting bidirectional transformation between clinical data standards such as SPHN and OMOP and a shared upper-level model; and (iii) to serve as a pedagogical instrument that makes the expressive advantages of formal ontologies tangible to practitioners fluent in schemas but unfamiliar with OWL and with ontology-driven domain analysis independent of data-structure and use-case requirements.
 
-### 2.2 Schema Languages and Their Limits
+The tool enables researchers and knowledge engineers to define domain-specific classes and properties and align them with corresponding SULO concepts and relations, without requiring modifications to the underlying instance-level data (ABox). Users begin by specifying the classes and properties of their custom schema. Each class is mapped to a relevant SULO ontological category, while properties — which in standard database schemas typically carry only domain and range constraints — are enriched into fuller semantic structures. This mapping is guided by a pattern-based mechanism analogous to SPARQL triple patterns: rather than representing a relationship as a simple subject–property–object triple, the tool "unfolds" each relation into a more descriptive subgraph using reserved placeholders (`?this` and `?value`) to denote the original subject and object. For instance, a property such as *has healthcare provider* can be expressed as a SULO-compliant subgraph in which a clinical visit is modelled as a process involving a participant bearing a designated provider role; that subgraph requires no relations beyond the SULO object properties `has-participant` and `has-feature`.
 
-**RDFS** provides basic vocabulary description but no formal constraints. **OWL 2** [11] adds description logic axioms — property restrictions, cardinality, disjointness, equivalence — but is notoriously difficult for non-logicians to author directly. **SHACL** [12] is a W3C recommendation for expressing structural constraints over RDF graphs; it is closer in spirit to database schema languages and is increasingly adopted for data validation in clinical informatics [13]. **ShEx** [14] offers an alternative constraint language with similar expressivity. LinkML [6] bridges the gap by compiling a YAML schema to JSON Schema, SQL, OWL, SHACL, and ShEx simultaneously, but requires command-line tooling for each export.
-
-### 2.3 Visual Ontology Design Tools
-
-The leading desktop tool is **Protégé** [15], supported by a rich plugin ecosystem including SHACL4P for constraint validation. **TopBraid Composer** (proprietary) provides the most complete commercial equivalent with integrated SPARQL, visual diagrams, and SHACL. **OWLGrEd** [16] offers a clean web-based UML-style editor but lacks upper-ontology alignment support. **Chowlk** [7] and **model2owl** [8] convert UML drawings to OWL/SHACL but are one-directional converters, not interactive designers. None of these tools provides an inline, per-class upper-ontology alignment picker backed by live SPARQL autocomplete, nor do they expose property-level mapping patterns as a first-class design concept.
-
-### 2.4 Clinical Data Standards Interoperability
-
-**FHIR** (Fast Healthcare Interoperability Resources) [17] and **OMOP CDM** [18] are the two dominant standards for clinical data exchange and analysis respectively. Both use flat relational/JSON schemas with controlled vocabularies (SNOMED CT, LOINC, RxNorm) for coded values. Considerable effort has been invested in bridging them [19], typically through ad hoc SQL or Python transformation scripts. Formal semantic approaches — expressing FHIR resources or OMOP tables as OWL classes aligned to BFO or SULO — exist in research prototypes [20] but lack tooling that a clinical data manager could operate without deep ontology expertise.
-
-The **AIDAVA** project and its **SPHN** ontology [21] model coded clinical values as instances of a `sphn:Code` class carrying an identifier, a coding system/version, and an optional display name — a pattern that directly inspired the `Code` class in our clinical case study.
+From a single schema configuration, the tool produces complementary outputs: a standard RDF schema capturing basic class hierarchies and property domain/range declarations, and a SULO-aligned OWL ontology incorporating complex class expressions and property restrictions that enable formal logical reasoning and systematic error detection. Both outputs are exportable as standard ontology files compatible with editors such as Protégé. The tool is openly accessible on GitHub, ensuring reproducibility and supporting broader adoption across research communities working with semantic data integration.
 
 ---
 
-## 3. The SULO-Compliant Schema Builder
+## Design and Implementation
 
-### 3.1 System Architecture
+### System architecture
 
-The Schema Builder is a three-tier web application (Figure 1):
+The Schema Builder is a three-tier web application (Fig. 1). The frontend is a React single-page application (Vite / Tailwind CSS / React Flow) communicating with a Fastify 5 / TypeScript REST API via `/api/v1` endpoints. The API issues SPARQL 1.1 UPDATE and SELECT queries to a QLever [13] triplestore. All schema data are stored as RDF triples under the namespace `https://w3id.org/sulo/schema/`. Because the storage layer uses only standard SPARQL 1.1, any compliant triplestore can serve as the backend.
+
+> **Fig. 1.** Three-tier architecture of the SULO-Compliant Schema Builder. The browser-based React SPA communicates with a Fastify REST API, which in turn issues SPARQL queries to a QLever triplestore storing all schema artefacts as RDF.
+
+### Data model
+
+A **Schema** contains an ordered set of **Classes** and **Properties**. Each Class carries: (i) a local name used as the IRI fragment (e.g. `:ClinicalVisit`); (ii) a human-readable label and description; (iii) an optional `mapsToConceptIri` pointing to the aligned upper-ontology concept (e.g. `https://w3id.org/sulo/Process`); and (iv) an optional `superClassId` for intra-schema inheritance expressed as `rdfs:subClassOf`. Each Property carries: a name, label, and type (object or datatype); a domain class and range class (or XSD datatype for datatype properties); an `isRequired` flag; and a **mapping pattern** — a list of `TripleTemplate` objects, each comprising a subject variable, a predicate IRI, and an object (either a variable or an IRI constant).
+
+### The mapping process
+
+The mapping process aligns a custom data schema with SULO without requiring changes to the underlying instance-level data (ABox). It proceeds as follows:
+
+1. **Class mapping.** Domain-specific classes (e.g. clinical visit, person, device) are mapped to their corresponding upper-level superclasses within the SULO hierarchy.
+2. **Property mapping.** Domain relationships (e.g. `hasPatient`, `hasHealthcareProvider`) are transformed into detailed semantic structures using mapping patterns. Rather than a simple subject–object link, each relation is "unfolded" into a descriptive subgraph using two placeholders: **`?this`** (the subject of the original property) and **`?value`** (the object or range).
+
+For example, the property `hasPatient` on `ClinicalVisit` can be expressed with the three-hop SULO role-bearer pattern:
 
 ```
-Browser  →  React SPA (Vite / Tailwind CSS / React Flow)
-                ↕  REST /api/v1
-API      →  Fastify 5 / TypeScript
-                ↕  SPARQL UPDATE / SELECT
-Store    →  QLever SPARQL triplestore
+?this  sulo:hasParticipant  ?role
+?role  rdf:type             :SubjectOfCareRole
+?role  sulo:isFeatureOf     ?value
 ```
 
-![Figure 1: Schema list landing page — each card shows a stored schema with class and property counts.](/tmp/paper-screenshots/01_schema_list.png)
-
-![Figure 2: Full schema overview for the Clinical Health Record example (28 classes, 34 properties, 62 mapped concepts).](/tmp/paper-screenshots/02_schema_overview.png)
-
-All schema data are stored as RDF triples in QLever [22] under the base namespace `https://w3id.org/sulo/schema/`. The API translates every CRUD operation into standard SPARQL 1.1 UPDATE and SELECT queries, meaning the store can be replaced with any SPARQL-compliant triplestore. The frontend is a single-page React application with no framework-level state management beyond React Query for server-state synchronisation.
-
-### 3.2 Core Data Model
-
-A **Schema** (`suloschema:OntologySchema`) contains an ordered set of **Classes** (`suloschema:OntologyClass`) and **Properties** (`suloschema:OntologyProperty`).
-
-Each **Class** carries:
-- A local name used as the IRI fragment (`:ClinicalVisit`)
-- A human-readable label and description
-- An optional `mapsToConceptIri` — the IRI of the upper-ontology concept this class is aligned to (e.g. `https://w3id.org/sulo/Process`)
-- An optional `superClassId` for intra-schema inheritance (`rdfs:subClassOf`)
-
-Each **Property** carries:
-- A name, label, and type (`object` or `datatype`)
-- `domainClassId` — the class in this schema that bears the property
-- `rangeClassIri` — the target class IRI (object) or XSD datatype (datatype)
-- `isRequired` — whether the property is mandatory
-- A **mapping pattern** — a list of `TripleTemplate` objects, each with a `subject` variable, a predicate IRI, and an `object` (variable or IRI), expressing the SULO path this property corresponds to
-
-### 3.3 Export Pipeline
-
-From a single schema model the tool generates four artefacts:
-
-**Plain RDF/Turtle** — RDFS vocabulary: `owl:Class`, `rdfs:label`, `rdfs:comment`, `rdfs:subClassOf`, `rdfs:domain`, `rdfs:range`. This is the "schema view" familiar to linked-data practitioners.
-
-![Figure 3: Export modal — OWL + SULO tab showing prefix declarations and owl:equivalentClass restrictions derived from mapping patterns.](/tmp/paper-screenshots/09_export_owl.png)
-
-![Figure 4: Export modal — SHACL tab with sh:NodeShape definitions and sh:or union-range blocks.](/tmp/paper-screenshots/10_export_shacl.png)
-
-![Figure 5: Export modal — Mermaid UML class diagram tab, suitable for embedding in GitHub Markdown.](/tmp/paper-screenshots/11_export_uml.png)
-
-**OWL + SULO** — Extends the plain export with formal alignment axioms. For each class with a `mapsToConceptIri`, an `owl:equivalentClass` restriction is generated expressing the class's identity in terms of SULO role chains (Section 4.2). Union ranges become `owl:unionOf` constructs. External concept IRIs (e.g. SNOMED CT) are referenced as `<http://snomed.info/id/...>` rather than local prefixes.
-
-**SHACL** — One `sh:NodeShape` per class, using schema-native predicates as `sh:path` values. Union ranges generate `sh:or` blocks. Required properties set `sh:minCount 1`. This is intentionally free of SULO predicates so that the shapes validate instance data serialised with the schema's own vocabulary, not the upper-ontology paths.
-
-**Mermaid UML** — A `classDiagram` in Mermaid syntax, pasteable into GitHub Markdown or mermaid.live. Inheritance and association relationships are rendered with appropriate arrow types.
-
----
-
-## 4. RQ1 — Bridging RDF Schemas and Formal Ontologies
-
-### 4.1 The Two-Layer Architecture
-
-The fundamental insight driving the tool's design is that a schema and an ontology are not competing artefacts but complementary views of the same domain model. A schema answers "what fields does a record have?"; an ontology answers "what does each field mean in terms of first-order logic?". The Schema Builder makes both views explicit simultaneously and keeps them synchronised.
-
-The **plain RDF/Turtle export** is the schema view. It defines `:ClinicalVisit` as an `owl:Class` with `rdfs:subClassOf :MedicalProcedure`, annotated with a label and comment, and declares `:hasPatient` as an `owl:ObjectProperty` with `rdfs:domain :ClinicalVisit` and `rdfs:range :Person`. A FHIR architect or OMOP data manager can read and use this without any OWL knowledge.
-
-The **OWL + SULO export** is the ontology view of exactly the same schema. Each class's `mapsToConceptIri` generates an `owl:equivalentClass` axiom:
+The `buildOwlExpr` compiler performs a recursive descent over the pattern, treating each triple template as a directed graph edge. Starting from `?this` (the domain class), it: (i) collects all triples with the current variable as subject; (ii) for `rdf:type` triples with a constant object, adds the type as an `owl:intersectionOf` member; (iii) for triples whose object is `?value`, emits an `owl:someValuesFrom` restriction pointing at the range class; and (iv) for triples whose object is another variable, recurses to build a nested restriction. The pattern above compiles to:
 
 ```turtle
-:ClinicalVisit  owl:equivalentClass  sulo:Process .
-:Person         owl:equivalentClass  sulo:SpatialObject .
-```
-
-Property mapping patterns go further. The mapping pattern `[?this, sulo:hasParticipant, ?role], [?role, rdf:type, sulo:SubjectOfCareRole], [?role, sulo:isRoleOf, ?value]` attached to `:hasPatient` is compiled (by `buildOwlExpr`) into:
-
-```turtle
-_:domain_hasPatient  owl:equivalentClass  [
+_:domain_hasPatient owl:equivalentClass [
   a owl:Class ;
   owl:intersectionOf (
     :ClinicalVisit
@@ -139,9 +71,9 @@ _:domain_hasPatient  owl:equivalentClass  [
       owl:someValuesFrom [
         a owl:Class ;
         owl:intersectionOf (
-          sulo:SubjectOfCareRole
+          :SubjectOfCareRole
           [ a owl:Restriction ;
-            owl:onProperty sulo:isRoleOf ;
+            owl:onProperty sulo:isFeatureOf ;
             owl:someValuesFrom :Person ]
         )
       ]
@@ -150,264 +82,176 @@ _:domain_hasPatient  owl:equivalentClass  [
 ] .
 ```
 
-This restriction formally states that a clinical visit has a participant that is a subject-of-care role which is the role of a person — capturing the SULO role-bearer pattern in full description logic. Crucially, the user who produced this expression never wrote a single OWL axiom; they filled in a triple-template form in the browser.
+This restriction formally captures the SULO role-bearer pattern in full description logic and defines the domain restriction for the `hasPatient` relation; a similar restriction is generated for the range. Crucially, the user authored only a triple-template form in the browser — no OWL axiom was written by hand. The companion function `buildReverseOwlExpr` performs the same traversal in the inverse direction, emitting `owl:inverseOf` restrictions, enabling the same pattern list to support both forward and reverse SPARQL-based queries.
 
-### 4.2 The Mapping Pattern Compiler
+### Export pipeline
 
-The `buildOwlExpr` function performs a recursive descent over the mapping pattern, treating each triple template as a graph edge. Starting from `?this` (the domain class), it:
+From a single schema configuration, the tool generates four complementary artefacts:
 
-1. Collects all triples whose subject is the current variable
-2. For `rdf:type` triples with a constant object, adds the type as an `owl:intersectionOf` member
-3. For triples whose object is `?value` (the terminal), emits `owl:someValuesFrom` pointing at the range class IRI
-4. For triples whose object is another variable, recurses to build the nested restriction
+- **Plain RDF/Turtle.** An RDFS vocabulary defining `owl:Class` hierarchies, `rdfs:label`, `rdfs:comment`, `rdfs:domain`, and `rdfs:range`. This is the schema view familiar to linked-data practitioners and readable without OWL knowledge.
+- **OWL + SULO.** Extends the plain export with `owl:equivalentClass` axioms for every class with a `mapsToConceptIri` and with nested `owl:someValuesFrom` restrictions compiled from the mapping patterns. Union ranges generate `owl:unionOf` constructs. External concept IRIs (e.g. SNOMED CT) are referenced by full IRI rather than local prefix.
+- **SHACL.** One `sh:NodeShape` per class, using schema-native predicates as `sh:path` values. Union ranges generate `sh:or` blocks; required properties carry `sh:minCount 1`. Shapes are intentionally free of SULO predicates so they validate instance data expressed in the schema's own vocabulary, not upper-ontology paths.
+- **Mermaid UML.** A `classDiagram` in Mermaid syntax, suitable for embedding in GitHub Markdown or mermaid.live, with inheritance and association arrows rendered appropriately.
 
-The `buildReverseOwlExpr` function performs the same traversal in the inverse direction (from `?value` toward `?this`), emitting `owl:inverseOf` restrictions. This bidirectionality is the foundation for RQ2.
+The key advantage of this approach is that researchers can switch between a simple schema-based representation and a highly expressive SULO-based one — enabling controlled comparisons for tasks such as error detection and neural-network performance evaluation — without manually converting any underlying database records.
 
-### 4.3 The User Interface Bridge
+### User interface
 
-The GUI makes the bridging concrete and visible in three ways:
+The GUI bridges schema design and ontology authoring through two principal mechanisms.
 
-**Per-class alignment picker** — When adding or editing a class, the user types in the *Maps to concept* field. The application issues a SPARQL query to the configured upper ontology endpoint and returns matching class labels and IRIs as autocomplete suggestions. The user selects one; the IRI is stored. The class is now "grounded" in the ULO without requiring the user to know the IRI by heart.
+**Alignment with upper-level ontologies.** When adding or editing a property, the user types a mapping pattern that unfolds the relation by bridging the domain class (`?this`) to the range class (`?value`). Each class shows its SULO category as an inline badge (Fig. 3).
 
-**Dual export tabs** — The export modal shows both the plain RDF/Turtle and the OWL+SULO tabs side by side. A user can switch between them to observe concretely what the formal axioms say about a schema they designed intuitively.
+![Schema builder — classes aligned to SULO categories with inline badges and per-class property counts.](docs/images/builder.png)
 
-**Union range display** — When the same property name points to two range classes (e.g. `:hasCode` pointing to both `:Code` and `<http://snomed.info/id/363787002>`), the properties list and UML diagram show `Code | ObservableEntity` in the range column. The OWL export renders this as `owl:unionOf (:Code <http://snomed.info/id/363787002>)`.
+> **Fig. 3.** Builder view — classes aligned to SULO categories with inline badges; the header summarises class, property, and mapped-concept counts.
 
-![Figure 6: Add class dialog — the "Maps to concept IRI" field supports live SPARQL autocomplete against the SULO endpoint.](/tmp/paper-screenshots/04_add_class_dialog.png)
+**Export tabs.** The export modal displays the plain RDF Schema, OWL + SULO, SHACL, and UML representations, making the provenance of each formal axiom directly traceable to a specific schema design choice (Fig. 4).
 
-![Figure 7: Classes panel — SULO alignment badges (↗Process, ↗Role, ↗InformationObject) displayed next to each class name.](/tmp/paper-screenshots/05_class_edit_panel.png)
+![Export modal — OWL + SULO tab showing prefix declarations and owl:equivalentClass restrictions derived from mapping patterns.](docs/images/owl-export.png)
+
+> **Fig. 4.** Export modal — the OWL + SULO tab showing prefix declarations and `owl:equivalentClass` restrictions derived from the mapping patterns.
 
 ---
 
-## 5. RQ2 — Mapping Patterns for Bidirectional Transformation
+## Use Cases and Evaluation
 
-### 5.1 The Transformation Challenge
+### Clinical health record case study
 
-Consider a `Measurement` resource in FHIR R4. It has a `code` element (a CodeableConcept referencing LOINC or SNOMED CT) and a `valueQuantity` element. The corresponding OMOP table is `MEASUREMENT`, with columns `measurement_concept_id` and `value_as_number`. Both encode the same clinical observable — "a blood glucose reading with LOINC code 2339-0" — but in structurally incompatible ways.
+To evaluate the tool's practical viability, we constructed a Clinical Health Record Schema modelling a representative subset of the domain and inspired by the SPHN schema [14]. The schema, loadable via the **Load Example** button, comprises:
 
-A transformation pipeline that goes FHIR → SULO → OMOP requires two things: (a) a mapping from FHIR predicates to SULO path expressions, and (b) a mapping from SULO path expressions to OMOP predicates. If both mappings are expressed in the same formalism, the SULO representation acts as a **pivot model** and the composition of the two mappings yields a FHIR → OMOP transformation without any direct, brittle FHIR-to-OMOP logic.
+- **28 classes** — 26 aligned to SULO concepts (Process, Role, Quality, SpatialObject, InformationObject, Quantity) and 2 aligned to SNOMED CT URIs (`ObservableEntity`: `http://snomed.info/id/363787002`; `SCT_Procedure`: `http://snomed.info/id/71388002`).
+- **83 properties** — 48 object properties linking schema classes and 35 datatype properties mapping to XSD literals.
+- **3 subclass relationships** — `MeasurementProcess`, `EvaluationProcess`, and `MedicationAdministration` as subclasses of `MedicalProcedure`; `ObservableEntity` and `SCT_Procedure` as subclasses of `Code`.
+- **16 `hasCode` properties** (one per clinical class) with the single-hop SULO mapping pattern `?this sulo:hasFeature ?value`, demonstrating the SPHN `Code` pattern [14] at scale.
 
-### 5.2 Mapping Patterns as Pivot Bridges
+The OWL DL export for this schema generates 121 `owl:equivalentClass` axioms and 16 property-restriction blocks. The SHACL export generates 28 node shapes with 83 property constraints, 2 of which contain `sh:or` union blocks.
 
-In the Schema Builder, each property carries a mapping pattern that expresses its SULO semantics as a chain of triple templates. For the `:hasCode` property on `:Measurement`, the mapping pattern is:
+### Detecting modelling errors
 
-```
-?this  →  sulo:hasFeature  →  ?value
-```
+A principal advantage of aligning a domain schema to SULO and generating OWL DL artefacts is that a description-logic reasoner can detect modelling errors invisible to schema validators and SHACL engines. SULO declares four top-level categories — `Capability`, `InformationObject`, `Quality`, and `Role` — as mutually disjoint via `owl:AllDisjointClasses`, and additionally asserts that `Object` and `Process` are disjoint. Any instance data or class axiom that violates these constraints produces an unsatisfiable class or a direct contradiction, surfaced as a reasoner clash. The three examples below use realistic modelling mistakes that arise when generating RDF from unstructured clinical notes.
 
-This single-step pattern asserts that a `Measurement` instance is related to its `Code` via the SULO `hasFeature` relation. An OWL restriction expresses this as:
+**Example 1 — conflating a statement with a quality.** The following instance, generated from the text *"Acute viral pharyngitis with mild severity"*, assigns two types to a single individual:
 
 ```turtle
-_:domain_hasCode  owl:equivalentClass  [
-  a owl:Class ;
-  owl:intersectionOf (
-    :Measurement
-    [ a owl:Restriction ;
-      owl:onProperty sulo:hasFeature ;
-      owl:someValuesFrom :Code ]
-  )
-] .
+ex:pharyngitis_severity_conflation
+  a chr:DiagnosticStatement, chr:Severity ;
+  rdfs:label "Acute viral pharyngitis with mild severity" ;
+  chr:hasCode <http://snomed.info/id/195662009> .
 ```
 
-A FHIR `Observation.code` element, when mapped to SULO, would generate an equivalent restriction involving `sulo:hasFeature` pointing at an `InformationObject` bearing a `sulo:hasValue` (the code string) and a `sulo:hasLabel` (the display name). Since the Schema Builder stores both the FHIR-side and OMOP-side schemas — each with their own mapping patterns pointing at the same SULO predicates — the pivot transformation can be computed as a SPARQL CONSTRUCT query over the SULO graph.
-
-### 5.3 Intermediate Classes and Role Patterns
-
-A recurring challenge in clinical standard alignment is that SULO — like BFO — uses **role reification**. A patient is not directly `hasParticipant` of a clinical visit; rather, the visit `hasParticipant` a `SubjectOfCareRole`, which `isRoleOf` the patient. This indirection is ontologically correct (the patient's role in this visit may change; a person may play different roles in different visits) but foreign to schema designers.
-
-The mapping pattern mechanism handles this gracefully. The user creates a `:SubjectOfCareRole` class, maps it to `sulo:Role`, and defines the chain:
-
-```
-?this  →  sulo:hasParticipant  →  ?role
-?role  →  rdf:type             →  sulo:SubjectOfCareRole
-?role  →  sulo:isRoleOf        →  ?value
-```
-
-The three-triple pattern is stored as three `TripleTemplate` objects. `buildOwlExpr` compiles this into the nested `owl:someValuesFrom` chain shown in Section 4.1. Critically, this means the intermediate role class is visible in the schema (the user added it, labelled it, and aligned it) but need not appear as a direct property range — the mapping pattern expresses its role implicitly.
-
-For a bidirectional mapping scenario, `buildReverseOwlExpr` traverses the same pattern in reverse, emitting `owl:inverseOf` restrictions. Given the SULO representation of a patient person, the reverse function can express "an individual is a SubjectOfCareRole if it is the isRoleOf-inverse-participant of a ClinicalVisit" — which is precisely what is needed to query for all visits given a patient IRI.
-
-### 5.4 The AIDAVA Code Pattern as a Case Study
-
-The **SPHN/AIDAVA** ontology [21] models coded clinical values with a `sphn:Code` class carrying three properties: `sphn:hasIdentifier` (the code string, e.g. "8480-6"), `sphn:hasCodingSystemAndVersion` (the vocabulary and version, e.g. "LOINC 2.73"), and `sphn:hasName` (a human-readable display name). This pattern recurs across all coded FHIR elements and OMOP concept columns.
-
-In the Schema Builder, the `Code` class is defined with `mapsToConceptIri: sulo:InformationObject` and three datatype properties:
-
-| Property | Range | SULO mapping predicate | Required |
-|---|---|---|---|
-| `hasIdentifier` | `xsd:string` | `sulo:hasValue` | yes |
-| `hasCodingSystemAndVersion` | `xsd:string` | `sulo:hasLabel` | yes |
-| `hasName` | `xsd:string` | `sulo:hasLabel` | no |
-
-The `Code` class is then made a superclass of `ObservableEntity` (`mapsToConceptIri: http://snomed.info/id/363787002`) and `SCT_Procedure` (`mapsToConceptIri: http://snomed.info/id/71388002`) — both external SNOMED CT concept URIs. The `:hasCode` property on `:Measurement` has two range entries — `:Code` and `:ObservableEntity` — generating the following SHACL union shape:
+The schema alignments establish that `chr:DiagnosticStatement` maps to `sulo:InformationObject` and `chr:Severity` maps to `sulo:Quality`. SULO declares these categories mutually disjoint:
 
 ```turtle
-:MeasurementShape
-  a sh:NodeShape ;
-  sh:targetClass :Measurement ;
-  sh:property [
-    sh:path :hasCode ;
-    sh:or (
-      [ sh:class :Code ]
-      [ sh:class <http://snomed.info/id/363787002> ]
-    )
-  ] .
+owl:AllDisjointClasses (
+  sulo:Capability  sulo:InformationObject
+  sulo:Quality     sulo:Role
+) .
 ```
 
-And the corresponding OWL axiom:
+A full OWL DL reasoner such as HermiT or Pellet detects this clash and warns the user.
+
+**Example 2 — subclassing two disjoint upper-level classes.** An automatically generated `Observation` class inherits from both a Process-aligned class and an InformationObject-aligned class. A representative instance:
 
 ```turtle
-:hasCode  rdfs:range  [
-  owl:unionOf ( :Code  <http://snomed.info/id/363787002> )
-] .
+ex:blood_test_1 a ex:Observation ;
+  chr:hasPerformedDate "2021-06-15T10:00:00+02:00"^^xsd:dateTime ;
+  chr:hasQuantityValue "5.4"^^xsd:float .
 ```
 
-This demonstrates that external concept URIs (SNOMED CT, LOINC) can participate in union ranges alongside local schema classes, and that the tool correctly emits `<full-IRI>` rather than a local prefix for non-SULO external concepts.
+OWL-DL materialisation propagates both SULO superclasses to `ex:Observation` via `rdfs:subClassOf` transitivity, so `ex:blood_test_1` inherits both `sulo:Process` and `sulo:Object`. Because `sulo:Object owl:disjointWith sulo:Process` is asserted directly in SULO as a pairwise triple (not only via `AllDisjointClasses`), OWL-RL can materialise the contradiction. The reasoner flags `ex:blood_test_1` as simultaneously a `sulo:Process` and a `sulo:Object`, which is unsatisfiable — precisely the kind of inter-class modelling error, invisible to SHACL, that the SULO alignment is designed to surface.
 
-![Figure 8: Properties panel — union range "Code | ObservableEntity" displayed inline; each row shows the mapping pattern SULO predicates.](/tmp/paper-screenshots/07_properties_panel.png)
+**Example 3 — use–mention confusion.** A structurally common error is conflating a clinical condition (a pathological process in the patient) with the diagnostic statement about it (an information object that refers to that process): *"the diagnosis is the disease."* When a class subclasses both a Process-aligned and an InformationObject-aligned class, any instance would simultaneously be a `sulo:Object` and a `sulo:Process` — pairwise disjoint in SULO. The class is therefore unsatisfiable and detected at the schema level, before any instances are considered. This example has particular educational value: the logical contradiction exposes the category mistake of conflating a process in reality with a statement describing it, making the distinction between referent and representation explicit and machine-verifiable.
 
-![Figure 9: Property edit form — mapping pattern triple-template editor showing a three-hop SULO path chain.](/tmp/paper-screenshots/06b_property_edit_mapping.png)
+### Mapping patterns as pivot bridges for cross-standard transformation
 
----
+The pivot approach is enabled by the bidirectional mapping-pattern compiler. The `buildReverseOwlExpr` function traverses the same triple-template list in the inverse direction, emitting `owl:inverseOf` restrictions. Given the SULO representation of a patient person, the reverse function expresses "an individual is a `SubjectOfCareRole` if it is the inverse-participant of a `ClinicalVisit`" — precisely what is needed to query all visits associated with a given patient IRI. SULO thus acts as a pivot model between FHIR, OMOP, and other clinical standards through shared pattern semantics.
 
-## 6. RQ3 — Educational Value of Formal Ontologies
+### Educational application
 
-### 6.1 The Schema-Ontology Pedagogical Gap
+The Schema Builder also serves as a pedagogical instrument for demonstrating what formal ontologies add over lightweight schemas. Three comparison points are particularly effective:
 
-A practitioner trained in relational databases or FHIR sees a schema as a complete specification. The notion that a schema "lacks semantics" is counterintuitive: their schemas have names, types, and controlled vocabularies — what more could semantics add? The standard ontology-community answer ("formal axioms enable reasoning and interoperability") is too abstract to be convincing in isolation.
+- **Structural vs. semantic subsumption.** In the plain Turtle output, `:MeasurementProcess rdfs:subClassOf :MedicalProcedure` is a structural assertion. In the OWL + SULO export, both classes carry `owl:equivalentClass sulo:Process`, making their shared nature machine-inferrable: a reasoner can deduce that a `MeasurementProcess` individual is a `sulo:Process` even without the local class hierarchy.
+- **Role indirection.** A schema designer's first instinct is `:ClinicalVisit :hasPatient :Person`. The OWL + SULO export adds the intermediate `SubjectOfCareRole` class, motivated concretely: if a person is the primary responsible contact in visit A but merely an observer in visit B, an intermediate participation node is needed to represent each role distinctly.
+- **Constraint expressivity.** SHACL shapes validate that every `Measurement` has a `:hasCode` property pointing to a `:Code` or `:ObservableEntity` instance. The OWL DL equivalence axioms additionally assert, via the `sulo:hasFeature` path, that any individual reached that way from a `sulo:InformationObject` is a `Code` instance. A reasoner materialising the SULO graph can detect inter-dataset type inconsistencies invisible to SHACL; switching between export tabs makes this difference concrete.
 
-The Schema Builder addresses this by making the two representations **immediately comparable** within a single workflow. When a user designs a schema and clicks *Generate*, they can switch between the plain RDF/Turtle tab and the OWL+SULO tab without leaving the page. The difference is concrete and attributable to specific choices they made.
+A pre-built Clinical Health Record Schema (28 classes, 83 properties) is available via **Load Example**, enabling instructors to demonstrate the full export pipeline without students constructing a schema from scratch. A second **Load OMOP Example** option loads a parallel schema covering the same clinical domain in a different structural style, enabling side-by-side comparison.
 
-### 6.2 Demonstrating What Ontologies Add
+### Comparison with related tools
 
-Three comparison points are particularly effective pedagogically:
+| Tool | Visual GUI | ULO Alignment | OWL Restrictions | SHACL Union Ranges |
+|------|:----------:|:-------------:|:----------------:|:------------------:|
+| OWLGrEd [15] | ✓ | ✗ | ✓ | ✗ |
+| LinkML [8] | ✗ | ✗ | partial | beta |
+| Chowlk [9] | ✓ | ✗ | ✓ | ✗ |
+| **SULO Schema Builder** | **✓** | **✓** | **✓** | **✓** |
 
-**Structural vs. semantic subsumption** — In the plain Turtle, `:MeasurementProcess rdfs:subClassOf :MedicalProcedure` is a structural assertion. In the OWL+SULO export, both classes carry `owl:equivalentClass sulo:Process`, making their shared nature machine-inferrable. An OWL reasoner can deduce that any individual that is a `MeasurementProcess` is also a `Process` in the SULO sense — a query over the SULO graph will find it even if the querier does not know about the local `:MedicalProcedure` class.
-
-**Role indirection vs. direct linking** — A schema designer's first instinct is to write `:ClinicalVisit :hasPatient :Person`. The SULO-aligned OWL export adds the intermediate role class, making it clear that the patient's participation in this specific visit is a distinct entity from the patient themselves. The educational value is the explanation: "if you want to record that the patient was the primary responsible contact in visit A but only an observer in visit B, you need this intermediate node."
-
-**Union ranges and disjunctions** — The `:hasCode` union range on `:Measurement` (`Code | ObservableEntity`) is displayed as a single property entry in the Properties panel. In the SHACL export, this becomes an `sh:or` block; in OWL, an `owl:unionOf`. Switching between tabs makes visible that the same user intent ("this property can point to either of these two classes") requires syntactically different expressions in SHACL and OWL — motivating a discussion of why the two languages exist and what each is optimised for.
-
-### 6.3 The "Load Example" as a Teaching Artefact
-
-The *Load Example* button populates a complete Clinical Health Record Schema with 28 classes and over 80 properties in a single click. Figure 10 shows the interactive ReactFlow diagram generated from this schema. This ready-made schema is designed to serve as a teaching artefact:
-
-![Figure 10: Interactive ReactFlow UML class diagram for the Clinical Health Record schema — nodes are draggable; edges represent properties and inheritance.](/tmp/paper-screenshots/12_uml_diagram.png)
-
-- Instructors can demonstrate the full export pipeline without students needing to build a schema from scratch
-- The `Code`/`hasCode` pattern shows the AIDAVA/SPHN design pattern in a running, editable form
-- The SNOMED CT class alignments (`ObservableEntity`, `SCT_Procedure`) show how external concept URIs can be integrated as first-class citizens of a schema
-- The OMOP CDM example, also loadable via *Load OMOP Example*, provides a contrasting schema that covers the same clinical domain in a different structural style, enabling side-by-side comparison
-
-### 6.4 Showing What Schemas Cannot Check
-
-A useful pedagogical exercise is to ask: "what constraints can an OWL reasoner catch that a SHACL validator cannot?" The mapping patterns make this concrete. The SHACL shapes validate that every `Measurement` has a `:hasCode` property pointing to an instance of `:Code` or `:ObservableEntity`. The OWL axioms additionally assert that any individual that is the object of a `sulo:hasFeature` triple from a `sulo:InformationObject` is — by the equivalence axiom — a `Code` instance. A reasoner that materialises the SULO graph can detect if two datasets disagree about the type of a coding entity. This constraint, which is invisible to SHACL, is made visible in the OWL export tab.
+> **Table 1.** Comparison with the most relevant related tools. Only the SULO Schema Builder combines interactive visual design, live upper-level-ontology alignment, OWL DL restriction export, and SHACL union ranges in a single browser-based workflow.
 
 ---
 
-## 7. Evaluation and Discussion
+## Conclusions
 
-### 7.1 Clinical Health Record Case Study
+The SULO-Compliant Schema Builder is an open-source web application that bridges the persistent gap between domain schema designers and formal ontology engineering. By embedding upper-ontology alignment and property-level mapping patterns as first-class features of the schema-authoring workflow, the tool transforms ontology construction from a specialist activity requiring description-logic expertise into a guided, form-based process accessible to clinical data managers and domain experts.
 
-The Clinical Health Record Schema loaded by the *Load Example* button comprises:
+The tool makes three concrete contributions. First, the two-layer export architecture produces both a plain RDFS vocabulary and an OWL DL ontology with full `owl:equivalentClass` restrictions from the same schema model, with no OWL authoring required. Second, the bidirectional mapping-pattern compiler (`buildOwlExpr` / `buildReverseOwlExpr`) enables SULO to act as a pivot model between FHIR, OMOP, and other clinical standards through shared pattern semantics. Third, the dual-tab export view and pre-built example schemas provide a concrete pedagogical platform for demonstrating the expressive advantages that OWL DL provides over SHACL and RDFS alone.
 
-- 28 classes, of which 26 are aligned to SULO concepts and 2 (`ObservableEntity`, `SCT_Procedure`) are aligned to SNOMED CT URIs
-- 83 properties, of which 48 are object properties (linking schema classes) and 35 are datatype properties (XSD literals)
-- 3 classes with superclass relationships (`MeasurementProcess`, `EvaluationProcess`, `MedicationAdministration` as subclasses of `MedicalProcedure`; `ObservableEntity` and `SCT_Procedure` as subclasses of `Code`)
-- 16 `hasCode` properties (one per clinical class) with mapping pattern `?this → sulo:hasFeature → ?value`, demonstrating the AIDAVA code pattern at scale
-- 2 union-range properties on `Measurement` (`hasCode → Code | ObservableEntity`) and `MedicalProcedure` (`hasCode → Code | SCT_Procedure`), exported as `owl:unionOf` and `sh:or` respectively
+Important limitations remain. The triple-template UI currently supports chains up to three hops; SPARQL `OPTIONAL`, `FILTER`, and aggregation patterns are not representable. The tool generates OWL DL artefacts but does not embed an in-browser reasoner; demonstrating inference requires exporting to Protégé or HermiT. Alignment discovery relies on the user knowing the applicable SULO concept or browsing via autocomplete; no LLM-assisted suggestion is yet provided. Cross-schema mapping — expressing that `:ClinicalVisit` in one schema and `Encounter` in another share a `mapsToConceptIri` — is implicit in the stored IRIs but not yet surfaced in the UI.
 
-The OWL export for this schema generates 121 `owl:equivalentClass` axioms and 16 property restriction blocks. The SHACL export generates 28 node shapes with a total of 83 property constraints, 2 of which contain `sh:or` union blocks.
-
-### 7.2 Comparison with Related Tools
-
-Table 1 summarises how the Schema Builder compares to the most relevant related tools on five dimensions.
-
-**Table 1**: Feature comparison across related tools.
-
-| Tool | Visual GUI | ULO Alignment | OWL Restrictions | SHACL Union Ranges | Bidirectional Mapping |
-|---|---|---|---|---|---|
-| Protégé | ✓ | manual | ✓ | via plugin | ✗ |
-| TopBraid Composer | ✓ | manual | ✓ | ✓ | ✗ |
-| OWLGrEd | ✓ | ✗ | ✓ | ✗ | ✗ |
-| LinkML (gen-owl/shacl) | ✗ (YAML) | ✓ (class_uri) | ✓ (basic) | beta | ✗ |
-| Chowlk | ✓ (diagrams.net) | ✗ | ✓ | ✗ | ✗ |
-| Astrea | ✗ | ✗ | ✗ | ✗ | ✗ |
-| **SULO Schema Builder** | **✓** | **✓ (live SPARQL)** | **✓ (chain patterns)** | **✓** | **✓ (via patterns)** |
-
-### 7.3 Limitations
-
-**Mapping pattern complexity** — The current triple-template UI supports chains up to three hops. Paths that involve SPARQL OPTIONAL, FILTER, or aggregate expressions are not representable.
-
-**Reasoner integration** — The tool generates OWL artefacts but does not run an OWL reasoner in-browser. The pedagogical exercise of "showing what an OWL reasoner catches" requires the user to take the exported file to Protégé or HermiT.
-
-**Schema discovery** — There is no wizard or LLM-assisted inference for suggesting `mapsToConceptIri` values. The user must know which SULO concept applies or use the live autocomplete to browse.
-
-**Multi-schema alignment** — The tool handles one schema at a time. Cross-schema mapping (expressing that `:ClinicalVisit` in schema A and `Encounter` in schema B both map to the same SULO concept) is implicit in the shared `mapsToConceptIri` value but not surfaced in the UI.
-
-### 7.4 Future Work
-
-Near-term planned extensions include:
-
-- **SSSOM export** — exporting the `mapsToConceptIri` values for all classes as an SSSOM mapping file, providing a machine-readable, standards-compliant alignment record
-- **Cross-schema mapping view** — a side-by-side display of two schemas highlighting classes that share a `mapsToConceptIri`, making the FHIR–OMOP–SULO triangle visible
-- **LLM-assisted alignment** — an option to query an LLM with the class name, description, and a list of candidate SULO concepts to suggest the most appropriate alignment
-- **Mapping pattern templates** — a library of reusable patterns (role bearer, quality bearer, information content entity) that users can apply by selecting a SULO design pattern
+Planned extensions include SSSOM export of `mapsToConceptIri` values, a cross-schema mapping view for side-by-side FHIR–OMOP–SULO comparison, LLM-assisted concept alignment, and a library of reusable mapping-pattern templates for common SULO design patterns (role bearer, quality bearer, information content entity).
 
 ---
 
-## 8. Conclusion
+## Availability of Supporting Source Code and Requirements
 
-This paper presented the SULO-Compliant Schema Builder, an open-source web application that addresses the persistent divide between schema designers and ontologists. By embedding upper-ontology alignment and property-level mapping patterns as first-class features of the schema design workflow, the tool transforms ontology authoring from an expert activity into a guided, form-based process. The clinical health record case study demonstrates that 28 classes and 83 properties spanning the AIDAVA `Code` pattern, SNOMED CT alignments, and OMOP CDM equivalents can be designed, formally aligned to SULO, and exported as valid OWL and SHACL artefacts in a single browser session.
+- **Project home page:** https://github.com/MaastrichtU-IDS/sulo-schema-builder
+- **Operating system(s):** platform independent
+- **Programming languages:** TypeScript (frontend and API)
+- **Other requirements:** Docker, or Node.js ≥ 20 and a SPARQL 1.1 triplestore (QLever recommended)
+- **License:** see repository
 
-The three research questions are addressed as follows. RQ1 is answered by the two-layer export architecture — the same schema model produces both a plain RDFS vocabulary and an OWL ontology with `owl:equivalentClass` restrictions derived from mapping patterns, with no ontology expertise required from the user. RQ2 is addressed by the bidirectional mapping pattern compiler, which generates both forward (`buildOwlExpr`) and reverse (`buildReverseOwlExpr`) OWL restrictions from the same triple-template list, enabling SULO to act as a pivot model between FHIR, OMOP, and other standards. RQ3 is addressed by the export modal's side-by-side tabs, the *Load Example* teaching artefact, and the concrete demonstration that union ranges, role reification, and inter-standard interoperability are benefits that OWL provides and flat SHACL cannot fully express.
+## Abbreviations
 
-The tool is available as an open-source project at https://github.com/rcelebi/sulo-schema-builder.
+ABox: Assertion Box; BFO: Basic Formal Ontology; CDM: Common Data Model; FHIR: Fast Healthcare Interoperability Resources; IRI: Internationalized Resource Identifier; OMOP: Observational Medical Outcomes Partnership; OWL: Web Ontology Language; RDF: Resource Description Framework; RDFS: RDF Schema; SHACL: Shapes Constraint Language; SNOMED CT: Systematized Nomenclature of Medicine, Clinical Terms; SPARQL: SPARQL Protocol and RDF Query Language; SPHN: Swiss Personalized Health Network; SULO: Simplified Upper-Level Ontology; ULO: Upper-Level Ontology; UML: Unified Modeling Language.
+
+## Acknowledgements
+
+The authors thank the AIDAVA project team for discussions on the SULO patterns and clinical vocabulary, and the SPHN team for testing the tool. We are grateful to colleagues at the Institute of Data Science, Maastricht University, for feedback on early prototypes.
+
+## Author Contributions
+
+R.C.: conceptualisation, software development, methodology, writing — original draft. M.D.: conceptualisation, supervision, writing — review and editing, funding acquisition.
+
+## Funding
+
+This work was supported by AIDAVA. The funders had no role in study design, data collection, or the decision to submit for publication.
+
+## Data Availability
+
+All schema artefacts used in the clinical health record case study are available in the project repository at https://github.com/MaastrichtU-IDS/sulo-schema-builder/tree/main/examples. No new experimental data were generated.
+
+## Competing Interests
+
+The authors declare no competing interests.
 
 ---
 
 ## References
 
-[1] R. Arp, B. Smith, A. D. Spear. *Building Ontologies with Basic Formal Ontology*. MIT Press, 2015.
-
-[2] A. Gangemi, N. Guarino, C. Masolo, A. Oltramari, L. Schneider. Sweetening ontologies with DOLCE. In *EKAW*, 2002, pp. 166–181.
-
-[3] M. Dumontier et al. The SULO upper-level ontology. https://w3id.org/sulo/, 2023.
-
-[4] J. Euzenat, A. Shvaiko. *Ontology Matching*, 2nd ed. Springer, 2013.
-
-[5] C. Martínez-Costa, S. Schulz. Bridging the gap between ontologies and relational databases. *Applied Ontology*, 11(2):93–126, 2016.
-
-[6] C. J. Mungall et al. The LinkML modeling language. *GigaScience*, 14, giaf152, 2025. https://doi.org/10.1093/gigascience/giaf152
-
-[7] S. Chavez-Feria et al. Chowlk: from UML-based ontology conceptualizations to OWL. In *ESWC*, 2022.
-
-[8] OP-TED. model2owl: Transform UML XMI to formal OWL ontology + SHACL shapes. https://github.com/OP-TED/model2owl, 2023.
-
-[9] A. Cimmino, E. Ruckhaus, et al. Astrea: Automatic generation of SHACL shapes from ontologies. In *ISWC*, 2020, pp. 497–513.
-
-[10] N. Matentzoglu et al. SSSOM: A simple standard for sharing ontology mappings. *Database*, 2022, baac035.
-
-[11] W3C OWL Working Group. OWL 2 Web Ontology Language Document Overview. W3C Recommendation, 2012. https://www.w3.org/TR/owl2-overview/
-
-[12] H. Knublauch, D. Kontokostas. Shapes Constraint Language (SHACL). W3C Recommendation, 2017. https://www.w3.org/TR/shacl/
-
-[13] A. Minello et al. Using SHACL to validate clinical data expressed as RDF. In *MedInfo*, 2023.
-
-[14] E. Prud'hommeaux, J. E. Labra Gayo, H. Solbrig. Shape Expressions: an RDF validation and transformation language. In *LDOW*, 2014.
-
-[15] M. A. Musen. The Protégé project: A look back and a look forward. *AI Matters*, 1(4):4–12, 2015.
-
-[16] E. Barzdins et al. OWLGrEd: A UML-style graphical notation and editor for OWL 2. In *OWL: Experiences and Directions*, 2010.
-
-[17] HL7 International. FHIR: Fast Healthcare Interoperability Resources. https://hl7.org/fhir/, Release 4, 2019.
-
-[18] G. Hripcsak et al. Observational Health Data Sciences and Informatics (OHDSI): Opportunities for Observational Researchers. In *MedInfo*, 2015, pp. 574–578.
-
-[19] K. M. Garza et al. Evaluating common data models for use with a longitudinal community registry. *Journal of Biomedical Informatics*, 2016.
-
-[20] R. Freimuth et al. A FHIR-based approach to semantic interoperability in clinical research. *AMIA Annual Symposium*, 2018.
-
-[21] AIDAVA Project. AIDAVA Reference Ontology (aidava-sphn.ttl). https://github.com/AIDAVA-DEV/AIDAVA-Reference-Ontology, 2024.
-
-[22] H. Bast, J. Buchhold, E. Haußmann. QLever: A query engine for efficient SPARQL+Text search. In *CIKM*, 2017.
+1. HL7 International. FHIR: Fast Healthcare Interoperability Resources. https://hl7.org/fhir/, Release 4, 2019.
+2. Hripcsak G et al. Observational Health Data Sciences and Informatics (OHDSI): Opportunities for Observational Researchers. *Stud Health Technol Inform.* 2015;216:574–578.
+3. Arp R, Smith B, Spear AD. *Building Ontologies with Basic Formal Ontology.* MIT Press; 2015.
+4. Gangemi A, Guarino N, Masolo C, Oltramari A, Schneider L. Sweetening ontologies with DOLCE. In: *Proceedings of EKAW 2002*; 2002. p. 166–181.
+5. Dumontier M, Çelebi R, Gilani K, de Zegher I, Serafimova K, Martínez-Costa C, Schulz S. SULO — a simplified upper-level ontology. In: *Joint Ontology Workshops (JOWO), FOIS 2025*, Catania, Italy; 2025.
+6. Euzenat J, Shvaiko A. *Ontology Matching.* 2nd ed. Springer; 2013.
+7. Martínez-Costa C, Schulz S. Bridging the gap between ontologies and relational databases. *Appl Ontol.* 2016;11(2):93–126.
+8. Mungall CJ et al. The LinkML modeling language. *GigaScience.* 2025;14:giaf152. https://doi.org/10.1093/gigascience/giaf152
+9. Chavez-Feria S et al. Chowlk: from UML-based ontology conceptualizations to OWL. In: *Proceedings of ESWC 2022*; 2022.
+10. OP-TED. model2owl: Transform UML XMI to formal OWL ontology and SHACL shapes. https://github.com/OP-TED/model2owl; 2023.
+11. Cimmino A, Ruckhaus E et al. Astrea: Automatic generation of SHACL shapes from ontologies. In: *Proceedings of ISWC 2020*; 2020. p. 497–513.
+12. Musen MA. The Protégé project: A look back and a look forward. *AI Matters.* 2015;1(4):4–12.
+13. Bast H, Buchhold J, Haußmann E. QLever: A query engine for efficient SPARQL+Text search. In: *Proceedings of CIKM 2017*; 2017.
+14. Touré V, Krauss P, Gnodtke K, et al. FAIRification of health-related data using semantic web technologies in the Swiss Personalized Health Network. *Scientific Data.* 2023;10(1):127. https://doi.org/10.1038/s41597-023-02028-y
+15. Barzdins J et al. OWLGrEd: A UML-style graphical notation and editor for OWL 2. In: *OWL: Experiences and Directions Workshop*; 2010.
+16. Matentzoglu N et al. SSSOM: A simple standard for sharing ontology mappings. *Database.* 2022;2022:baac035.
+17. W3C OWL Working Group. OWL 2 Web Ontology Language Document Overview. W3C Recommendation; 2012. https://www.w3.org/TR/owl2-overview/
+18. Knublauch H, Kontokostas D. Shapes Constraint Language (SHACL). W3C Recommendation; 2017. https://www.w3.org/TR/shacl/
