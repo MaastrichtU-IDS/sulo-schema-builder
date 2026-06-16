@@ -29,11 +29,14 @@ import {
   useUpdateOntologyProperty,
   useDeleteOntologyProperty,
   useUpperConcepts,
+  getReasonerStatus,
+  reasonOntologyServer,
   type OntologyClass,
   type OntologyProperty,
   type OntologySchema,
   type UpperConcept,
   type TripleTemplate,
+  type ConsistencyReport,
 } from '../api/ontology.js';
 import { apiClient } from '../api/client.js';
 import {
@@ -692,7 +695,7 @@ function UmlDiagramView({ schema, onClose }: { schema: OntologySchema; onClose: 
 // ─── Export modal ─────────────────────────────────────────────────────────────
 
 function ExportModal({ schema, onClose }: { schema: OntologySchema; onClose: () => void }) {
-  const [tab, setTab]       = useState<'plain' | 'owl' | 'shacl' | 'uml'>('plain');
+  const [tab, setTab]       = useState<'plain' | 'owl' | 'shacl' | 'uml' | 'reason'>('plain');
   const [copied, setCopied] = useState(false);
   const [showDiagram, setShowDiagram] = useState(false);
   const exports = useMemo(() => generateExports(schema), [schema]);
@@ -743,10 +746,11 @@ function ExportModal({ schema, onClose }: { schema: OntologySchema; onClose: () 
         {/* Tabs */}
         <div className="flex gap-1 px-4 pt-3 border-b border-slate-200 shrink-0">
           {([
-            { key: 'plain', label: 'RDF Schema' },
-            { key: 'owl',   label: 'OWL + SULO' },
-            { key: 'shacl', label: 'SHACL' },
-            { key: 'uml',   label: 'UML Diagram' },
+            { key: 'plain',  label: 'RDF Schema' },
+            { key: 'owl',    label: 'OWL + SULO' },
+            { key: 'shacl',  label: 'SHACL' },
+            { key: 'uml',    label: 'UML Diagram' },
+            { key: 'reason', label: 'Consistency' },
           ] as const).map(({ key, label }) => (
             <button
               key={key}
@@ -775,9 +779,13 @@ function ExportModal({ schema, onClose }: { schema: OntologySchema; onClose: () 
               </button>
             </div>
           )}
-          <pre className="text-xs font-mono text-slate-700 whitespace-pre bg-slate-50 rounded-lg p-4 leading-relaxed min-h-[200px] overflow-x-auto">
-            {content}
-          </pre>
+          {tab === 'reason' ? (
+            <ConsistencyPanel turtleOwl={exports.turtleOwl} />
+          ) : (
+            <pre className="text-xs font-mono text-slate-700 whitespace-pre bg-slate-50 rounded-lg p-4 leading-relaxed min-h-[200px] overflow-x-auto">
+              {content}
+            </pre>
+          )}
         </div>
         {showDiagram && (
           <UmlDiagramView schema={schema} onClose={() => setShowDiagram(false)} />
@@ -785,23 +793,128 @@ function ExportModal({ schema, onClose }: { schema: OntologySchema; onClose: () 
 
         {/* Footer */}
         <div className="flex items-center justify-between px-6 py-3 border-t border-slate-200 shrink-0">
-          <span className="text-xs text-slate-400 font-mono">{filename}</span>
-          <div className="flex gap-3">
-            <button
-              onClick={copy}
-              className="text-sm text-slate-600 hover:text-slate-800 border border-slate-200 hover:border-slate-300 px-4 py-2 rounded-lg transition-colors"
-            >
-              {copied ? '✓ Copied' : 'Copy'}
-            </button>
-            <button
-              onClick={download}
-              className="bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium px-5 py-2 rounded-lg transition-colors"
-            >
-              Download
-            </button>
-          </div>
+          <span className="text-xs text-slate-400 font-mono">{tab === 'reason' ? '' : filename}</span>
+          {tab !== 'reason' && (
+            <div className="flex gap-3">
+              <button
+                onClick={copy}
+                className="text-sm text-slate-600 hover:text-slate-800 border border-slate-200 hover:border-slate-300 px-4 py-2 rounded-lg transition-colors"
+              >
+                {copied ? '✓ Copied' : 'Copy'}
+              </button>
+              <button
+                onClick={download}
+                className="bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium px-5 py-2 rounded-lg transition-colors"
+              >
+                Download
+              </button>
+            </div>
+          )}
         </div>
       </div>
+    </div>
+  );
+}
+
+// ─── Consistency panel ─────────────────────────────────────────────────────────
+
+function ConsistencyPanel({ turtleOwl }: { turtleOwl: string }) {
+  // Server-side full OWL DL (HermiT) consistency check.
+  const [serverEnabled, setServerEnabled] = useState<boolean | null>(null);
+  const [serverReport, setServerReport]   = useState<ConsistencyReport | null>(null);
+  const [serverState, setServerState]     = useState<'idle' | 'loading' | 'error'>('idle');
+  const [serverError, setServerError]     = useState<string>('');
+
+  // Probe whether the backend reasoner is available (controls the button).
+  useEffect(() => {
+    let alive = true;
+    getReasonerStatus()
+      .then((s) => { if (alive) setServerEnabled(s.enabled); })
+      .catch(() => { if (alive) setServerEnabled(false); });
+    return () => { alive = false; };
+  }, []);
+
+  // Any change to the generated OWL invalidates a stale result.
+  useEffect(() => { setServerReport(null); setServerState('idle'); setServerError(''); }, [turtleOwl]);
+
+  async function runServer() {
+    setServerState('loading');
+    setServerError('');
+    try {
+      setServerReport(await reasonOntologyServer(turtleOwl));
+      setServerState('idle');
+    } catch (err: unknown) {
+      const e = err as { response?: { status?: number; data?: { message?: string } } };
+      setServerState('error');
+      setServerError(
+        e.response?.status === 503
+          ? 'Server-side reasoning is not available in this deployment.'
+          : e.response?.data?.message ?? 'The reasoner could not process this ontology.',
+      );
+    }
+  }
+
+  if (serverEnabled === false) {
+    return (
+      <div className="min-h-[200px] flex items-center justify-center">
+        <div className="rounded-lg bg-amber-50 border border-amber-200 p-4 text-xs text-amber-800 max-w-md text-center">
+          Server-side OWL DL reasoning is not available in this deployment.
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-[200px]">
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-xs text-slate-500">
+          <strong className="text-slate-600">Full OWL DL check (HermiT).</strong> Tableau reasoning over the
+          complete SULO ontology — catches unsatisfiable classes and logical inconsistencies, including
+          restriction, negation and disjoint-union errors that schema validators and SHACL miss.
+        </span>
+        <button
+          onClick={runServer}
+          disabled={serverState === 'loading'}
+          className="text-xs bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white px-3 py-1 rounded-lg transition-colors shrink-0 ml-3"
+        >
+          {serverState === 'loading' ? 'Reasoning…' : serverReport ? 'Re-run' : 'Check consistency'}
+        </button>
+      </div>
+
+      {serverState === 'error' ? (
+        <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-xs text-amber-800">
+          {serverError}
+        </div>
+      ) : serverReport === null ? (
+        <div className="flex items-center justify-center h-40 text-sm text-slate-400">
+          {serverState === 'loading' ? 'Running HermiT…' : 'Click “Check consistency” to run the reasoner.'}
+        </div>
+      ) : serverReport.consistent ? (
+        <div className="flex items-start gap-3 rounded-lg bg-emerald-50 border border-emerald-200 p-4">
+          <span className="text-emerald-600 text-xl leading-none">✓</span>
+          <div>
+            <p className="text-sm font-medium text-emerald-800">Consistent</p>
+            <p className="text-xs text-emerald-700 mt-0.5">
+              {serverReport.reasoner} found no unsatisfiable classes and no logical inconsistency.
+            </p>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 text-sm font-medium text-rose-700">
+            <span className="text-rose-600 text-xl leading-none">✕</span>
+            {serverReport.clashes.length} {serverReport.clashes.length === 1 ? 'problem' : 'problems'} found by {serverReport.reasoner}
+          </div>
+          {serverReport.clashes.map((clash, i) => (
+            <div key={i} className="rounded-lg bg-rose-50 border border-rose-200 p-3">
+              <p className="text-xs font-mono font-medium text-rose-800">
+                {clash.label ?? clash.iri ?? (clash.kind === 'inconsistent-ontology' ? 'Inconsistent ontology' : 'Unsatisfiable class')}
+              </p>
+              <pre className="text-xs text-rose-700 mt-1 leading-relaxed whitespace-pre-wrap font-sans">{clash.explanation}</pre>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

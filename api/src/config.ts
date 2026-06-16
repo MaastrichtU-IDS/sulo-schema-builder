@@ -1,8 +1,12 @@
 import 'dotenv/config';
+import { fileURLToPath } from 'node:url';
+import { dirname, resolve } from 'node:path';
 
 function optional(name: string, fallback: string): string {
   return process.env[name] ?? fallback;
 }
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 export const config = {
   env: optional('NODE_ENV', 'development'),
@@ -17,6 +21,19 @@ export const config = {
 
   rdf: {
     baseNamespace: optional('BASE_NAMESPACE', 'https://w3id.org/sulo/schema/'),
+  },
+
+  // Server-side full OWL DL reasoning via ROBOT + HermiT.
+  reasoner: {
+    enabled: optional('REASONER_ENABLED', 'true') !== 'false',
+    // Path to the `robot` launcher (a JRE must be on PATH for it).
+    robotPath: optional('ROBOT_PATH', 'robot'),
+    // Full SULO ontology bundled with the API (../../resources/sulo.ttl from dist/config.js).
+    suloPath: optional('SULO_TTL_PATH', resolve(__dirname, '..', 'resources', 'sulo.ttl')),
+    // Hard cap on a single reasoning run (ms).
+    timeoutMs: parseInt(optional('REASONER_TIMEOUT_MS', '60000'), 10),
+    // Max explanations to fetch per clash.
+    maxExplanations: parseInt(optional('REASONER_MAX_EXPLANATIONS', '1'), 10),
   },
 
 } as const;
