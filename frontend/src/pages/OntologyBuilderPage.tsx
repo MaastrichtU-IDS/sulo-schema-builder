@@ -695,7 +695,7 @@ function UmlDiagramView({ schema, onClose }: { schema: OntologySchema; onClose: 
 // ─── Export modal ─────────────────────────────────────────────────────────────
 
 function ExportModal({ schema, onClose }: { schema: OntologySchema; onClose: () => void }) {
-  const [tab, setTab]       = useState<'plain' | 'owl' | 'shacl' | 'uml' | 'reason'>('plain');
+  const [tab, setTab]       = useState<'plain' | 'owl' | 'shacl' | 'uml'>('plain');
   const [copied, setCopied] = useState(false);
   const [showDiagram, setShowDiagram] = useState(false);
   const exports = useMemo(() => generateExports(schema), [schema]);
@@ -750,7 +750,6 @@ function ExportModal({ schema, onClose }: { schema: OntologySchema; onClose: () 
             { key: 'owl',    label: 'OWL + SULO' },
             { key: 'shacl',  label: 'SHACL' },
             { key: 'uml',    label: 'UML Diagram' },
-            { key: 'reason', label: 'Consistency' },
           ] as const).map(({ key, label }) => (
             <button
               key={key}
@@ -779,13 +778,9 @@ function ExportModal({ schema, onClose }: { schema: OntologySchema; onClose: () 
               </button>
             </div>
           )}
-          {tab === 'reason' ? (
-            <ConsistencyPanel turtleOwl={exports.turtleOwl} />
-          ) : (
-            <pre className="text-xs font-mono text-slate-700 whitespace-pre bg-slate-50 rounded-lg p-4 leading-relaxed min-h-[200px] overflow-x-auto">
-              {content}
-            </pre>
-          )}
+          <pre className="text-xs font-mono text-slate-700 whitespace-pre bg-slate-50 rounded-lg p-4 leading-relaxed min-h-[200px] overflow-x-auto">
+            {content}
+          </pre>
         </div>
         {showDiagram && (
           <UmlDiagramView schema={schema} onClose={() => setShowDiagram(false)} />
@@ -793,23 +788,21 @@ function ExportModal({ schema, onClose }: { schema: OntologySchema; onClose: () 
 
         {/* Footer */}
         <div className="flex items-center justify-between px-6 py-3 border-t border-slate-200 shrink-0">
-          <span className="text-xs text-slate-400 font-mono">{tab === 'reason' ? '' : filename}</span>
-          {tab !== 'reason' && (
-            <div className="flex gap-3">
-              <button
-                onClick={copy}
-                className="text-sm text-slate-600 hover:text-slate-800 border border-slate-200 hover:border-slate-300 px-4 py-2 rounded-lg transition-colors"
-              >
-                {copied ? '✓ Copied' : 'Copy'}
-              </button>
-              <button
-                onClick={download}
-                className="bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium px-5 py-2 rounded-lg transition-colors"
-              >
-                Download
-              </button>
-            </div>
-          )}
+          <span className="text-xs text-slate-400 font-mono">{filename}</span>
+          <div className="flex gap-3">
+            <button
+              onClick={copy}
+              className="text-sm text-slate-600 hover:text-slate-800 border border-slate-200 hover:border-slate-300 px-4 py-2 rounded-lg transition-colors"
+            >
+              {copied ? '✓ Copied' : 'Copy'}
+            </button>
+            <button
+              onClick={download}
+              className="bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium px-5 py-2 rounded-lg transition-colors"
+            >
+              Download
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -915,6 +908,33 @@ function ConsistencyPanel({ turtleOwl }: { turtleOwl: string }) {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+// ─── Consistency modal ─────────────────────────────────────────────────────────
+
+function ConsistencyModal({ schema, onClose }: { schema: OntologySchema; onClose: () => void }) {
+  const turtleOwl = useMemo(() => generateExports(schema).turtleOwl, [schema]);
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 shrink-0">
+          <div>
+            <h2 className="font-semibold text-slate-800 text-lg">Consistency check</h2>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Full OWL DL reasoning (HermiT) over the generated OWL merged with SULO.
+            </p>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-2xl leading-none ml-4">×</button>
+        </div>
+        <div className="flex-1 overflow-auto min-h-0 p-5">
+          <ConsistencyPanel turtleOwl={turtleOwl} />
+        </div>
+      </div>
     </div>
   );
 }
@@ -2907,6 +2927,7 @@ function SchemaDetailPage({ id }: { id: string }) {
   const [activeTab, setActiveTab] = useState<'classes' | 'properties'>('classes');
   const [editingMeta, setEditingMeta] = useState(false);
   const [showExport, setShowExport]   = useState(false);
+  const [showConsistency, setShowConsistency] = useState(false);
   const [showDiagram, setShowDiagram] = useState(false);
   const [editingClassId, setEditingClassId] = useState<string | null>(null);
   const [editingPropId, setEditingPropId] = useState<string | null>(null);
@@ -3033,6 +3054,12 @@ function SchemaDetailPage({ id }: { id: string }) {
                 className="bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium px-4 py-1.5 rounded-lg transition-colors"
               >
                 Generate ↓
+              </button>
+              <button
+                onClick={() => setShowConsistency(true)}
+                className="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium px-4 py-1.5 rounded-lg transition-colors"
+              >
+                Check consistency
               </button>
               <button
                 onClick={() => setEditingMeta(true)}
@@ -3305,6 +3332,7 @@ function SchemaDetailPage({ id }: { id: string }) {
 
       {/* ── Properties tab ── */}
       {showExport  && <ExportModal    schema={schema} onClose={() => setShowExport(false)}  />}
+      {showConsistency && <ConsistencyModal schema={schema} onClose={() => setShowConsistency(false)} />}
       {showDiagram && <UmlDiagramView schema={schema} onClose={() => setShowDiagram(false)} />}
 
       {activeTab === 'properties' && (
