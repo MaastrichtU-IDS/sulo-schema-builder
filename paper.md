@@ -128,7 +128,7 @@ The OWL DL export for this schema generates 121 `owl:equivalentClass` axioms and
 
 ### Detecting modelling errors
 
-A principal advantage of aligning a domain schema to SULO and generating OWL DL artefacts is that a description-logic reasoner can detect modelling errors invisible to schema validators and SHACL engines. SULO declares four top-level categories — `Capability`, `InformationObject`, `Quality`, and `Role` — as mutually disjoint via `owl:AllDisjointClasses`, and additionally asserts that `Object` and `Process` are disjoint. Any instance data or class axiom that violates these constraints produces an unsatisfiable class or a direct contradiction, surfaced as a reasoner clash. The three examples below use realistic modelling mistakes that arise when generating RDF from unstructured clinical notes.
+A principal advantage of aligning a domain schema to SULO and generating OWL DL artefacts is that a description-logic reasoner can detect modelling errors invisible to schema validators and SHACL engines. SULO declares four top-level categories — `Capability`, `InformationObject`, `Quality`, and `Role` — as mutually disjoint via `owl:AllDisjointClasses`, and additionally asserts that `Object` and `Process` are disjoint. Beyond category disjointness, SULO also constrains how its relations may be used: `sulo:hasValue` and `sulo:refersTo` have an `InformationObject` domain, `sulo:hasParticipant` a `Process` domain, and `sulo:hasPart` propagates a category to its parts (`Process ⊑ ∀hasPart.Process`, and analogously for `Object`, `InformationObject`, and `SpatialObject`). Any instance datum or class axiom that violates these constraints produces an unsatisfiable class or a direct contradiction, surfaced as a reasoner clash and reported directly in the tool's integrated *Consistency* check. The examples below illustrate the recurring error categories with realistic modelling mistakes that arise when generating RDF from clinical sources: Examples 1–2 stem from category disjointness made explicit through instance typing and class subsumption; Examples 3–6 from relations and parthood mappings that force an entity into a second, incompatible category; and Examples 7–8 from finer category distinctions — separating a quantity from a quality, and a role from its bearer. In each case the conflict is logical rather than structural, surfaced by reasoning over the generated OWL (the tool's integrated consistency check) rather than by shape validation.
 
 **Example 1 — conflating a statement with a quality.** The following instance, generated from the text *"Acute viral pharyngitis with mild severity"*, assigns two types to a single individual:
 
@@ -160,7 +160,70 @@ ex:blood_test_1 a ex:Observation ;
 
 OWL-DL materialisation propagates both SULO superclasses to `ex:Observation` via `rdfs:subClassOf` transitivity, so `ex:blood_test_1` inherits both `sulo:Process` and `sulo:Object`. Because `sulo:Object owl:disjointWith sulo:Process` is asserted directly in SULO as a pairwise triple (not only via `AllDisjointClasses`), OWL-RL can materialise the contradiction. The reasoner flags `ex:blood_test_1` as simultaneously a `sulo:Process` and a `sulo:Object`, which is unsatisfiable — precisely the kind of inter-class modelling error, invisible to SHACL, that the SULO alignment is designed to surface.
 
-**Example 3 — use–mention confusion.** A structurally common error is conflating a clinical condition (a pathological process in the patient) with the diagnostic statement about it (an information object that refers to that process): *"the diagnosis is the disease."* When a class subclasses both a Process-aligned and an InformationObject-aligned class, any instance would simultaneously be a `sulo:Object` and a `sulo:Process` — pairwise disjoint in SULO. The class is therefore unsatisfiable and detected at the schema level, before any instances are considered. This example has particular educational value: the logical contradiction exposes the category mistake of conflating a process in reality with a statement describing it, making the distinction between referent and representation explicit and machine-verifiable.
+**Example 3 — a record made part of the process it documents.** A `chr:Diagnosis` is correctly aligned to `sulo:InformationObject`: it is a statement *about* a clinical situation, not the situation itself. To link each diagnosis to the hospital stay it was recorded during, the schema author maps the `hasAdministrativeCase` relation onto SULO's parthood relation `sulo:isPartOf`:
+
+```turtle
+chr:Diagnosis           rdfs:subClassOf sulo:InformationObject .
+chr:AdministrativeCase  rdfs:subClassOf sulo:Process .
+
+# hasAdministrativeCase compiled as:  ?this sulo:isPartOf ?case
+ex:diagnosis_9 a chr:Diagnosis ;
+  sulo:isPartOf ex:case_2 .
+ex:case_2 a chr:AdministrativeCase .
+```
+
+`sulo:isPartOf` is the inverse of `sulo:hasPart`, so this entails `ex:case_2 sulo:hasPart ex:diagnosis_9`. The administrative case is a `sulo:Process`, and SULO constrains `sulo:Process ⊑ ∀sulo:hasPart.Process` — every part of a process is itself a process. The diagnosis is therefore forced to be a `Process`; but it was declared an `InformationObject ⊑ sulo:Object`, and `sulo:Object owl:disjointWith sulo:Process`, so `ex:diagnosis_9` would be at once an `Object` and a `Process`, and the reasoner reports an inconsistency. The mistake is a parthood variant of *use–mention* confusion: a diagnosis *record* is not a temporal part of the encounter it documents. Its link to the case is an association, not mereology, and is properly expressed with the unconstrained `sulo:isIn` relation rather than `sulo:isPartOf` — making the distinction between a process in reality and a statement recorded about it explicit and machine-verifiable.
+
+The next six examples extend the same principle to the *relations* a schema attaches to its classes. Each arises naturally when a tabular source (e.g. OMOP CDM or SPHN) is mapped to SULO column by column, and each is invisible to SHACL because no asserted shape is violated — the conflict is in the logic.
+
+**Example 4 — a literal value on a process.** A frequent shortcut when flattening a drug-exposure row is to attach each scalar column directly to the event:
+
+```turtle
+ex:drug_exposure_42 a chr:DrugAdministration ;
+  chr:daysSupply "30"^^xsd:integer .
+```
+
+`chr:DrugAdministration` maps to `sulo:Process`, and `chr:daysSupply` compiles to the pattern `?this sulo:hasValue ?value`. Since `sulo:hasValue rdfs:domain sulo:InformationObject`, the subject of any `hasValue` assertion is inferred to be an `InformationObject` (hence a `sulo:Object`); but the event is a `sulo:Process`, and `Object owl:disjointWith Process`. The reasoner reports the property's domain as unsatisfiable: a process cannot itself carry a literal value. The coherent pattern — used by every date-time column — routes the literal through an information-bearing node (`?this sulo:atTime [ a sulo:TimeInstant ; sulo:hasValue ?value ]`), where `hasValue` sits on the `TimeInstant`, an `InformationObject`.
+
+**Example 5 — an information object given a participant.** A measurement result — an information object recording a value — is assigned a patient through the participant pattern:
+
+```turtle
+ex:measurement_7 a chr:Measurement ;
+  chr:hasSubject ex:patient_3 .
+```
+
+`chr:Measurement` maps to `sulo:InformationObject`, and `chr:hasSubject` compiles to `?this sulo:hasParticipant [ a chr:SubjectRole ; sulo:isFeatureOf ?value ]`. SULO declares `sulo:hasParticipant rdfs:domain sulo:Process`: only a process has participants. The result is therefore forced to be a `Process`, contradicting its `Object` membership. The mistake is a category error between the measuring *process* — which legitimately has the patient as a participant — and the measurement *result*, an information object that merely records it; the fix attaches the patient to the underlying process, or states that the result `sulo:refersTo` the patient.
+
+**Example 6 — a part drawn from the wrong category.** Modelling a drug dose as a structural part of the administration process:
+
+```turtle
+ex:drug_exposure_42 a chr:DrugAdministration ;
+  sulo:hasPart ex:dose_5 .
+ex:dose_5 a chr:DoseQuantity .
+```
+
+`chr:DrugAdministration` maps to `sulo:Process`, and SULO constrains `sulo:Process ⊑ ∀sulo:hasPart.Process`: every part of a process is itself a process. But `chr:DoseQuantity` maps to `sulo:Quantity ⊑ sulo:InformationObject ⊑ sulo:Object`. Propagating the universal restriction onto the filler forces `ex:dose_5` to be both a `Process` and an `Object`, which are disjoint, so the class is unsatisfiable. Crucially, this contradiction lives inside an `owl:allValuesFrom` restriction body rather than in a named-class axiom — so unlike Examples 1–3 it escapes both SHACL and lightweight named-class reasoning, and is reached only by a full DL reasoner. A dose is better modelled as a feature of the exposure (`sulo:hasFeature`) than as a part of the process.
+
+**Example 7 — quantifying a quality (age).** It is tempting to model a patient's age as an intrinsic *quality* of the person, and then to record the number directly on it:
+
+```turtle
+chr:Age rdfs:subClassOf sulo:Quality .
+
+ex:age_1 a chr:Age ;
+  sulo:hasValue "45"^^xsd:decimal .
+```
+
+`chr:Age` maps to `sulo:Quality`, which is fine on its own. But the moment a value is attached, the second axiom bites: `sulo:hasValue rdfs:domain sulo:InformationObject`, so `ex:age_1` — being the subject of a `hasValue` assertion — is inferred to be an `InformationObject`. SULO declares `Quality` and `InformationObject` to be disjoint kinds of `Feature`, so `ex:age_1` is simultaneously a `Quality` and an `InformationObject`: a contradiction the reasoner reports as an inconsistency. The clash pinpoints the real distinction — a quality such as "frail" is borne directly and carries no magnitude, whereas anything that *has a value* is information: here a `Quantity` (specifically a `Duration`, the time elapsed since birth) and therefore an `InformationObject`. Age should be modelled as a `sulo:Quantity` related to the person, where the value and its unit properly belong; the same correction applies to body temperature, blood pressure, and any other quantified observation that feels like a property but is in fact recorded information.
+
+**Example 8 — conflating a role with its bearer.** When a schema models the *patient* as a kind of person rather than as a role a person plays, it places one class under two SULO categories at once:
+
+```turtle
+chr:Patient rdfs:subClassOf sulo:SpatialObject, sulo:Role .
+```
+
+A person is a `sulo:SpatialObject`; the patient *role* is a `sulo:Role`, which SULO makes `⊑ sulo:Feature`. But SULO asserts `sulo:Feature owl:disjointWith sulo:SpatialObject` — features (capabilities, qualities, roles, information objects) are categorically distinct from the spatial objects that bear them. `chr:Patient` is therefore unsatisfiable: nothing can be at once a spatial object and a role. The error, and its remedy, make explicit a distinction clinical schemas routinely blur — the persistent *person* (a `SpatialObject`) versus the context-dependent *subject-of-care role* they play during a particular encounter, which belongs in a separate `sulo:Role` class linked to the person through `sulo:isFeatureOf`. The same diagnosis surfaces wherever a schema treats provider, specimen-donor, or device-operator as a subtype of person rather than as a role.
+
+Together these examples show that SULO alignment turns a broad spectrum of schema-design mistakes — miscategorised entities, misused relations, mislocated parts, quantities mistaken for qualities, and conflated roles and bearers — into machine-checkable logical contradictions that schema validators and SHACL cannot detect, but that the tool's integrated reasoner surfaces directly.
 
 ### Mapping patterns as pivot bridges for cross-standard transformation
 

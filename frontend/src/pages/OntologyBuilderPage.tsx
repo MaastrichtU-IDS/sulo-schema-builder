@@ -1293,12 +1293,47 @@ const OMOP_EXAMPLE_CLASSES: { name: string; label: string; description: string; 
   { name: 'DoseQuantity',         label: 'Dose Quantity',          description: 'The quantity of a drug dispensed or administered.',                                               mapsToConceptIri: `${SULO}Quantity` },
 ];
 
+// ─── SPHN example schema ─────────────────────────────────────────────────────
+// Core classes of the Swiss Personalized Health Network (SPHN) schema
+// (https://www.biomedit.ch/rdf/sphn-schema/sphn), aligned to SULO following the
+// same mapping conventions as the OMOP and Clinical Health Record examples.
+
+const SPHN_EXAMPLE_CLASSES: { name: string; label: string; description: string; mapsToConceptIri: string; superClassName?: string }[] = [
+  // Subject + administrative
+  { name: 'SubjectPseudoIdentifier', label: 'Subject Pseudo Identifier', description: 'The de-identified subject (patient) the clinical data is about.',          mapsToConceptIri: `${SULO}SpatialObject` },
+  { name: 'AdministrativeCase',      label: 'Administrative Case',       description: 'An administrative hospital case grouping a subject’s encounters.',      mapsToConceptIri: `${SULO}Process` },
+  { name: 'HealthcareEncounter',     label: 'Healthcare Encounter',      description: 'A contact between a subject and the healthcare system.',                     mapsToConceptIri: `${SULO}Process` },
+  // Clinical events / conditions
+  { name: 'Diagnosis',               label: 'Diagnosis',                 description: 'A statement assigning a disease or condition to a subject.',                 mapsToConceptIri: `${SULO}InformationObject` },
+  { name: 'ProblemCondition',        label: 'Problem / Condition',       description: 'A health problem or medical condition of the subject.',                      mapsToConceptIri: `${SULO}Process` },
+  { name: 'LabTestEvent',            label: 'Lab Test Event',            description: 'The event of performing a laboratory test on a sample.',                     mapsToConceptIri: `${SULO}Process` },
+  { name: 'DrugAdministrationEvent', label: 'Drug Administration Event', description: 'The administration of a drug to a subject.',                                 mapsToConceptIri: `${SULO}Process` },
+  { name: 'DrugPrescription',        label: 'Drug Prescription',         description: 'A prescription or order for a drug.',                                        mapsToConceptIri: `${SULO}InformationObject` },
+  // Results / measurements
+  { name: 'LabResult',               label: 'Lab Result',                description: 'The result reported for a laboratory test.',                                 mapsToConceptIri: `${SULO}InformationObject` },
+  { name: 'Measurement',             label: 'Measurement',               description: 'A measured clinical value (e.g. a vital sign).',                             mapsToConceptIri: `${SULO}InformationObject` },
+  { name: 'BodyWeightMeasurement',   label: 'Body Weight Measurement',   description: 'A measurement of a subject’s body weight.',                             mapsToConceptIri: `${SULO}InformationObject`, superClassName: 'Measurement' },
+  // Material entities
+  { name: 'Sample',                  label: 'Sample',                    description: 'A biological sample (specimen) collected from a subject.',                    mapsToConceptIri: `${SULO}SpatialObject` },
+  { name: 'Drug',                    label: 'Drug',                      description: 'A pharmaceutical drug product.',                                             mapsToConceptIri: `${SULO}SpatialObject` },
+  { name: 'Substance',               label: 'Substance',                 description: 'A material substance (e.g. an active ingredient).',                          mapsToConceptIri: `${SULO}SpatialObject` },
+  // Information / value carriers
+  { name: 'Code',                    label: 'Code',                      description: 'A coded concept from a terminology (SNOMED CT, LOINC, ATC, ICD-10, …).', mapsToConceptIri: `${SULO}InformationObject` },
+  { name: 'Quantity',                label: 'Quantity',                  description: 'A measured magnitude paired with a unit.',                                   mapsToConceptIri: `${SULO}Quantity` },
+  { name: 'Unit',                    label: 'Unit',                      description: 'A unit of measure for a quantity.',                                          mapsToConceptIri: `${SULO}Quality` },
+  // Roles (used by the participant mapping patterns)
+  { name: 'SubjectRole',             label: 'Subject Role',              description: 'The role of being the subject of a clinical event.',                         mapsToConceptIri: `${SULO}Role` },
+  { name: 'PerformerRole',           label: 'Performer Role',            description: 'The role of performing or carrying out a clinical event.',                    mapsToConceptIri: `${SULO}Role` },
+  { name: 'OutputRole',              label: 'Output Role',               description: 'The role of an entity produced as the output of a process.',                 mapsToConceptIri: `${SULO}Role` },
+];
+
 // ─── List page ────────────────────────────────────────────────────────────────
 
 function SchemaListPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [isCreatingExample, setIsCreatingExample] = useState(false);
   const [isCreatingOmopExample, setIsCreatingOmopExample] = useState(false);
+  const [isCreatingSphnExample, setIsCreatingSphnExample] = useState(false);
   const schemasQuery = useOntologySchemas();
   const createMutation = useCreateOntologySchema();
   const deleteMutation = useDeleteOntologySchema();
@@ -2583,6 +2618,116 @@ function SchemaListPage() {
     }
   }
 
+  async function handleLoadSphnExample() {
+    setIsCreatingSphnExample(true);
+    try {
+      const schema = await createMutation.mutateAsync({
+        title: 'SPHN Schema',
+        description: 'Swiss Personalized Health Network (SPHN) core schema — common clinical classes (SubjectPseudoIdentifier, AdministrativeCase, Diagnosis, LabTestEvent, DrugAdministrationEvent, Measurement, Sample, …) mapped to SULO.',
+        upperOntologyIri: 'https://w3id.org/sulo/',
+      });
+
+      // Create the SPHN classes
+      const classMap = new Map<string, OntologyClass>();
+      for (const cls of SPHN_EXAMPLE_CLASSES) {
+        const { superClassName, ...rest } = cls;
+        const superCls = superClassName ? classMap.get(superClassName) : undefined;
+        const body = { ...rest, ...(superCls ? { superClassId: superCls.id } : {}) };
+        const created: OntologyClass = (await apiClient.post(`/ontology-schemas/${schema.id}/classes`, body)).data;
+        classMap.set(cls.name, created);
+      }
+      const C = (n: string) => classMap.get(n)!;
+
+      const NS = 'https://w3id.org/sulo/';
+      const RDF_TYPE = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type';
+      const XSD = 'http://www.w3.org/2001/XMLSchema#';
+      const post = (body: Record<string, unknown>) =>
+        apiClient.post(`/ontology-schemas/${schema.id}/properties`, body);
+
+      // SULO mapping-pattern builders (same conventions as the OMOP example)
+      const pRole = (roleName: string) => [
+        { subject: '?this', predicate: `${NS}hasParticipant`, object: '?o1' },
+        { subject: '?o1',   predicate: RDF_TYPE,              object: C(roleName).url },
+        { subject: '?o1',   predicate: `${NS}isFeatureOf`,    object: '?value' },
+      ];
+      const pTime = (timeClass: string) => [
+        { subject: '?this', predicate: `${NS}atTime`,   object: '?o1' },
+        { subject: '?o1',   predicate: RDF_TYPE,        object: `${NS}${timeClass}` },
+        { subject: '?o1',   predicate: `${NS}hasValue`, object: '?value' },
+      ];
+      const pOne = (pred: string) => [{ subject: '?this', predicate: `${NS}${pred}`, object: '?value' }];
+
+      // hasCode → hasFeature(Code) on every coded class
+      for (const dom of ['Diagnosis','ProblemCondition','LabTestEvent','Measurement','DrugAdministrationEvent','DrugPrescription','Drug','Substance','Sample','LabResult']) {
+        await post({ name: 'hasCode', label: 'Has Code', description: `The terminology code classifying the ${dom}.`,
+          propertyType: 'object', domainClassId: C(dom).id, rangeClassIri: C('Code').url, isRequired: false, mappingPattern: pOne('hasFeature') });
+      }
+      // hasSubjectPseudoIdentifier → participant→SubjectRole on events/records
+      for (const dom of ['AdministrativeCase','HealthcareEncounter','Diagnosis','ProblemCondition','LabTestEvent','Measurement','DrugAdministrationEvent','DrugPrescription','Sample']) {
+        await post({ name: 'hasSubjectPseudoIdentifier', label: 'Has Subject', description: `Links the ${dom} to its subject (patient).`,
+          propertyType: 'object', domainClassId: C(dom).id, rangeClassIri: C('SubjectPseudoIdentifier').url, isRequired: false, mappingPattern: pRole('SubjectRole') });
+      }
+      // hasAdministrativeCase → isPartOf on events
+      for (const dom of ['HealthcareEncounter','Diagnosis','ProblemCondition','LabTestEvent','Measurement','DrugAdministrationEvent']) {
+        await post({ name: 'hasAdministrativeCase', label: 'Has Administrative Case', description: `Links the ${dom} to its administrative case.`,
+          propertyType: 'object', domainClassId: C(dom).id, rangeClassIri: C('AdministrativeCase').url, isRequired: false, mappingPattern: pOne('isPartOf') });
+      }
+      // start/end datetimes on temporal processes
+      for (const dom of ['AdministrativeCase','HealthcareEncounter','ProblemCondition','DrugAdministrationEvent']) {
+        await post({ name: 'hasStartDateTime', label: 'Start Date/Time', description: `When the ${dom} started.`,
+          propertyType: 'datatype', domainClassId: C(dom).id, rangeClassIri: `${XSD}dateTime`, isRequired: false, mappingPattern: pTime('StartTime') });
+        await post({ name: 'hasEndDateTime', label: 'End Date/Time', description: `When the ${dom} ended.`,
+          propertyType: 'datatype', domainClassId: C(dom).id, rangeClassIri: `${XSD}dateTime`, isRequired: false, mappingPattern: pTime('EndTime') });
+      }
+      // instant datetimes on records
+      for (const dom of ['Diagnosis','LabTestEvent','Measurement','DrugPrescription']) {
+        await post({ name: 'hasDateTime', label: 'Date/Time', description: `The date/time associated with the ${dom}.`,
+          propertyType: 'datatype', domainClassId: C(dom).id, rangeClassIri: `${XSD}dateTime`, isRequired: false, mappingPattern: pTime('TimeInstant') });
+      }
+      // hasQuantity → hasPart(Quantity) on results/measurements/administrations
+      for (const dom of ['LabResult','Measurement','DrugAdministrationEvent']) {
+        await post({ name: 'hasQuantity', label: 'Has Quantity', description: `The measured quantity of the ${dom}.`,
+          propertyType: 'object', domainClassId: C(dom).id, rangeClassIri: C('Quantity').url, isRequired: false, mappingPattern: pOne('hasPart') });
+      }
+
+      // ── per-class properties ──
+      // Code
+      await post({ name: 'hasIdentifier', label: 'Identifier', description: 'The code value within its terminology.',
+        propertyType: 'datatype', domainClassId: C('Code').id, rangeClassIri: `${XSD}string`, isRequired: true, mappingPattern: pOne('hasValue') });
+      await post({ name: 'hasName', label: 'Name', description: 'The human-readable name of the code.',
+        propertyType: 'datatype', domainClassId: C('Code').id, rangeClassIri: `${XSD}string`, isRequired: false, mappingPattern: pOne('hasLabel') });
+      // Quantity
+      await post({ name: 'hasUnit', label: 'Has Unit', description: 'The unit of the quantity.',
+        propertyType: 'object', domainClassId: C('Quantity').id, rangeClassIri: C('Unit').url, isRequired: false, mappingPattern: pOne('hasPart') });
+      await post({ name: 'hasValue', label: 'Value', description: 'The numeric magnitude of the quantity.',
+        propertyType: 'datatype', domainClassId: C('Quantity').id, rangeClassIri: `${XSD}decimal`, isRequired: true, mappingPattern: pOne('hasValue') });
+      // LabTestEvent: sample / result / performer
+      await post({ name: 'hasSample', label: 'Has Sample', description: 'The sample the lab test was performed on.',
+        propertyType: 'object', domainClassId: C('LabTestEvent').id, rangeClassIri: C('Sample').url, isRequired: false, mappingPattern: pOne('hasParticipant') });
+      await post({ name: 'hasResult', label: 'Has Result', description: 'The result produced by the lab test.',
+        propertyType: 'object', domainClassId: C('LabTestEvent').id, rangeClassIri: C('LabResult').url, isRequired: false, mappingPattern: pRole('OutputRole') });
+      await post({ name: 'hasPerformer', label: 'Has Performer', description: 'The performer of the lab test.',
+        propertyType: 'object', domainClassId: C('LabTestEvent').id, rangeClassIri: C('SubjectPseudoIdentifier').url, isRequired: false, mappingPattern: pRole('PerformerRole') });
+      // Measurement: body site
+      await post({ name: 'hasBodySite', label: 'Has Body Site', description: 'The body site the measurement pertains to (coded).',
+        propertyType: 'object', domainClassId: C('Measurement').id, rangeClassIri: C('Code').url, isRequired: false, mappingPattern: pOne('hasFeature') });
+      // Drug administration / prescription: drug + route
+      await post({ name: 'hasDrug', label: 'Has Drug', description: 'The drug administered.',
+        propertyType: 'object', domainClassId: C('DrugAdministrationEvent').id, rangeClassIri: C('Drug').url, isRequired: false, mappingPattern: pOne('hasParticipant') });
+      await post({ name: 'hasDrug', label: 'Has Drug', description: 'The drug the prescription refers to.',
+        propertyType: 'object', domainClassId: C('DrugPrescription').id, rangeClassIri: C('Drug').url, isRequired: false, mappingPattern: pOne('refersTo') });
+      await post({ name: 'hasAdministrationRouteCode', label: 'Administration Route Code', description: 'The route of administration (coded).',
+        propertyType: 'object', domainClassId: C('DrugAdministrationEvent').id, rangeClassIri: C('Code').url, isRequired: false, mappingPattern: pOne('hasFeature') });
+      // Drug composition
+      await post({ name: 'hasSubstance', label: 'Has Substance', description: 'The active substance of the drug.',
+        propertyType: 'object', domainClassId: C('Drug').id, rangeClassIri: C('Substance').url, isRequired: false, mappingPattern: pOne('hasPart') });
+
+      navigate(`/ontology/${schema.id}`);
+    } finally {
+      setIsCreatingSphnExample(false);
+    }
+  }
+
   const form = useForm<NewSchemaForm>({
     resolver: zodResolver(NewSchemaFormSchema),
     defaultValues: { title: '', description: '', upperOntologyIri: '' },
@@ -2611,7 +2756,7 @@ function SchemaListPage() {
         <div className="flex gap-2 shrink-0">
           <button
             onClick={handleLoadExample}
-            disabled={isCreatingExample || isCreatingOmopExample}
+            disabled={isCreatingExample || isCreatingOmopExample || isCreatingSphnExample}
             className="bg-slate-100 hover:bg-slate-200 disabled:opacity-50 text-slate-700 text-sm font-medium px-4 py-2 rounded-lg transition-colors border border-slate-300"
             title="Create a pre-populated clinical schema with 7 example classes"
           >
@@ -2619,11 +2764,19 @@ function SchemaListPage() {
           </button>
           <button
             onClick={handleLoadOmopExample}
-            disabled={isCreatingExample || isCreatingOmopExample}
+            disabled={isCreatingExample || isCreatingOmopExample || isCreatingSphnExample}
             className="bg-slate-100 hover:bg-slate-200 disabled:opacity-50 text-slate-700 text-sm font-medium px-4 py-2 rounded-lg transition-colors border border-slate-300"
             title="Create a pre-populated OMOP CDM schema with 20 classes mapped to SULO"
           >
             {isCreatingOmopExample ? 'Creating…' : 'Load OMOP Example'}
+          </button>
+          <button
+            onClick={handleLoadSphnExample}
+            disabled={isCreatingExample || isCreatingOmopExample || isCreatingSphnExample}
+            className="bg-slate-100 hover:bg-slate-200 disabled:opacity-50 text-slate-700 text-sm font-medium px-4 py-2 rounded-lg transition-colors border border-slate-300"
+            title="Create a pre-populated SPHN schema with 20 core classes mapped to SULO"
+          >
+            {isCreatingSphnExample ? 'Creating…' : 'Load SPHN Example'}
           </button>
           <button
             onClick={() => setShowCreate(!showCreate)}
