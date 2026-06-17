@@ -1,0 +1,410 @@
+@prefix : <https://w3id.org/sulo/schema-builder/clinical-health-record/> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+:ClinicalVisitShape
+    a sh:NodeShape, owl:Class ;
+    sh:targetClass :ClinicalVisit ;
+    rdfs:label "Clinical Visit" ;
+    sh:property [
+        sh:path :hasPatient ;
+        sh:name "Has Patient" ;
+        sh:class :Person ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :hasCareProvider ;
+        sh:name "Has Care Provider" ;
+        sh:class :Person ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :hasCareUnit ;
+        sh:name "Has Care Unit" ;
+        sh:class :CareUnit ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :hasCode ;
+        sh:name "Has Code" ;
+        sh:class :Code ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :hasAdministrativeCase ;
+        sh:name "Has Administrative Case" ;
+        sh:class :AdministrativeCase ;
+        sh:minCount 0 ;
+    ] .
+
+:MeasurementShape
+    a sh:NodeShape, owl:Class ;
+    sh:targetClass :Measurement ;
+    rdfs:label "Measurement" ;
+    sh:property [
+        sh:path :hasMeasuredDate ;
+        sh:name "Has Measured Date" ;
+        sh:datatype xsd:dateTime ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :hasUnit ;
+        sh:name "Has Unit" ;
+        sh:class <https://w3id.org/sulo/Unit> ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :hasQuantityValue ;
+        sh:name "Has Quantity Value" ;
+        sh:datatype xsd:float ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :hasCode ;
+        sh:name "Has Code" ;
+        sh:or (
+            [ sh:class :Code ]
+            [ sh:class <http://snomed.info/id/363787002> ]
+        ) ;
+        sh:minCount 0 ;
+    ] .
+
+:MedicalProcedureShape
+    a sh:NodeShape, owl:Class ;
+    sh:targetClass :MedicalProcedure ;
+    rdfs:label "Medical Procedure" ;
+    sh:property [
+        sh:path :hasPatient ;
+        sh:name "Has Patient" ;
+        sh:class :Person ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :hasPerformer ;
+        sh:name "Has Performer" ;
+        sh:class :Person ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :hasPerformedDate ;
+        sh:name "Has Performed Date" ;
+        sh:datatype xsd:dateTime ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :hasStatus ;
+        sh:name "Has Status" ;
+        sh:class :ProcessStatus ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :hasCode ;
+        sh:name "Has Code" ;
+        sh:or (
+            [ sh:class :Code ]
+            [ sh:class <http://snomed.info/id/71388002> ]
+        ) ;
+        sh:minCount 0 ;
+    ] .
+
+:ClinicalConditionShape
+    a sh:NodeShape, owl:Class ;
+    sh:targetClass :ClinicalCondition ;
+    rdfs:label "Clinical Condition" ;
+    sh:property [
+        sh:path :hasRecordDate ;
+        sh:name "Has Record Date" ;
+        sh:datatype xsd:dateTime ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :hasConditionEndDate ;
+        sh:name "Has Condition End Date" ;
+        sh:datatype xsd:dateTime ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :hasLocatedIn ;
+        sh:name "Has Located In" ;
+        sh:class :AnatomicalStructure ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :hasSeverity ;
+        sh:name "Has Severity" ;
+        sh:class :Severity ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :hasCode ;
+        sh:name "Has Code" ;
+        sh:class :Code ;
+        sh:minCount 0 ;
+    ] .
+
+:SeverityShape
+    a sh:NodeShape, owl:Class ;
+    sh:targetClass :Severity ;
+    rdfs:label "Severity" ;
+    sh:property [
+        sh:path :hasCode ;
+        sh:name "Has Code" ;
+        sh:class :Code ;
+        sh:minCount 0 ;
+    ] .
+
+:TreatmentPlanShape
+    a sh:NodeShape, owl:Class ;
+    sh:targetClass :TreatmentPlan ;
+    rdfs:label "Treatment / Treatment Plan" .
+
+:SubjectOfCareRoleShape
+    a sh:NodeShape, owl:Class ;
+    sh:targetClass :SubjectOfCareRole ;
+    rdfs:label "Subject of Care Role" .
+
+:CareProviderRoleShape
+    a sh:NodeShape, owl:Class ;
+    sh:targetClass :CareProviderRole ;
+    rdfs:label "Care Provider Role" .
+
+:PersonShape
+    a sh:NodeShape, owl:Class ;
+    sh:targetClass :Person ;
+    rdfs:label "Person" .
+
+:AnatomicalStructureShape
+    a sh:NodeShape, owl:Class ;
+    sh:targetClass :AnatomicalStructure ;
+    rdfs:label "Anatomical Structure" ;
+    sh:property [
+        sh:path :hasCode ;
+        sh:name "Has Code" ;
+        sh:class :Code ;
+        sh:minCount 0 ;
+    ] .
+
+:PerformerRoleShape
+    a sh:NodeShape, owl:Class ;
+    sh:targetClass :PerformerRole ;
+    rdfs:label "Performer Role" .
+
+:ProcessStatusShape
+    a sh:NodeShape, owl:Class ;
+    sh:targetClass :ProcessStatus ;
+    rdfs:label "Process Status" .
+
+:PharmaceuticalDoseShape
+    a sh:NodeShape, owl:Class ;
+    sh:targetClass :PharmaceuticalDose ;
+    rdfs:label "Pharmaceutical Dose" .
+
+:OutputRoleShape
+    a sh:NodeShape, owl:Class ;
+    sh:targetClass :OutputRole ;
+    rdfs:label "Output Role" .
+
+:InstrumentRoleShape
+    a sh:NodeShape, owl:Class ;
+    sh:targetClass :InstrumentRole ;
+    rdfs:label "Instrument Role" .
+
+:CareUnitShape
+    a sh:NodeShape, owl:Class ;
+    sh:targetClass :CareUnit ;
+    rdfs:label "Care Unit" .
+
+:MeasurementProcessShape
+    a sh:NodeShape, owl:Class ;
+    sh:targetClass :MeasurementProcess ;
+    rdfs:subClassOf :MedicalProcedure ;
+    rdfs:label "Measurement Process" ;
+    sh:property [
+        sh:path :hasDevice ;
+        sh:name "Has Device" ;
+        sh:class :Device ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :hasResult ;
+        sh:name "Has Result" ;
+        sh:class :Measurement ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :hasSample ;
+        sh:name "Has Sample" ;
+        sh:class :Sample ;
+        sh:minCount 0 ;
+    ] .
+
+:DeviceShape
+    a sh:NodeShape, owl:Class ;
+    sh:targetClass :Device ;
+    rdfs:label "Device" .
+
+:CarePlanShape
+    a sh:NodeShape, owl:Class ;
+    sh:targetClass :CarePlan ;
+    rdfs:label "Care Plan" ;
+    sh:property [
+        sh:path :hasMedicalProcedure ;
+        sh:name "Has Medical Procedure" ;
+        sh:class :MedicalProcedure ;
+        sh:minCount 0 ;
+    ] .
+
+:OccupationShape
+    a sh:NodeShape, owl:Class ;
+    sh:targetClass :Occupation ;
+    rdfs:label "Occupation" .
+
+:EvaluationProcessShape
+    a sh:NodeShape, owl:Class ;
+    sh:targetClass :EvaluationProcess ;
+    rdfs:subClassOf :MedicalProcedure ;
+    rdfs:label "Evaluation Process" ;
+    sh:property [
+        sh:path :hasObservation ;
+        sh:name "Has Observation" ;
+        sh:class :DiagnosticStatement ;
+        sh:minCount 0 ;
+    ] .
+
+:MedicationAdministrationShape
+    a sh:NodeShape, owl:Class ;
+    sh:targetClass :MedicationAdministration ;
+    rdfs:subClassOf :MedicalProcedure ;
+    rdfs:label "Medication Administration" ;
+    sh:property [
+        sh:path :hasPharmaceuticalProduct ;
+        sh:name "Has Pharmaceutical Product" ;
+        sh:class :PharmaceuticalProduct ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :hasCode ;
+        sh:name "Has Code" ;
+        sh:class :Code ;
+        sh:minCount 0 ;
+    ] .
+
+:PharmaceuticalProductShape
+    a sh:NodeShape, owl:Class ;
+    sh:targetClass :PharmaceuticalProduct ;
+    rdfs:label "Pharmaceutical Product" ;
+    sh:property [
+        sh:path :hasDoseQuantity ;
+        sh:name "Has Dose Quantity" ;
+        sh:class :PharmaceuticalDose ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :hasDoseForm ;
+        sh:name "Has Dose Form" ;
+        sh:class :PharmaceuticalDoseForm ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :hasCode ;
+        sh:name "Has Code" ;
+        sh:class :Code ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :hasSubstance ;
+        sh:name "Has Substance" ;
+        sh:class :Substance ;
+        sh:minCount 0 ;
+    ] .
+
+:PharmaceuticalDoseFormShape
+    a sh:NodeShape, owl:Class ;
+    sh:targetClass :PharmaceuticalDoseForm ;
+    rdfs:label "Pharmaceutical Dose Form" .
+
+:DiagnosticStatementShape
+    a sh:NodeShape, owl:Class ;
+    sh:targetClass :DiagnosticStatement ;
+    rdfs:label "Diagnostic Statement" .
+
+:CodeShape
+    a sh:NodeShape, owl:Class ;
+    sh:targetClass :Code ;
+    rdfs:label "Code" ;
+    sh:property [
+        sh:path :hasIdentifier ;
+        sh:name "Has Identifier" ;
+        sh:datatype xsd:string ;
+        sh:minCount 1 ;
+    ] ;
+    sh:property [
+        sh:path :hasCodingSystemAndVersion ;
+        sh:name "Has Coding System And Version" ;
+        sh:datatype xsd:string ;
+        sh:minCount 1 ;
+    ] ;
+    sh:property [
+        sh:path :hasName ;
+        sh:name "Has Name" ;
+        sh:datatype xsd:string ;
+        sh:minCount 0 ;
+    ] .
+
+:ObservableEntityShape
+    a sh:NodeShape, owl:Class ;
+    sh:targetClass <http://snomed.info/id/363787002> ;
+    rdfs:subClassOf :Code ;
+    rdfs:label "Observable Entity" .
+
+:SCT_ProcedureShape
+    a sh:NodeShape, owl:Class ;
+    sh:targetClass <http://snomed.info/id/71388002> ;
+    rdfs:subClassOf :Code ;
+    rdfs:label "SCT Procedure" .
+
+:AdministrativeCaseShape
+    a sh:NodeShape, owl:Class ;
+    sh:targetClass :AdministrativeCase ;
+    rdfs:label "Administrative Case" ;
+    sh:property [
+        sh:path :hasPatient ;
+        sh:name "Has Patient" ;
+        sh:class :Person ;
+        sh:minCount 0 ;
+    ] .
+
+:SampleShape
+    a sh:NodeShape, owl:Class ;
+    sh:targetClass :Sample ;
+    rdfs:label "Sample" ;
+    sh:property [
+        sh:path :collectedFrom ;
+        sh:name "Collected From" ;
+        sh:class :Person ;
+        sh:minCount 0 ;
+    ] .
+
+:SubstanceShape
+    a sh:NodeShape, owl:Class ;
+    sh:targetClass :Substance ;
+    rdfs:label "Substance" .
+
+:DrugPrescriptionShape
+    a sh:NodeShape, owl:Class ;
+    sh:targetClass :DrugPrescription ;
+    rdfs:label "Drug Prescription" ;
+    sh:property [
+        sh:path :prescribesDrug ;
+        sh:name "Prescribes Drug" ;
+        sh:class :PharmaceuticalProduct ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :hasSubject ;
+        sh:name "Has Subject" ;
+        sh:class :Person ;
+        sh:minCount 0 ;
+    ] .

@@ -1,0 +1,174 @@
+classDiagram
+  class ClinicalVisit {
+    <<sulo:Process>>
+    +hasPatient() Person
+    +hasCareProvider() Person
+    +hasCareUnit() CareUnit
+    +hasCode() Code
+    +hasAdministrativeCase() AdministrativeCase
+  }
+  class Measurement {
+    <<sulo:InformationObject>>
+    +hasMeasuredDate() dateTime
+    +hasUnit() Unit
+    +hasQuantityValue() float
+    +hasCode() Code
+    +hasCode() ObservableEntity
+  }
+  class MedicalProcedure {
+    <<sulo:Process>>
+    +hasPatient() Person
+    +hasPerformer() Person
+    +hasPerformedDate() dateTime
+    +hasStatus() ProcessStatus
+    +hasCode() Code
+    +hasCode() SCT_Procedure
+  }
+  class ClinicalCondition {
+    <<sulo:Process>>
+    +hasRecordDate() dateTime
+    +hasConditionEndDate() dateTime
+    +hasLocatedIn() AnatomicalStructure
+    +hasSeverity() Severity
+    +hasCode() Code
+  }
+  class Severity {
+    <<sulo:Quality>>
+    +hasCode() Code
+  }
+  class TreatmentPlan {
+    <<sulo:Process>>
+  }
+  class SubjectOfCareRole {
+    <<sulo:Role>>
+  }
+  class CareProviderRole {
+    <<sulo:Role>>
+  }
+  class Person {
+    <<sulo:SpatialObject>>
+  }
+  class AnatomicalStructure {
+    <<sulo:SpatialObject>>
+    +hasCode() Code
+  }
+  class PerformerRole {
+    <<sulo:Role>>
+  }
+  class ProcessStatus {
+    <<sulo:Quality>>
+  }
+  class PharmaceuticalDose {
+    <<sulo:Quantity>>
+  }
+  class OutputRole {
+    <<sulo:Role>>
+  }
+  class InstrumentRole {
+    <<sulo:Role>>
+  }
+  class CareUnit {
+    <<sulo:SpatialObject>>
+  }
+  class MeasurementProcess {
+    <<sulo:Process>>
+    +hasDevice() Device
+    +hasResult() Measurement
+    +hasSample() Sample
+  }
+  class Device {
+    <<sulo:SpatialObject>>
+  }
+  class CarePlan {
+    <<sulo:InformationObject>>
+    +hasMedicalProcedure() MedicalProcedure
+  }
+  class Occupation {
+    <<sulo:SpatialObject>>
+  }
+  class EvaluationProcess {
+    <<sulo:Process>>
+    +hasObservation() DiagnosticStatement
+  }
+  class MedicationAdministration {
+    <<sulo:Process>>
+    +hasPharmaceuticalProduct() PharmaceuticalProduct
+    +hasCode() Code
+  }
+  class PharmaceuticalProduct {
+    <<sulo:SpatialObject>>
+    +hasDoseQuantity() PharmaceuticalDose
+    +hasDoseForm() PharmaceuticalDoseForm
+    +hasCode() Code
+    +hasSubstance() Substance
+  }
+  class PharmaceuticalDoseForm {
+    <<sulo:Quality>>
+  }
+  class DiagnosticStatement {
+    <<sulo:InformationObject>>
+  }
+  class Code {
+    <<sulo:InformationObject>>
+    +hasIdentifier() string
+    +hasCodingSystemAndVersion() string
+    +hasName() string
+  }
+  class ObservableEntity {
+  }
+  class SCT_Procedure {
+  }
+  class AdministrativeCase {
+    <<sulo:Process>>
+    +hasPatient() Person
+  }
+  class Sample {
+    <<sulo:SpatialObject>>
+    +collectedFrom() Person
+  }
+  class Substance {
+    <<sulo:SpatialObject>>
+  }
+  class DrugPrescription {
+    <<sulo:InformationObject>>
+    +prescribesDrug() PharmaceuticalProduct
+    +hasSubject() Person
+  }
+
+  MedicalProcedure <|-- MeasurementProcess
+  MedicalProcedure <|-- EvaluationProcess
+  MedicalProcedure <|-- MedicationAdministration
+  Code <|-- ObservableEntity
+  Code <|-- SCT_Procedure
+  ClinicalVisit --> Person : hasPatient
+  ClinicalVisit --> Person : hasCareProvider
+  ClinicalVisit --> CareUnit : hasCareUnit
+  MedicalProcedure --> Person : hasPatient
+  MedicalProcedure --> Person : hasPerformer
+  MedicalProcedure --> ProcessStatus : hasStatus
+  MeasurementProcess --> Device : hasDevice
+  MeasurementProcess --> Measurement : hasResult
+  ClinicalCondition --> AnatomicalStructure : hasLocatedIn
+  ClinicalCondition --> Severity : hasSeverity
+  CarePlan --> MedicalProcedure : hasMedicalProcedure
+  EvaluationProcess --> DiagnosticStatement : hasObservation
+  PharmaceuticalProduct --> PharmaceuticalDose : hasDoseQuantity
+  PharmaceuticalProduct --> PharmaceuticalDoseForm : hasDoseForm
+  MedicationAdministration --> PharmaceuticalProduct : hasPharmaceuticalProduct
+  ClinicalCondition --> Code : hasCode
+  ClinicalVisit --> Code : hasCode
+  MedicalProcedure --> Code : hasCode
+  Measurement --> Code : hasCode
+  MedicationAdministration --> Code : hasCode
+  AnatomicalStructure --> Code : hasCode
+  Severity --> Code : hasCode
+  PharmaceuticalProduct --> Code : hasCode
+  MedicalProcedure --> SCT_Procedure : hasCode
+  Measurement --> ObservableEntity : hasCode
+  ClinicalVisit --> AdministrativeCase : hasAdministrativeCase
+  AdministrativeCase --> Person : hasPatient
+  MeasurementProcess --> Sample : hasSample
+  Sample --> Person : collectedFrom
+  PharmaceuticalProduct --> Substance : hasSubstance
+  DrugPrescription --> PharmaceuticalProduct : prescribesDrug
+  DrugPrescription --> Person : hasSubject
