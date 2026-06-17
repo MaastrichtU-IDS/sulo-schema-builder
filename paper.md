@@ -10,7 +10,7 @@
 
 **Background:** Experts who design biomedical data schemas such as HL7 FHIR, OMOP CDM, or relational databases, and ontologists who formalise domain semantics in OWL operate with fundamentally different representational commitments. Existing tools address one community or the other but not both simultaneously, creating a persistent gap between schemas and formally grounded ontologies.
 
-**Findings:** We present the SULO-Compliant Schema Builder, an open-source web application that enables domain experts to define classes and properties, align them interactively to the Simplified Upper-Level Ontology (SULO), and automatically generate four artefacts from a single schema model: plain RDF/Turtle, OWL DL with SULO-compliant equivalence axioms and property restrictions, SHACL node shapes, and Mermaid UML diagrams. A declarative mapping-pattern mechanism, analogous to SPARQL triple templates, compiles domain relations into SULO relations without requiring the user to author OWL directly. A clinical health record case study, covering 28 classes and 83 properties, demonstrates the practical viability of the approach.
+**Findings:** We present the SULO-Compliant Schema Builder, an open-source web application that enables domain experts to define classes and properties, align them interactively to the Simplified Upper-Level Ontology (SULO), and automatically generate four artefacts from a single schema model: plain RDF/Turtle, OWL DL with SULO-compliant equivalence axioms and property restrictions, SHACL node shapes, and Mermaid UML diagrams. A declarative mapping-pattern mechanism, analogous to SPARQL triple templates, compiles domain relations into SULO relations without requiring the user to author OWL directly. A clinical health record case study, covering 32 classes and 41 properties, demonstrates the practical viability of the approach.
 
 **Conclusions:** The SULO-Compliant Schema Builder lowers the barrier between schema design and formal ontology engineering. By embedding upper-ontology alignment and mapping patterns as first-class design features, it makes OWL DL expressivity accessible to practitioners without description-logic expertise, and provides a concrete pedagogical instrument for demonstrating what formal ontologies add over schemas. The tool is freely available at https://github.com/MaastrichtU-IDS/sulo-schema-builder.
 
@@ -119,16 +119,20 @@ The GUI bridges schema design and ontology authoring through two principal mecha
 
 To evaluate the tool's practical viability, we constructed a Clinical Health Record Schema modelling a representative subset of the domain and inspired by the SPHN schema [14]. The schema, loadable via the **Load Example** button, comprises:
 
-- **28 classes** — 26 aligned to SULO concepts (Process, Role, Quality, SpatialObject, InformationObject, Quantity) and 2 aligned to SNOMED CT URIs (`ObservableEntity`: `http://snomed.info/id/363787002`; `SCT_Procedure`: `http://snomed.info/id/71388002`).
-- **83 properties** — 48 object properties linking schema classes and 35 datatype properties mapping to XSD literals.
-- **3 subclass relationships** — `MeasurementProcess`, `EvaluationProcess`, and `MedicationAdministration` as subclasses of `MedicalProcedure`; `ObservableEntity` and `SCT_Procedure` as subclasses of `Code`.
-- **16 `hasCode` properties** (one per clinical class) with the single-hop SULO mapping pattern `?this sulo:hasFeature ?value`, demonstrating the SPHN `Code` pattern [14] at scale.
+- **32 classes** — 30 aligned to SULO concepts (Process ×8, SpatialObject ×8, InformationObject ×5, Role ×5, Quality ×3, Quantity ×1) and 2 aligned to SNOMED CT URIs (`ObservableEntity`: `http://snomed.info/id/363787002`; `SCT_Procedure`: `http://snomed.info/id/71388002`).
+- **41 properties** — 33 object properties linking schema classes and 8 datatype properties mapping to XSD literals; every property carries a SULO mapping pattern (concept links via `sulo:hasFeature`, role-mediated participation via `sulo:hasParticipant`, timestamps via `sulo:atTime`, etc.).
+- **5 subclass relationships** — `MeasurementProcess`, `EvaluationProcess`, and `MedicationAdministration` as subclasses of `MedicalProcedure`; `ObservableEntity` and `SCT_Procedure` as subclasses of `Code`.
+- **4 classes adopted from the SPHN schema** — `AdministrativeCase` (a `Process` grouping a patient's visits), `Sample` and `Substance` (`SpatialObject`s), and `DrugPrescription` (an `InformationObject`) — illustrating cross-schema reuse of upper-level-aligned concepts.
 
-The OWL DL export for this schema generates 121 `owl:equivalentClass` axioms and 16 property-restriction blocks. The SHACL export generates 28 node shapes with 83 property constraints, 2 of which contain `sh:or` union blocks.
+The OWL DL export for this schema generates 67 `owl:equivalentClass` axioms (with their property restrictions) from the mapping patterns. The SHACL export generates 32 node shapes with 39 property shapes, 2 of which contain `sh:or` union ranges. Running the integrated consistency check, HermiT reports the schema **coherent** — no unsatisfiable classes — confirming that every class–property alignment respects SULO's category, domain/range, and parthood constraints.
+
+### Consistency checking
+
+The builder exposes a one-click **Check consistency** action that runs a full OWL DL reasoner over the schema without leaving the editor. It submits the generated OWL + SULO artefact to a backend service, which merges it with the complete SULO ontology and invokes HermiT (via ROBOT) to compute two verdicts: whether the merged ontology is *consistent* — has a model at all — and which classes are *unsatisfiable* — can have no instances even when the ontology is otherwise consistent. The result is returned as a list of clashes, each naming the offending class or individual together with the reasoner's explanation (the minimal set of axioms that entails the contradiction), and rendered as a single ✓ or an annotated problem list. Because an unsatisfiable class follows from the schema axioms alone, modelling errors are caught at design time, before any instance data exists; once data is added, an individual forced into an empty class renders the whole graph inconsistent. The check runs server-side, since it requires a JVM-based reasoner, and reasons over the full OWL DL semantics of the generated axioms — strictly more than the shape validation SHACL provides. The next section illustrates the error categories it surfaces.
 
 ### Detecting modelling errors
 
-A principal advantage of aligning a domain schema to SULO and generating OWL DL artefacts is that a description-logic reasoner can detect modelling errors invisible to schema validators and SHACL engines. SULO declares four top-level categories — `Capability`, `InformationObject`, `Quality`, and `Role` — as mutually disjoint via `owl:AllDisjointClasses`, and additionally asserts that `Object` and `Process` are disjoint. Any instance data or class axiom that violates these constraints produces an unsatisfiable class or a direct contradiction, surfaced as a reasoner clash. The three examples below use realistic modelling mistakes that arise when generating RDF from unstructured clinical notes.
+A principal advantage of aligning a domain schema to SULO and generating OWL DL artefacts is that a description-logic reasoner can detect modelling errors invisible to schema validators and SHACL engines. SULO declares four top-level categories — `Capability`, `InformationObject`, `Quality`, and `Role` — as mutually disjoint via `owl:AllDisjointClasses`, and additionally asserts that `Object` and `Process` are disjoint. Beyond category disjointness, SULO also constrains how its relations may be used: `sulo:hasValue` and `sulo:refersTo` have an `InformationObject` domain, `sulo:hasParticipant` a `Process` domain, and `sulo:hasPart` propagates a category to its parts (`Process ⊑ ∀hasPart.Process`, and analogously for `Object`, `InformationObject`, and `SpatialObject`). Any instance datum or class axiom that violates these constraints produces an unsatisfiable class or a direct contradiction, surfaced as a reasoner clash and reported directly in the tool's integrated *Consistency* check. The examples below illustrate the recurring error categories with realistic modelling mistakes that arise when generating RDF from clinical sources: Examples 1–2 stem from category disjointness made explicit through instance typing and class subsumption; Examples 3–6 from relations and parthood mappings that force an entity into a second, incompatible category; and Examples 7–8 from finer category distinctions — separating a quantity from a quality, and a role from its bearer. In each case the conflict is logical rather than structural, surfaced by reasoning over the generated OWL (the tool's integrated consistency check) rather than by shape validation.
 
 **Example 1 — conflating a statement with a quality.** The following instance, generated from the text *"Acute viral pharyngitis with mild severity"*, assigns two types to a single individual:
 
@@ -150,17 +154,80 @@ owl:AllDisjointClasses (
 
 A full OWL DL reasoner such as HermiT or Pellet detects this clash and warns the user.
 
-**Example 2 — subclassing two disjoint upper-level classes.** An automatically generated `Observation` class inherits from both a Process-aligned class and an InformationObject-aligned class. A representative instance:
+**Example 2 — conflating a condition with the observation about it.** A structurally common error in deployed clinical information models is conflating a clinical *condition* with the *observation* about that condition. While the distinction is well understood in principle — a clinical condition is a pathological process in the patient, whereas an observation is an information object that refers to that process — it is routinely violated in the data structures of widely used terminologies and record models. The following class definition mixes them by placing a single class under both:
 
 ```turtle
-ex:blood_test_1 a ex:Observation ;
-  chr:hasPerformedDate "2021-06-15T10:00:00+02:00"^^xsd:dateTime ;
-  chr:hasQuantityValue "5.4"^^xsd:float .
+ex:ClinicalFinding
+  rdfs:subClassOf chr:Observation ,        # chr:Observation        → sulo:InformationObject
+                  chr:ClinicalCondition .  # chr:ClinicalCondition  → sulo:Process
 ```
 
-OWL-DL materialisation propagates both SULO superclasses to `ex:Observation` via `rdfs:subClassOf` transitivity, so `ex:blood_test_1` inherits both `sulo:Process` and `sulo:Object`. Because `sulo:Object owl:disjointWith sulo:Process` is asserted directly in SULO as a pairwise triple (not only via `AllDisjointClasses`), OWL-RL can materialise the contradiction. The reasoner flags `ex:blood_test_1` as simultaneously a `sulo:Process` and a `sulo:Object`, which is unsatisfiable — precisely the kind of inter-class modelling error, invisible to SHACL, that the SULO alignment is designed to surface.
+Any instance of `ex:ClinicalFinding` would simultaneously be a `sulo:Object` (via `InformationObject`) and a `sulo:Process`, two categories that SULO declares pairwise disjoint. The class is therefore unsatisfiable, and every individual typed as `ex:ClinicalFinding` immediately fires a clash. This example has particular educational value: it highlights the phenomenon of a representational use–mention confusion, exposing a category mistake at the schema level and making the distinction between referent and representation explicit and machine-verifiable.
 
-**Example 3 — use–mention confusion.** A structurally common error is conflating a clinical condition (a pathological process in the patient) with the diagnostic statement about it (an information object that refers to that process): *"the diagnosis is the disease."* When a class subclasses both a Process-aligned and an InformationObject-aligned class, any instance would simultaneously be a `sulo:Object` and a `sulo:Process` — pairwise disjoint in SULO. The class is therefore unsatisfiable and detected at the schema level, before any instances are considered. This example has particular educational value: the logical contradiction exposes the category mistake of conflating a process in reality with a statement describing it, making the distinction between referent and representation explicit and machine-verifiable.
+**Example 3 — a record made part of the process it documents.** A `chr:Diagnosis` is correctly aligned to `sulo:InformationObject`: it is a statement *about* a clinical situation, not the situation itself. To link each diagnosis to the hospital stay it was recorded during, the schema author maps the `hasAdministrativeCase` relation onto SULO's parthood relation `sulo:isPartOf`:
+
+```turtle
+chr:Diagnosis           rdfs:subClassOf sulo:InformationObject .
+chr:AdministrativeCase  rdfs:subClassOf sulo:Process .
+
+# hasAdministrativeCase compiled as:  ?this sulo:isPartOf ?case
+ex:diagnosis_9 a chr:Diagnosis ;
+  sulo:isPartOf ex:case_2 .
+ex:case_2 a chr:AdministrativeCase .
+```
+
+`sulo:isPartOf` is the inverse of `sulo:hasPart`, so this entails `ex:case_2 sulo:hasPart ex:diagnosis_9`. The administrative case is a `sulo:Process`, and SULO constrains `sulo:Process ⊑ ∀sulo:hasPart.Process` — every part of a process is itself a process. The diagnosis is therefore forced to be a `Process`; but it was declared an `InformationObject ⊑ sulo:Object`, and `sulo:Object owl:disjointWith sulo:Process`, so `ex:diagnosis_9` would be at once an `Object` and a `Process`, and the reasoner reports an inconsistency. The mistake is a parthood variant of *use–mention* confusion: a diagnosis *record* is not a temporal part of the encounter it documents. Its link to the case is an association, not mereology, and is properly expressed with the unconstrained `sulo:isIn` relation rather than `sulo:isPartOf` — making the distinction between a process in reality and a statement recorded about it explicit and machine-verifiable.
+
+The next six examples extend the same principle to the *relations* a schema attaches to its classes. Each arises naturally when a tabular source (e.g. OMOP CDM or SPHN) is mapped to SULO column by column, and each is invisible to SHACL because no asserted shape is violated — the conflict is in the logic.
+
+**Example 4 — a literal value on a process.** A frequent shortcut when flattening a drug-exposure row is to attach each scalar column directly to the event:
+
+```turtle
+ex:drug_exposure_42 a chr:DrugAdministration ;
+  chr:daysSupply "30"^^xsd:integer .
+```
+
+`chr:DrugAdministration` maps to `sulo:Process`, and `chr:daysSupply` compiles to the pattern `?this sulo:hasValue ?value`. Since `sulo:hasValue rdfs:domain sulo:InformationObject`, the subject of any `hasValue` assertion is inferred to be an `InformationObject` (hence a `sulo:Object`); but the event is a `sulo:Process`, and `Object owl:disjointWith Process`. The reasoner reports the property's domain as unsatisfiable: a process cannot itself carry a literal value. The coherent pattern — used by every date-time column — routes the literal through an information-bearing node (`?this sulo:atTime [ a sulo:TimeInstant ; sulo:hasValue ?value ]`), where `hasValue` sits on the `TimeInstant`, an `InformationObject`.
+
+**Example 5 — an information object given a participant.** A measurement result — an information object recording a value — is assigned a patient through the participant pattern:
+
+```turtle
+ex:measurement_7 a chr:Measurement ;
+  chr:hasSubject ex:patient_3 .
+```
+
+`chr:Measurement` maps to `sulo:InformationObject`, and `chr:hasSubject` compiles to `?this sulo:hasParticipant [ a chr:SubjectRole ; sulo:isFeatureOf ?value ]`. SULO declares `sulo:hasParticipant rdfs:domain sulo:Process`: only a process has participants. The result is therefore forced to be a `Process`, contradicting its `Object` membership. The mistake is a category error between the measuring *process* — which legitimately has the patient as a participant — and the measurement *result*, an information object that merely records it; the fix attaches the patient to the underlying process, or states that the result `sulo:refersTo` the patient.
+
+**Example 6 — a part drawn from the wrong category.** Modelling a drug dose as a structural part of the administration process:
+
+```turtle
+ex:drug_exposure_42 a chr:DrugAdministration ;
+  sulo:hasPart ex:dose_5 .
+ex:dose_5 a chr:DoseQuantity .
+```
+
+`chr:DrugAdministration` maps to `sulo:Process`, and SULO constrains `sulo:Process ⊑ ∀sulo:hasPart.Process`: every part of a process is itself a process. But `chr:DoseQuantity` maps to `sulo:Quantity ⊑ sulo:InformationObject ⊑ sulo:Object`. Propagating the universal restriction onto the filler forces `ex:dose_5` to be both a `Process` and an `Object`, which are disjoint, so the class is unsatisfiable. Crucially, this contradiction lives inside an `owl:allValuesFrom` restriction body rather than in a named-class axiom — so unlike Examples 1–2 it escapes both SHACL and lightweight named-class reasoning, and is reached only by a full DL reasoner. A dose is better modelled as a feature of the exposure (`sulo:hasFeature`) than as a part of the process.
+
+**Example 7 — quantifying a quality (age).** It is tempting to model a patient's age as an intrinsic *quality* of the person, and then to record the number directly on it:
+
+```turtle
+chr:Age rdfs:subClassOf sulo:Quality .
+
+ex:age_1 a chr:Age ;
+  sulo:hasValue "45"^^xsd:decimal .
+```
+
+`chr:Age` maps to `sulo:Quality`, which is fine on its own. But the moment a value is attached, the second axiom bites: `sulo:hasValue rdfs:domain sulo:InformationObject`, so `ex:age_1` — being the subject of a `hasValue` assertion — is inferred to be an `InformationObject`. SULO declares `Quality` and `InformationObject` to be disjoint kinds of `Feature`, so `ex:age_1` is simultaneously a `Quality` and an `InformationObject`: a contradiction the reasoner reports as an inconsistency. The clash pinpoints the real distinction — a quality such as "frail" is borne directly and carries no magnitude, whereas anything that *has a value* is information: here a `Quantity` (specifically a `Duration`, the time elapsed since birth) and therefore an `InformationObject`. Age should be modelled as a `sulo:Quantity` related to the person, where the value and its unit properly belong; the same correction applies to body temperature, blood pressure, and any other quantified observation that feels like a property but is in fact recorded information.
+
+**Example 8 — conflating a role with its bearer.** When a schema models the *patient* as a kind of person rather than as a role a person plays, it places one class under two SULO categories at once:
+
+```turtle
+chr:Patient rdfs:subClassOf sulo:SpatialObject, sulo:Role .
+```
+
+A person is a `sulo:SpatialObject`; the patient *role* is a `sulo:Role`, which SULO makes `⊑ sulo:Feature`. But SULO asserts `sulo:Feature owl:disjointWith sulo:SpatialObject` — features (capabilities, qualities, roles, information objects) are categorically distinct from the spatial objects that bear them. `chr:Patient` is therefore unsatisfiable: nothing can be at once a spatial object and a role. The error, and its remedy, make explicit a distinction clinical schemas routinely blur — the persistent *person* (a `SpatialObject`) versus the context-dependent *subject-of-care role* they play during a particular encounter, which belongs in a separate `sulo:Role` class linked to the person through `sulo:isFeatureOf`. The same diagnosis surfaces wherever a schema treats provider, specimen-donor, or device-operator as a subtype of person rather than as a role.
+
+Together these examples show that SULO alignment turns a broad spectrum of schema-design mistakes — miscategorised entities, misused relations, mislocated parts, quantities mistaken for qualities, and conflated roles and bearers — into machine-checkable logical contradictions that schema validators and SHACL cannot detect, but that the tool's integrated reasoner surfaces directly.
 
 ### Mapping patterns as pivot bridges for cross-standard transformation
 
@@ -174,7 +241,7 @@ The Schema Builder also serves as a pedagogical instrument for demonstrating wha
 - **Role indirection.** A schema designer's first instinct is `:ClinicalVisit :hasPatient :Person`. The OWL + SULO export adds the intermediate `SubjectOfCareRole` class, motivated concretely: if a person is the primary responsible contact in visit A but merely an observer in visit B, an intermediate participation node is needed to represent each role distinctly.
 - **Constraint expressivity.** SHACL shapes validate that every `Measurement` has a `:hasCode` property pointing to a `:Code` or `:ObservableEntity` instance. The OWL DL equivalence axioms additionally assert, via the `sulo:hasFeature` path, that any individual reached that way from a `sulo:InformationObject` is a `Code` instance. A reasoner materialising the SULO graph can detect inter-dataset type inconsistencies invisible to SHACL; switching between export tabs makes this difference concrete.
 
-A pre-built Clinical Health Record Schema (28 classes, 83 properties) is available via **Load Example**, enabling instructors to demonstrate the full export pipeline without students constructing a schema from scratch. A second **Load OMOP Example** option loads a parallel schema covering the same clinical domain in a different structural style, enabling side-by-side comparison.
+A pre-built Clinical Health Record Schema (32 classes, 41 properties) is available via **Load Example**, enabling instructors to demonstrate the full export pipeline without students constructing a schema from scratch. A second **Load OMOP Example** option loads a parallel schema covering the same clinical domain in a different structural style, enabling side-by-side comparison.
 
 ### Comparison with related tools
 
@@ -195,7 +262,7 @@ The SULO-Compliant Schema Builder is an open-source web application that bridges
 
 The tool makes three concrete contributions. First, the two-layer export architecture produces both a plain RDFS vocabulary and an OWL DL ontology with full `owl:equivalentClass` restrictions from the same schema model, with no OWL authoring required. Second, the bidirectional mapping-pattern compiler (`buildOwlExpr` / `buildReverseOwlExpr`) enables SULO to act as a pivot model between FHIR, OMOP, and other clinical standards through shared pattern semantics. Third, the dual-tab export view and pre-built example schemas provide a concrete pedagogical platform for demonstrating the expressive advantages that OWL DL provides over SHACL and RDFS alone.
 
-Important limitations remain. The triple-template UI currently supports chains up to three hops; SPARQL `OPTIONAL`, `FILTER`, and aggregation patterns are not representable. The tool generates OWL DL artefacts but does not embed an in-browser reasoner; demonstrating inference requires exporting to Protégé or HermiT. Alignment discovery relies on the user knowing the applicable SULO concept or browsing via autocomplete; no LLM-assisted suggestion is yet provided. Cross-schema mapping — expressing that `:ClinicalVisit` in one schema and `Encounter` in another share a `mapsToConceptIri` — is implicit in the stored IRIs but not yet surfaced in the UI.
+Important limitations remain. The triple-template UI currently supports chains up to three hops; SPARQL `OPTIONAL`, `FILTER`, and aggregation patterns are not representable. Consistency checking is now integrated into the schema-builder workflow — a one-click *Check consistency* action on the editor screen runs HermiT (via ROBOT) over the generated OWL merged with SULO and reports unsatisfiable classes and logical inconsistencies with explanations, so demonstrating inference no longer requires a manual export to Protégé; however, this reasoning executes server-side (it requires the API and a JVM-based reasoner) rather than running purely in the browser. Alignment discovery relies on the user knowing the applicable SULO concept or browsing via autocomplete; no LLM-assisted suggestion is yet provided. Cross-schema mapping — expressing that `:ClinicalVisit` in one schema and `Encounter` in another share a `mapsToConceptIri` — is implicit in the stored IRIs but not yet surfaced in the UI.
 
 Planned extensions include SSSOM export of `mapsToConceptIri` values, a cross-schema mapping view for side-by-side FHIR–OMOP–SULO comparison, LLM-assisted concept alignment, and a library of reusable mapping-pattern templates for common SULO design patterns (role bearer, quality bearer, information content entity).
 

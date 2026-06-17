@@ -60,6 +60,33 @@ export interface OntologySchemaSummary {
   upperOntologyIri?: string;
 }
 
+// ─── Server-side full OWL DL reasoning ──────────────────────────────────────────
+
+export interface ServerClash {
+  kind: 'unsatisfiable-class' | 'inconsistent-ontology';
+  iri?: string;
+  label?: string;
+  explanation: string;
+}
+
+export interface ConsistencyReport {
+  consistent: boolean;
+  reasoner: string;
+  clashes: ServerClash[];
+}
+
+/** Whether the server offers the full OWL DL (HermiT) consistency check. */
+export async function getReasonerStatus(): Promise<{ enabled: boolean; reasoner: string }> {
+  const { data } = await apiClient.get('/reason/status');
+  return data;
+}
+
+/** Run a full OWL DL consistency check (SULO + user OWL via HermiT) on the server. */
+export async function reasonOntologyServer(turtle: string): Promise<ConsistencyReport> {
+  const { data } = await apiClient.post('/reason', { turtle });
+  return data;
+}
+
 // ─── Hooks ────────────────────────────────────────────────────────────────────
 
 export function useOntologySchemas() {

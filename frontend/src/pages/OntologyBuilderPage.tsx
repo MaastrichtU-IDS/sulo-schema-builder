@@ -29,11 +29,14 @@ import {
   useUpdateOntologyProperty,
   useDeleteOntologyProperty,
   useUpperConcepts,
+  getReasonerStatus,
+  reasonOntologyServer,
   type OntologyClass,
   type OntologyProperty,
   type OntologySchema,
   type UpperConcept,
   type TripleTemplate,
+  type ConsistencyReport,
 } from '../api/ontology.js';
 import { apiClient } from '../api/client.js';
 import {
@@ -743,10 +746,10 @@ function ExportModal({ schema, onClose }: { schema: OntologySchema; onClose: () 
         {/* Tabs */}
         <div className="flex gap-1 px-4 pt-3 border-b border-slate-200 shrink-0">
           {([
-            { key: 'plain', label: 'RDF Schema' },
-            { key: 'owl',   label: 'OWL + SULO' },
-            { key: 'shacl', label: 'SHACL' },
-            { key: 'uml',   label: 'UML Diagram' },
+            { key: 'plain',  label: 'RDF Schema' },
+            { key: 'owl',    label: 'OWL + SULO' },
+            { key: 'shacl',  label: 'SHACL' },
+            { key: 'uml',    label: 'UML Diagram' },
           ] as const).map(({ key, label }) => (
             <button
               key={key}
@@ -800,6 +803,136 @@ function ExportModal({ schema, onClose }: { schema: OntologySchema; onClose: () 
               Download
             </button>
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Consistency panel ─────────────────────────────────────────────────────────
+
+function ConsistencyPanel({ turtleOwl }: { turtleOwl: string }) {
+  // Server-side full OWL DL (HermiT) consistency check.
+  const [serverEnabled, setServerEnabled] = useState<boolean | null>(null);
+  const [serverReport, setServerReport]   = useState<ConsistencyReport | null>(null);
+  const [serverState, setServerState]     = useState<'idle' | 'loading' | 'error'>('idle');
+  const [serverError, setServerError]     = useState<string>('');
+
+  // Probe whether the backend reasoner is available (controls the button).
+  useEffect(() => {
+    let alive = true;
+    getReasonerStatus()
+      .then((s) => { if (alive) setServerEnabled(s.enabled); })
+      .catch(() => { if (alive) setServerEnabled(false); });
+    return () => { alive = false; };
+  }, []);
+
+  // Any change to the generated OWL invalidates a stale result.
+  useEffect(() => { setServerReport(null); setServerState('idle'); setServerError(''); }, [turtleOwl]);
+
+  async function runServer() {
+    setServerState('loading');
+    setServerError('');
+    try {
+      setServerReport(await reasonOntologyServer(turtleOwl));
+      setServerState('idle');
+    } catch (err: unknown) {
+      const e = err as { response?: { status?: number; data?: { message?: string } } };
+      setServerState('error');
+      setServerError(
+        e.response?.status === 503
+          ? 'Server-side reasoning is not available in this deployment.'
+          : e.response?.data?.message ?? 'The reasoner could not process this ontology.',
+      );
+    }
+  }
+
+  if (serverEnabled === false) {
+    return (
+      <div className="min-h-[200px] flex items-center justify-center">
+        <div className="rounded-lg bg-amber-50 border border-amber-200 p-4 text-xs text-amber-800 max-w-md text-center">
+          Server-side OWL DL reasoning is not available in this deployment.
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-[200px]">
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-xs text-slate-500">
+          <strong className="text-slate-600">Full OWL DL check (HermiT).</strong> Tableau reasoning over the
+          complete SULO ontology — catches unsatisfiable classes and logical inconsistencies, including
+          restriction, negation and disjoint-union errors that schema validators and SHACL miss.
+        </span>
+        <button
+          onClick={runServer}
+          disabled={serverState === 'loading'}
+          className="text-xs bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white px-3 py-1 rounded-lg transition-colors shrink-0 ml-3"
+        >
+          {serverState === 'loading' ? 'Reasoning…' : serverReport ? 'Re-run' : 'Check consistency'}
+        </button>
+      </div>
+
+      {serverState === 'error' ? (
+        <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-xs text-amber-800">
+          {serverError}
+        </div>
+      ) : serverReport === null ? (
+        <div className="flex items-center justify-center h-40 text-sm text-slate-400">
+          {serverState === 'loading' ? 'Running HermiT…' : 'Click “Check consistency” to run the reasoner.'}
+        </div>
+      ) : serverReport.consistent ? (
+        <div className="flex items-start gap-3 rounded-lg bg-emerald-50 border border-emerald-200 p-4">
+          <span className="text-emerald-600 text-xl leading-none">✓</span>
+          <div>
+            <p className="text-sm font-medium text-emerald-800">Consistent</p>
+            <p className="text-xs text-emerald-700 mt-0.5">
+              {serverReport.reasoner} found no unsatisfiable classes and no logical inconsistency.
+            </p>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 text-sm font-medium text-rose-700">
+            <span className="text-rose-600 text-xl leading-none">✕</span>
+            {serverReport.clashes.length} {serverReport.clashes.length === 1 ? 'problem' : 'problems'} found by {serverReport.reasoner}
+          </div>
+          {serverReport.clashes.map((clash, i) => (
+            <div key={i} className="rounded-lg bg-rose-50 border border-rose-200 p-3">
+              <p className="text-xs font-mono font-medium text-rose-800">
+                {clash.label ?? clash.iri ?? (clash.kind === 'inconsistent-ontology' ? 'Inconsistent ontology' : 'Unsatisfiable class')}
+              </p>
+              <pre className="text-xs text-rose-700 mt-1 leading-relaxed whitespace-pre-wrap font-sans">{clash.explanation}</pre>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Consistency modal ─────────────────────────────────────────────────────────
+
+function ConsistencyModal({ schema, onClose }: { schema: OntologySchema; onClose: () => void }) {
+  const turtleOwl = useMemo(() => generateExports(schema).turtleOwl, [schema]);
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 shrink-0">
+          <div>
+            <h2 className="font-semibold text-slate-800 text-lg">Consistency check</h2>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Full OWL DL reasoning (HermiT) over the generated OWL merged with SULO.
+            </p>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-2xl leading-none ml-4">×</button>
+        </div>
+        <div className="flex-1 overflow-auto min-h-0 p-5">
+          <ConsistencyPanel turtleOwl={turtleOwl} />
         </div>
       </div>
     </div>
@@ -1147,6 +1280,11 @@ const CLINICAL_EXAMPLE_CLASSES: { name: string; label: string; description: stri
   { name: 'Code',             label: 'Code',              description: 'A terminology code bundling an identifier, its coding system/version, and an optional display name.',  mapsToConceptIri: `${SULO}InformationObject` },
   { name: 'ObservableEntity', label: 'Observable Entity', description: 'A SNOMED CT observable entity — a concept that can be measured or observed in a clinical or scientific context.',  mapsToConceptIri: 'http://snomed.info/id/363787002', superClassName: 'Code' },
   { name: 'SCT_Procedure',    label: 'SCT Procedure',    description: 'A SNOMED CT procedure concept — a clinical action or intervention performed on or for a patient.',               mapsToConceptIri: 'http://snomed.info/id/71388002',  superClassName: 'Code' },
+  // Classes adopted from the SPHN schema
+  { name: 'AdministrativeCase', label: 'Administrative Case', description: 'An administrative hospital case grouping a patient’s clinical visits.',          mapsToConceptIri: `${SULO}Process` },
+  { name: 'Sample',             label: 'Sample',              description: 'A biological specimen collected from a patient for laboratory analysis.',          mapsToConceptIri: `${SULO}SpatialObject` },
+  { name: 'Substance',          label: 'Substance',           description: 'A material substance, e.g. the active ingredient of a pharmaceutical product.',    mapsToConceptIri: `${SULO}SpatialObject` },
+  { name: 'DrugPrescription',   label: 'Drug Prescription',   description: 'An information object representing a prescription or order for a drug.',            mapsToConceptIri: `${SULO}InformationObject` },
 ];
 
 // ─── OMOP example schema ─────────────────────────────────────────────────────
@@ -1241,6 +1379,10 @@ function SchemaListPage() {
       const observableEntity         = classMap.get('ObservableEntity');
       const sctProcedure             = classMap.get('SCT_Procedure');
       const medicalProcedure    = classMap.get('MedicalProcedure');
+      const administrativeCase  = classMap.get('AdministrativeCase');
+      const sample              = classMap.get('Sample');
+      const substance           = classMap.get('Substance');
+      const drugPrescription    = classMap.get('DrugPrescription');
 
       if (clinicalVisit && subjectOfCareRole && person) {
         await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
@@ -1682,6 +1824,87 @@ function SchemaListPage() {
           isRequired:    false,
           mappingPattern: [
             { subject: '?this', predicate: 'https://w3id.org/sulo/hasFeature', object: '?value' },
+          ],
+        });
+      }
+
+      // ── Properties for the SPHN-adopted classes ──────────────────────────────
+      // A clinical visit is part of the administrative case grouping it.
+      if (clinicalVisit && administrativeCase) {
+        await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
+          name: 'hasAdministrativeCase', label: 'Has Administrative Case',
+          description: 'Links a clinical visit to the administrative case it belongs to.',
+          propertyType: 'object', domainClassId: clinicalVisit.id, rangeClassIri: administrativeCase.url, isRequired: false,
+          mappingPattern: [
+            { subject: '?this', predicate: 'https://w3id.org/sulo/isPartOf', object: '?value' },
+          ],
+        });
+      }
+      // The administrative case has the patient as a participant (subject-of-care role).
+      if (administrativeCase && subjectOfCareRole && person) {
+        await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
+          name: 'hasPatient', label: 'Has Patient',
+          description: 'Links an administrative case to the patient it concerns.',
+          propertyType: 'object', domainClassId: administrativeCase.id, rangeClassIri: person.url, isRequired: false,
+          mappingPattern: [
+            { subject: '?this', predicate: 'https://w3id.org/sulo/hasParticipant',            object: '?o1' },
+            { subject: '?o1',   predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: subjectOfCareRole.url },
+            { subject: '?o1',   predicate: 'https://w3id.org/sulo/isFeatureOf',               object: '?value' },
+          ],
+        });
+      }
+      // A measurement process is performed on a sample (a participant).
+      if (measurementProcess && sample) {
+        await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
+          name: 'hasSample', label: 'Has Sample',
+          description: 'Links a measurement process to the sample it is performed on.',
+          propertyType: 'object', domainClassId: measurementProcess.id, rangeClassIri: sample.url, isRequired: false,
+          mappingPattern: [
+            { subject: '?this', predicate: 'https://w3id.org/sulo/hasParticipant', object: '?value' },
+          ],
+        });
+      }
+      // A sample is physically part of the patient it was collected from.
+      if (sample && person) {
+        await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
+          name: 'collectedFrom', label: 'Collected From',
+          description: 'Links a sample to the patient it was collected from.',
+          propertyType: 'object', domainClassId: sample.id, rangeClassIri: person.url, isRequired: false,
+          mappingPattern: [
+            { subject: '?this', predicate: 'https://w3id.org/sulo/isPartOf', object: '?value' },
+          ],
+        });
+      }
+      // A pharmaceutical product has an active substance as a part.
+      if (pharmaceuticalProduct && substance) {
+        await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
+          name: 'hasSubstance', label: 'Has Substance',
+          description: 'Links a pharmaceutical product to its active substance.',
+          propertyType: 'object', domainClassId: pharmaceuticalProduct.id, rangeClassIri: substance.url, isRequired: false,
+          mappingPattern: [
+            { subject: '?this', predicate: 'https://w3id.org/sulo/hasPart', object: '?value' },
+          ],
+        });
+      }
+      // A drug prescription refers to the prescribed product …
+      if (drugPrescription && pharmaceuticalProduct) {
+        await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
+          name: 'prescribesDrug', label: 'Prescribes Drug',
+          description: 'Links a drug prescription to the pharmaceutical product it prescribes.',
+          propertyType: 'object', domainClassId: drugPrescription.id, rangeClassIri: pharmaceuticalProduct.url, isRequired: false,
+          mappingPattern: [
+            { subject: '?this', predicate: 'https://w3id.org/sulo/refersTo', object: '?value' },
+          ],
+        });
+      }
+      // … and is a feature of the patient it is written for.
+      if (drugPrescription && person) {
+        await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
+          name: 'hasSubject', label: 'Has Subject',
+          description: 'Records that the drug prescription (an information object) is about its patient.',
+          propertyType: 'object', domainClassId: drugPrescription.id, rangeClassIri: person.url, isRequired: false,
+          mappingPattern: [
+            { subject: '?this', predicate: 'https://w3id.org/sulo/isFeatureOf', object: '?value' },
           ],
         });
       }
@@ -2641,6 +2864,7 @@ function SchemaDetailPage({ id }: { id: string }) {
   const [activeTab, setActiveTab] = useState<'classes' | 'properties'>('classes');
   const [editingMeta, setEditingMeta] = useState(false);
   const [showExport, setShowExport]   = useState(false);
+  const [showConsistency, setShowConsistency] = useState(false);
   const [showDiagram, setShowDiagram] = useState(false);
   const [editingClassId, setEditingClassId] = useState<string | null>(null);
   const [editingPropId, setEditingPropId] = useState<string | null>(null);
@@ -2767,6 +2991,12 @@ function SchemaDetailPage({ id }: { id: string }) {
                 className="bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium px-4 py-1.5 rounded-lg transition-colors"
               >
                 Generate ↓
+              </button>
+              <button
+                onClick={() => setShowConsistency(true)}
+                className="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium px-4 py-1.5 rounded-lg transition-colors"
+              >
+                Check consistency
               </button>
               <button
                 onClick={() => setEditingMeta(true)}
@@ -2986,6 +3216,29 @@ function SchemaDetailPage({ id }: { id: string }) {
                         )}
                       </div>
                       {(() => {
+                        const seen = new Set<string>();
+                        const own = schema.properties.filter((p) => {
+                          if (p.domainClassId !== cls.id || seen.has(p.name)) return false;
+                          seen.add(p.name);
+                          return true;
+                        });
+                        if (!own.length) return null;
+                        return (
+                          <div className="mt-2 flex flex-wrap gap-1">
+                            {own.map((p) => (
+                              <button
+                                key={p.id}
+                                onClick={() => { setActiveTab('properties'); setEditingPropId(p.id); }}
+                                className="text-[10px] font-mono bg-violet-50 border border-violet-100 text-violet-700 px-1.5 py-0.5 rounded hover:bg-violet-100 hover:border-violet-300 transition-colors"
+                                title={`Edit property ${p.name}`}
+                              >
+                                {p.name}
+                              </button>
+                            ))}
+                          </div>
+                        );
+                      })()}
+                      {(() => {
                         const inherited = cls.superClassId
                           ? schema.properties.filter((p) => p.domainClassId === cls.superClassId)
                           : [];
@@ -3039,6 +3292,7 @@ function SchemaDetailPage({ id }: { id: string }) {
 
       {/* ── Properties tab ── */}
       {showExport  && <ExportModal    schema={schema} onClose={() => setShowExport(false)}  />}
+      {showConsistency && <ConsistencyModal schema={schema} onClose={() => setShowConsistency(false)} />}
       {showDiagram && <UmlDiagramView schema={schema} onClose={() => setShowDiagram(false)} />}
 
       {activeTab === 'properties' && (
