@@ -10,7 +10,7 @@
 
 **Background:** Experts who design biomedical data schemas such as HL7 FHIR, OMOP CDM, or relational databases, and ontologists who formalise domain semantics in OWL operate with fundamentally different representational commitments. Existing tools address one community or the other but not both simultaneously, creating a persistent gap between schemas and formally grounded ontologies.
 
-**Findings:** We present the SULO-Compliant Schema Builder, an open-source web application that enables domain experts to define classes and properties, align them interactively to the Simplified Upper-Level Ontology (SULO), and automatically generate four artefacts from a single schema model: plain RDF/Turtle, OWL DL with SULO-compliant equivalence axioms and property restrictions, SHACL node shapes, and Mermaid UML diagrams. A declarative mapping-pattern mechanism, analogous to SPARQL triple templates, compiles domain relations into SULO relations without requiring the user to author OWL directly. A clinical health record case study, covering 28 classes and 83 properties, demonstrates the practical viability of the approach.
+**Findings:** We present the SULO-Compliant Schema Builder, an open-source web application that enables domain experts to define classes and properties, align them interactively to the Simplified Upper-Level Ontology (SULO), and automatically generate four artefacts from a single schema model: plain RDF/Turtle, OWL DL with SULO-compliant equivalence axioms and property restrictions, SHACL node shapes, and Mermaid UML diagrams. A declarative mapping-pattern mechanism, analogous to SPARQL triple templates, compiles domain relations into SULO relations without requiring the user to author OWL directly. A clinical health record case study, covering 32 classes and 41 properties, demonstrates the practical viability of the approach.
 
 **Conclusions:** The SULO-Compliant Schema Builder lowers the barrier between schema design and formal ontology engineering. By embedding upper-ontology alignment and mapping patterns as first-class design features, it makes OWL DL expressivity accessible to practitioners without description-logic expertise, and provides a concrete pedagogical instrument for demonstrating what formal ontologies add over schemas. The tool is freely available at https://github.com/MaastrichtU-IDS/sulo-schema-builder.
 
@@ -119,12 +119,12 @@ The GUI bridges schema design and ontology authoring through two principal mecha
 
 To evaluate the tool's practical viability, we constructed a Clinical Health Record Schema modelling a representative subset of the domain and inspired by the SPHN schema [14]. The schema, loadable via the **Load Example** button, comprises:
 
-- **28 classes** — 26 aligned to SULO concepts (Process, Role, Quality, SpatialObject, InformationObject, Quantity) and 2 aligned to SNOMED CT URIs (`ObservableEntity`: `http://snomed.info/id/363787002`; `SCT_Procedure`: `http://snomed.info/id/71388002`).
-- **83 properties** — 48 object properties linking schema classes and 35 datatype properties mapping to XSD literals.
-- **3 subclass relationships** — `MeasurementProcess`, `EvaluationProcess`, and `MedicationAdministration` as subclasses of `MedicalProcedure`; `ObservableEntity` and `SCT_Procedure` as subclasses of `Code`.
-- **16 `hasCode` properties** (one per clinical class) with the single-hop SULO mapping pattern `?this sulo:hasFeature ?value`, demonstrating the SPHN `Code` pattern [14] at scale.
+- **32 classes** — 30 aligned to SULO concepts (Process ×8, SpatialObject ×8, InformationObject ×5, Role ×5, Quality ×3, Quantity ×1) and 2 aligned to SNOMED CT URIs (`ObservableEntity`: `http://snomed.info/id/363787002`; `SCT_Procedure`: `http://snomed.info/id/71388002`).
+- **41 properties** — 33 object properties linking schema classes and 8 datatype properties mapping to XSD literals; every property carries a SULO mapping pattern (concept links via `sulo:hasFeature`, role-mediated participation via `sulo:hasParticipant`, timestamps via `sulo:atTime`, etc.).
+- **5 subclass relationships** — `MeasurementProcess`, `EvaluationProcess`, and `MedicationAdministration` as subclasses of `MedicalProcedure`; `ObservableEntity` and `SCT_Procedure` as subclasses of `Code`.
+- **4 classes adopted from the SPHN schema** — `AdministrativeCase` (a `Process` grouping a patient's visits), `Sample` and `Substance` (`SpatialObject`s), and `DrugPrescription` (an `InformationObject`) — illustrating cross-schema reuse of upper-level-aligned concepts.
 
-The OWL DL export for this schema generates 121 `owl:equivalentClass` axioms and 16 property-restriction blocks. The SHACL export generates 28 node shapes with 83 property constraints, 2 of which contain `sh:or` union blocks.
+The OWL DL export for this schema generates 67 `owl:equivalentClass` axioms (with their property restrictions) from the mapping patterns. The SHACL export generates 32 node shapes with 39 property shapes, 2 of which contain `sh:or` union ranges. Running the integrated consistency check, HermiT reports the schema **coherent** — no unsatisfiable classes — confirming that every class–property alignment respects SULO's category, domain/range, and parthood constraints.
 
 ### Consistency checking
 
@@ -241,7 +241,7 @@ The Schema Builder also serves as a pedagogical instrument for demonstrating wha
 - **Role indirection.** A schema designer's first instinct is `:ClinicalVisit :hasPatient :Person`. The OWL + SULO export adds the intermediate `SubjectOfCareRole` class, motivated concretely: if a person is the primary responsible contact in visit A but merely an observer in visit B, an intermediate participation node is needed to represent each role distinctly.
 - **Constraint expressivity.** SHACL shapes validate that every `Measurement` has a `:hasCode` property pointing to a `:Code` or `:ObservableEntity` instance. The OWL DL equivalence axioms additionally assert, via the `sulo:hasFeature` path, that any individual reached that way from a `sulo:InformationObject` is a `Code` instance. A reasoner materialising the SULO graph can detect inter-dataset type inconsistencies invisible to SHACL; switching between export tabs makes this difference concrete.
 
-A pre-built Clinical Health Record Schema (28 classes, 83 properties) is available via **Load Example**, enabling instructors to demonstrate the full export pipeline without students constructing a schema from scratch. A second **Load OMOP Example** option loads a parallel schema covering the same clinical domain in a different structural style, enabling side-by-side comparison.
+A pre-built Clinical Health Record Schema (32 classes, 41 properties) is available via **Load Example**, enabling instructors to demonstrate the full export pipeline without students constructing a schema from scratch. A second **Load OMOP Example** option loads a parallel schema covering the same clinical domain in a different structural style, enabling side-by-side comparison.
 
 ### Comparison with related tools
 
