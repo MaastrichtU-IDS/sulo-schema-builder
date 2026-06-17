@@ -1340,7 +1340,7 @@ const SPHN_EXAMPLE_CLASSES: { name: string; label: string; description: string; 
   // Information / value carriers
   { name: 'Code',                    label: 'Code',                      description: 'A coded concept from a terminology (SNOMED CT, LOINC, ATC, ICD-10, …).', mapsToConceptIri: `${SULO}InformationObject` },
   { name: 'Quantity',                label: 'Quantity',                  description: 'A measured magnitude paired with a unit.',                                   mapsToConceptIri: `${SULO}Quantity` },
-  { name: 'Unit',                    label: 'Unit',                      description: 'A unit of measure for a quantity.',                                          mapsToConceptIri: `${SULO}Quality` },
+  { name: 'Unit',                    label: 'Unit',                      description: 'A unit of measure for a quantity.',                                          mapsToConceptIri: `${SULO}Unit` },
   // Roles (used by the participant mapping patterns)
   { name: 'SubjectRole',             label: 'Subject Role',              description: 'The role of being the subject of a clinical event.',                         mapsToConceptIri: `${SULO}Role` },
   { name: 'PerformerRole',           label: 'Performer Role',            description: 'The role of performing or carrying out a clinical event.',                    mapsToConceptIri: `${SULO}Role` },
@@ -2682,15 +2682,35 @@ function SchemaListPage() {
         await post({ name: 'hasCode', label: 'Has Code', description: `The terminology code classifying the ${dom}.`,
           propertyType: 'object', domainClassId: C(dom).id, rangeClassIri: C('Code').url, isRequired: false, mappingPattern: pOne('hasFeature') });
       }
-      // hasSubjectPseudoIdentifier → participant→SubjectRole on events/records
-      for (const dom of ['AdministrativeCase','HealthcareEncounter','Diagnosis','ProblemCondition','LabTestEvent','Measurement','DrugAdministrationEvent','DrugPrescription','Sample']) {
+      // hasSubjectPseudoIdentifier → the subject of the event/record. The SULO relation
+      // depends on the domain's category: a Process has the subject as a participant
+      // (via a SubjectRole); an InformationObject record is a feature of the subject;
+      // a physical Sample is part of the subject.
+      for (const dom of ['AdministrativeCase','HealthcareEncounter','ProblemCondition','LabTestEvent','DrugAdministrationEvent']) {
         await post({ name: 'hasSubjectPseudoIdentifier', label: 'Has Subject', description: `Links the ${dom} to its subject (patient).`,
           propertyType: 'object', domainClassId: C(dom).id, rangeClassIri: C('SubjectPseudoIdentifier').url, isRequired: false, mappingPattern: pRole('SubjectRole') });
       }
-      // hasAdministrativeCase → isPartOf on events
-      for (const dom of ['HealthcareEncounter','Diagnosis','ProblemCondition','LabTestEvent','Measurement','DrugAdministrationEvent']) {
+      for (const dom of ['Diagnosis','Measurement','DrugPrescription']) {
+        await post({ name: 'hasSubjectPseudoIdentifier', label: 'Has Subject', description: `Records that the ${dom} (an information object) is a feature of its subject (patient).`,
+          propertyType: 'object', domainClassId: C(dom).id, rangeClassIri: C('SubjectPseudoIdentifier').url, isRequired: false, mappingPattern: pOne('isFeatureOf') });
+      }
+      await post({ name: 'hasSubjectPseudoIdentifier', label: 'Has Subject', description: 'Links the Sample to the subject it was collected from (the sample is part of the subject).',
+        propertyType: 'object', domainClassId: C('Sample').id, rangeClassIri: C('SubjectPseudoIdentifier').url, isRequired: false, mappingPattern: pOne('isPartOf') });
+      // hasAdministrativeCase → the case the event/record belongs to. A Process event is
+      // a part of the case; an information-object record (Diagnosis, Measurement) is a
+      // feature of its subject and participates in the case.
+      for (const dom of ['HealthcareEncounter','ProblemCondition','LabTestEvent','DrugAdministrationEvent']) {
         await post({ name: 'hasAdministrativeCase', label: 'Has Administrative Case', description: `Links the ${dom} to its administrative case.`,
           propertyType: 'object', domainClassId: C(dom).id, rangeClassIri: C('AdministrativeCase').url, isRequired: false, mappingPattern: pOne('isPartOf') });
+      }
+      for (const dom of ['Diagnosis','Measurement']) {
+        await post({ name: 'hasAdministrativeCase', label: 'Has Administrative Case', description: `Links the ${dom} (an information object) to the administrative case it was recorded in.`,
+          propertyType: 'object', domainClassId: C(dom).id, rangeClassIri: C('AdministrativeCase').url, isRequired: false,
+          mappingPattern: [
+            { subject: '?this', predicate: `${NS}isFeatureOf`,     object: '?o1' },
+            { subject: '?o1',   predicate: RDF_TYPE,               object: C('SubjectPseudoIdentifier').url },
+            { subject: '?this', predicate: `${NS}isParticipantIn`, object: '?value' },
+          ] });
       }
       // start/end datetimes on temporal processes
       for (const dom of ['AdministrativeCase','HealthcareEncounter','ProblemCondition','DrugAdministrationEvent']) {
@@ -2704,11 +2724,20 @@ function SchemaListPage() {
         await post({ name: 'hasDateTime', label: 'Date/Time', description: `The date/time associated with the ${dom}.`,
           propertyType: 'datatype', domainClassId: C(dom).id, rangeClassIri: `${XSD}dateTime`, isRequired: false, mappingPattern: pTime('TimeInstant') });
       }
-      // hasQuantity → hasPart(Quantity) on results/measurements/administrations
-      for (const dom of ['LabResult','Measurement','DrugAdministrationEvent']) {
+      // hasQuantity → the measured quantity. Information-object results carry it as a
+      // part; a drug administration (a Process) instead reaches the dose quantity as a
+      // feature of the participating Drug.
+      for (const dom of ['LabResult','Measurement']) {
         await post({ name: 'hasQuantity', label: 'Has Quantity', description: `The measured quantity of the ${dom}.`,
           propertyType: 'object', domainClassId: C(dom).id, rangeClassIri: C('Quantity').url, isRequired: false, mappingPattern: pOne('hasPart') });
       }
+      await post({ name: 'hasQuantity', label: 'Has Quantity', description: 'The dose quantity administered, a feature of the participating drug.',
+        propertyType: 'object', domainClassId: C('DrugAdministrationEvent').id, rangeClassIri: C('Quantity').url, isRequired: false,
+        mappingPattern: [
+          { subject: '?this', predicate: `${NS}hasParticipant`, object: '?o1' },
+          { subject: '?o1',   predicate: RDF_TYPE,              object: C('Drug').url },
+          { subject: '?o1',   predicate: `${NS}hasFeature`,     object: '?value' },
+        ] });
 
       // ── per-class properties ──
       // Code
@@ -3278,6 +3307,29 @@ function SchemaDetailPage({ id }: { id: string }) {
                           </a>
                         )}
                       </div>
+                      {(() => {
+                        const seen = new Set<string>();
+                        const own = schema.properties.filter((p) => {
+                          if (p.domainClassId !== cls.id || seen.has(p.name)) return false;
+                          seen.add(p.name);
+                          return true;
+                        });
+                        if (!own.length) return null;
+                        return (
+                          <div className="mt-2 flex flex-wrap gap-1">
+                            {own.map((p) => (
+                              <button
+                                key={p.id}
+                                onClick={() => { setActiveTab('properties'); setEditingPropId(p.id); }}
+                                className="text-[10px] font-mono bg-violet-50 border border-violet-100 text-violet-700 px-1.5 py-0.5 rounded hover:bg-violet-100 hover:border-violet-300 transition-colors"
+                                title={`Edit property ${p.name}`}
+                              >
+                                {p.name}
+                              </button>
+                            ))}
+                          </div>
+                        );
+                      })()}
                       {(() => {
                         const inherited = cls.superClassId
                           ? schema.properties.filter((p) => p.domainClassId === cls.superClassId)
