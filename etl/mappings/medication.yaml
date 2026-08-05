@@ -1,0 +1,143 @@
+# Crosswalk: OMOP CDM `drug_exposure` <-> FHIR MedicationAdministration
+#
+# Started from the auto-generated draft in generate-mapping.mjs (shape-matching
+# DrugExposure/DrugProduct/DoseQuantity against MedicationEvent/Medication/
+# Dose/MedicationRequest/MedicationAdministration/MedicationDispense), then
+# hand-finished. Three things the generator could NOT decide from SULO shapes
+# alone, resolved here:
+#
+# 1. WHICH of the three MIMIC-FHIR resource types to target. OMOP's
+#    drug_exposure is one row per exposure with no request/administer/dispense
+#    split — closest in meaning to an *administration* (the drug was actually
+#    given), not a *request* (an order/intent that may not have been fulfilled).
+#    So this maps to MedicationAdministration, and hasRequest/
+#    hasAuthorizingPrescription (the isPrecededBy links MedicationAdministration/
+#    MedicationDispense use to reference a MedicationRequest) have no OMOP
+#    counterpart at all — OMOP's single-table model doesn't distinguish them.
+#
+# 2. The generator matched drug_exposure_person_id AND drug_exposure_provider_id
+#    to MedicationEvent.hasPatient (both share the generalized "hasParticipant
+#    >[Role]>isFeatureOf" shape once PatientRole/ProviderRole collapse to
+#    "Role"). Only person_id is actually the patient; provider_id has no
+#    MedicationEvent-side field at all (no hasProvider/hasRequester property
+#    exists on MedicationEvent), so it's dropped, not merged.
+#
+# 3. medicationCodeableConcept, not medicationReference. The SULO shape match
+#    for hasDrugProduct->Medication was structurally clean (Process
+#    hasParticipant SpatialObject), but OMOP's "DrugProduct"/"hasDrugProduct"
+#    in the schema-builder example has no real backing column — real OMOP CDM
+#    carries drug identity directly on drug_exposure.drug_concept_id, with no
+#    separate product row to construct a referenceable Medication resource
+#    around. So the drug code is inlined as medicationCodeableConcept instead
+#    of a Reference to a separate resource — a case where the shape match was
+#    right about the *correspondence* but not about *which FHIR slot* fits,
+#    because that depends on data OMOP doesn't structurally have.
+#
+# effectivePeriod (not a single effectiveDateTime) uses BOTH
+# drug_exposure_start_datetime and drug_exposure_end_datetime via the `range`
+# op's generalized start/end mode — the auto-generated draft picked only one
+# of the two arbitrarily (and picked the wrong one); OMOP has both, and FHIR's
+# MedicationAdministration.effectivePeriod is exactly the field for a start+end
+# pair, so nothing needs to be dropped here.
+
+resource: MedicationAdministration
+omop_table: drug_exposure
+fhir_resource: MedicationAdministration
+
+ops:
+  - op: reference
+    source: person_id
+    target: subject
+    prefix: "Patient/"
+    sulo_shape: "Process::hasParticipant>[Role]>isFeatureOf::SpatialObject"
+    notes: "MedicationEvent.hasPatient — same role-mediated shape as Condition/Encounter/Observation's patient link."
+
+  - op: reference
+    source: visit_occurrence_id
+    target: context
+    prefix: "Encounter/"
+    sulo_shape: "Process::isPartOf::Process"
+    notes: >
+      MedicationEvent.hasEncounter (isPartOf, Process isPartOf Process).
+      FHIR R4 MedicationAdministration names this field "context", not
+      "encounter" (R5 renamed it) — a FHIR-version detail, not a SULO one.
+
+  - op: coding_list
+    target: medicationCodeableConcept
+    items:
+      - concept_from: drug_concept_id
+    sulo_shape: "Process::hasParticipant::SpatialObject (approximate — see note 3 above)"
+    notes: >
+      Structurally this is MedicationEvent.hasMedication, but emitted inline
+      (medicationCodeableConcept) rather than as a Reference to a separate
+      Medication resource, since OMOP's drug_concept_id sits directly on
+      drug_exposure with no separate product row to reference.
+
+  - op: range
+    low: drug_exposure_start_datetime
+    high: drug_exposure_end_datetime
+    target: effectivePeriod
+    low_key: start
+    high_key: end
+    wrap_value: false
+    as_list: false
+    sulo_shape: "Process::atTime>[TimeInstant]>hasValue::xsd:dateTime (both columns share this shape; composed into one FHIR Period rather than picking one)"
+    notes: "MedicationEvent.hasEventDate only models a single instant; OMOP actually has a start+end pair, and MedicationAdministration.effectivePeriod is the FHIR-correct field for that — a better fit than forcing one date into hasEventDate's single-instant shape."
+
+  - op: coding_list
+    target: dosage.route
+    items:
+      - concept_from: route_concept_id
+    sulo_shape: "Process::hasFeature::InformationObject vs MedicationEvent.hasRoute's Process::hasFeature::Quality (categories DIFFER — not a verified-identical shape)"
+    notes: >
+      route_concept_id (OMOP, hasFeature -> Concept/InformationObject) and
+      hasRoute (MIMIC, hasFeature -> Route/Quality) do NOT share a SULO
+      category — the generator correctly would not have auto-matched these.
+      Mapped anyway on human judgment: both plainly mean "route of
+      administration" regardless of which SULO category each schema happened
+      to assign its "route" class to.
+
+  - op: const
+    target: status
+    value: "completed"
+    notes: "OMOP drug_exposure records a historical fact — the administration already happened — so status is always completed, never asserted from source data."
+
+  - op: drop_source
+    source: provider_id
+    reason: "Shares Condition/Encounter's role-mediated shape once Role is generalized (see note 2 above), but MedicationEvent has no hasProvider/hasRequester field to receive it — false match from over-generalizing the Role category, not a real correspondence."
+
+  - op: drop_source
+    source: quantity
+    reason: "Dispensed quantity, not a per-dose amount; MedicationEvent.hasDoseQuantity->Dose.hasDoseAmount has no reliable OMOP source in this scaffold (OMOP's DoseQuantity carrier has no modeled sub-fields to source a numeric value from)."
+
+  - op: drop_source
+    source: days_supply
+    reason: "OMOP provenance/logistics field; no FHIR MedicationAdministration equivalent."
+
+  - op: drop_source
+    source: refills
+    reason: "OMOP provenance field specific to the order, not the administration event; no FHIR field for it here."
+
+  - op: drop_source
+    source: stop_reason
+    reason: "OMOP-only free text; no FHIR field to carry it."
+
+  - op: drop_source
+    source: drug_source_concept_id
+    reason: "OMOP-only original-vocabulary concept; no separate field on MedicationAdministration (would go in medicationCodeableConcept.coding[] alongside the standard code if needed — left as a future extension)."
+
+  - op: drop_source
+    source: drug_type_concept_id
+    reason: "OMOP provenance-only field; required by OMOP CDM, so fhir->omop supplies a configurable default (see DEFAULT_DRUG_TYPE_CONCEPT_ID)."
+
+  - op: drop_target
+    target: "dosage.dose"
+    reason: "MedicationEvent.hasDoseQuantity / Dose.hasDoseAmount+hasDoseUnit — no reliable OMOP numeric dose source in this scaffold (see quantity note above)."
+
+  - op: drop_target
+    target: "dosage.timing"
+    reason: "MedicationEvent.hasFrequency (hasFeature -> Frequency, a Quality) has no OMOP source column in this scaffold."
+
+  - op: drop_target
+    target: "hasRequest / hasAuthorizingPrescription"
+    reason: "MedicationAdministration.hasRequest / MedicationDispense.hasAuthorizingPrescription (isPrecededBy -> MedicationRequest) — OMOP's single-row drug_exposure model has no separate request record to reference; see note 1 above."

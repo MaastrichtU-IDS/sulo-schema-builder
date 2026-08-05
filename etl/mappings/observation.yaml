@@ -1,0 +1,117 @@
+# Crosswalk: OMOP CDM `measurement` / `observation` <-> FHIR Observation
+# (MimicObservationLabevents / MimicObservationChartevents profiles)
+#
+# Every entry is interpreted by transforms/ops.py's generic engine — there is
+# no per-field Python function anywhere for this resource. Columns that are
+# genuinely spelled differently per OMOP table (measurement_concept_id vs
+# observation_concept_id, *_datetime, *_type_concept_id, *_source_concept_id)
+# use a "{table}" placeholder, resolved against the `context={"table": ...}`
+# passed to omop_to_fhir_observation()/fhir_to_omop_observation() — that's
+# what lets one YAML file drive both OMOP tables without an OR-list of
+# hardcoded names for each. Columns spelled identically on both tables
+# (person_id, visit_occurrence_id, value_as_number, value_as_concept_id,
+# value_as_string, unit_concept_id, range_low/high) need no placeholder.
+
+resource: Observation
+omop_tables: [measurement, observation]
+fhir_resource: Observation
+fhir_profiles:
+  measurement: https://w3id.org/sulo/mimic/StructureDefinition/mimic-observation-labevents
+  observation: https://w3id.org/sulo/mimic/StructureDefinition/mimic-observation-chartevents
+
+ops:
+  - op: reference
+    source: person_id
+    target: subject
+    prefix: "Patient/"
+    sulo_shape: "InformationObject::refersTo::SpatialObject"
+    notes: >
+      OMOP's measurement_person_id/observation_person_id (SULO-schema-only
+      renames of this same person_id column) and MIMIC's Observation.hasPatient
+      both use refersTo (NOT hasParticipant - Measurement/Observation are
+      InformationObject, and hasParticipant requires a Process subject; this
+      was one of the 44 unsatisfiable-class fixes applied to OMOP).
+
+  - op: reference
+    source: visit_occurrence_id
+    target: encounter
+    prefix: "Encounter/"
+    sulo_shape: "InformationObject::isIn::Process"
+    notes: >
+      Both use the unconstrained isIn, not isPartOf/hasPart - a measurement
+      record is not a temporal part of the encounter process (also one of the
+      44-clash fixes applied to OMOP: isPartOf -> isIn).
+
+  - op: coding_list
+    target: code
+    items:
+      - concept_from: "{table}_concept_id"
+    sulo_shape: "InformationObject::hasFeature::InformationObject"
+    notes: "Matches MIMIC Observation.hasCode (hasFeature -> Code) exactly."
+
+  - op: copy
+    source: "{table}_datetime"
+    target: effectiveDateTime
+    sulo_shape: "InformationObject::atTime>[TimeInstant]>hasValue::xsd:dateTime"
+    notes: "Matches MIMIC Observation.hasEffectiveDate exactly."
+
+  - op: value_branch
+    cases:
+      - when: value_as_number
+        target: valueQuantity
+        as: quantity
+      - when: value_as_concept_id
+        target: valueCodeableConcept
+        as: coding
+      - when: value_as_string
+        target: valueString
+        as: literal
+    merge_when_quantity:
+      source: unit_concept_id
+    sulo_shape: "InformationObject::hasValue::xsd:float | InformationObject::refersTo::Quality"
+    notes: >
+      Numeric result -> valueQuantity, with unit merged in from
+      unit_concept_id (matches MIMIC hasQuantityValue/hasUnit, both direct
+      hasValue/hasPart on the InformationObject). Coded/string result ->
+      valueCodeableConcept/valueString; MIMIC's nearest equivalent for a
+      *coded qualitative* result is LabObservation.hasInterpretation (refersTo
+      -> a Quality, Pattern 5's qualitative-result branch) - not a structural
+      match to OMOP's value_as_concept_id (hasFeature), so this leg is a
+      semantic best-effort, not a verified-identical shape. First non-null
+      case wins, in the order listed (numeric before coded before string).
+
+  - op: range
+    low: range_low
+    high: range_high
+    target: referenceRange
+    sulo_shape: "InformationObject::hasFeature>[InformationObject]>hasValue::xsd:string"
+    notes: >
+      measurement-only columns (observation has no range_low/range_high).
+      MIMIC's LabObservation.hasReferenceRange instead carries ONE display
+      string through a generic InformationObject carrier (Pattern 4) - a
+      many-to-one composition, not a 1:1 shape match.
+
+  - op: drop_source
+    source: "{table}_type_concept_id"
+    reason: "OMOP provenance-only; required by OMOP CDM, so fhir->omop supplies a configurable default (see DEFAULT_OBSERVATION_TYPE_CONCEPT_ID)."
+
+  - op: drop_source
+    source: "{table}_source_concept_id"
+    reason: "OMOP-only original-vocabulary concept; no separate field on MimicObservation* (the source coding, if needed, would go in code.coding[] alongside the standard code - left as a future extension of the coding_list op above)."
+
+  - op: drop_source
+    source: qualifier_concept_id
+    reason: "observation-table-only column (severity/certainty/laterality); no FHIR MimicObservation* field carries it. Found undocumented during a round-trip fidelity check and added here so it's at least tracked instead of silently absent."
+
+  - op: const
+    target: status
+    value: "final"
+    notes: "OMOP has no workflow-status column; MIMIC's Observation.hasStatus (hasFeature -> Status, MIMIC-only shape) is asserted as 'final' on output since OMOP data is by definition already-finalized historical fact."
+
+  - op: drop_target
+    target: interpretation
+    reason: "LabObservation.hasInterpretation has no reliable OMOP source column in this scaffold; left absent. A production mapping would derive it from value_as_concept_id via a terminology lookup (see terminology.py)."
+
+  - op: drop_target
+    target: specimen
+    reason: "LabObservation.hasSpecimen (refersTo -> Specimen) has no specimen_id column modeled in this scaffold's OMOP fixtures; left absent. Real OMOP CDM measurement.specimen_id would feed this directly."

@@ -1,0 +1,31 @@
+[
+  {
+    "measurement_id": 700001,
+    "person_id": 10001,
+    "measurement_concept_id": 3004501,
+    "measurement_datetime": "2023-05-01T09:15:00",
+    "measurement_type_concept_id": 44818702,
+    "measurement_source_concept_id": null,
+    "operator_concept_id": null,
+    "value_as_number": 142.0,
+    "value_as_concept_id": null,
+    "unit_concept_id": 8840,
+    "range_low": 70.0,
+    "range_high": 100.0,
+    "visit_occurrence_id": 500001
+  },
+  {
+    "measurement_id": 700002,
+    "person_id": 10001,
+    "measurement_concept_id": 4171373,
+    "measurement_datetime": "2023-05-01T09:15:00",
+    "measurement_type_concept_id": 44818702,
+    "measurement_source_concept_id": null,
+    "value_as_number": null,
+    "value_as_concept_id": 4126681,
+    "unit_concept_id": null,
+    "range_low": null,
+    "range_high": null,
+    "visit_occurrence_id": 500001
+  }
+]

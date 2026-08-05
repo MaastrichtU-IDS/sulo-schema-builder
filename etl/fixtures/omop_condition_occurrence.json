@@ -1,0 +1,28 @@
+[
+  {
+    "condition_occurrence_id": 100001,
+    "person_id": 10001,
+    "condition_concept_id": 201826,
+    "condition_start_datetime": "2023-05-01T08:00:00",
+    "condition_end_datetime": null,
+    "condition_type_concept_id": 32020,
+    "condition_status_concept_id": 32893,
+    "stop_reason": null,
+    "condition_source_value": "E11.9",
+    "condition_source_concept_id": 45581466,
+    "visit_occurrence_id": 500001
+  },
+  {
+    "condition_occurrence_id": 100002,
+    "person_id": 10002,
+    "condition_concept_id": null,
+    "condition_start_datetime": "2023-06-14T10:30:00",
+    "condition_end_datetime": null,
+    "condition_type_concept_id": 32020,
+    "condition_status_concept_id": null,
+    "stop_reason": null,
+    "condition_source_value": "J18.9",
+    "condition_source_concept_id": null,
+    "visit_occurrence_id": 500002
+  }
+]

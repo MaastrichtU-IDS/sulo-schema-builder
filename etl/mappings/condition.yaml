@@ -1,0 +1,88 @@
+# Crosswalk: OMOP CDM `condition_occurrence` <-> FHIR Condition (MimicCondition profile)
+#
+# Every entry is interpreted by transforms/ops.py's generic engine — there is
+# no per-field Python function anywhere for this resource. `op` picks which of
+# the 7 generic operations applies (see ops.py's module docstring for the
+# full list); everything else is that operation's parameters.
+#
+# Each field cites the SULO shape that justifies the correspondence (see the
+# OMOP <-> MIMIC-FHIR schema comparison: both schemas are HermiT-consistent and
+# share this shape, so the mapping is not just name-matching — it is backed by
+# an identical, verified SULO restriction on both sides).
+
+resource: Condition
+omop_table: condition_occurrence
+fhir_resource: Condition
+fhir_profile: https://w3id.org/sulo/mimic/StructureDefinition/mimic-condition
+
+ops:
+  - op: reference
+    source: person_id
+    target: subject
+    prefix: "Patient/"
+    sulo_shape: "Process::hasParticipant>[Role]>isFeatureOf::SpatialObject"
+    notes: >
+      OMOP's condition_person_id (renamed from person_id in the SULO schema
+      only, to disambiguate the reused property name) and MIMIC's
+      Condition.hasPatient are the exact same role-mediated shape
+      (hasParticipant -> PatientRole/SubjectOfCareRole -> isFeatureOf ->
+      Person/Patient).
+
+  - op: reference
+    source: visit_occurrence_id
+    target: encounter
+    prefix: "Encounter/"
+    sulo_shape: "Process::isPartOf::Process"
+    notes: >
+      OMOP's condition_visit_occurrence_id (renamed likewise) and MIMIC's
+      Condition.hasEncounter both use isPartOf (Process isPartOf Process) - a
+      diagnosis is a temporal part of the encounter it was recorded in.
+
+  - op: coding_list
+    target: code
+    items:
+      - concept_from: condition_concept_id
+        match_system: "http://snomed.info/sct"
+      - code_from: condition_source_value
+        concept_from: condition_source_concept_id
+        default_system: "http://hl7.org/fhir/sid/icd-10-cm"
+    sulo_shape: "Process::hasFeature::InformationObject"
+    notes: >
+      OMOP splits "the code" into a standard concept (condition_concept_id,
+      usually SNOMED) and a source concept (condition_source_value/
+      condition_source_concept_id, usually ICD-9/10). MIMIC's Condition.hasCode
+      is a single Code carrier. Both items compose into one
+      FHIR CodeableConcept.coding[] on the way out; on the way back, the first
+      item claims whichever coding entry has system=snomed, the second item
+      (no match_system — a catch-all) takes whatever coding is left.
+
+  - op: copy
+    source: condition_start_datetime
+    target: recordedDate
+    sulo_shape: "Process::atTime>[TimeInstant]>hasValue::xsd:dateTime"
+    notes: "Matches MIMIC Condition.hasRecordedDate exactly (same reified-time shape)."
+
+  - op: drop_source
+    source: condition_type_concept_id
+    reason: "OMOP provenance-only field (EHR problem list vs claim, etc.); no FHIR MimicCondition equivalent. Required by OMOP CDM on load-back, so fhir->omop supplies a configurable default (see DEFAULT_CONDITION_TYPE_CONCEPT_ID)."
+
+  - op: drop_source
+    source: condition_status_concept_id
+    reason: "OMOP-only; MimicCondition does not model clinicalStatus/verificationStatus (MIMIC treats every condition as a point-in-time encounter diagnosis)."
+
+  - op: drop_source
+    source: condition_end_datetime
+    reason: "Not modeled on MimicCondition (MIMIC diagnoses_icd has no end date); dropped going omop->fhir, left null going fhir->omop."
+
+  - op: drop_source
+    source: stop_reason
+    reason: "OMOP-only free text; no FHIR MimicCondition field to carry it."
+
+  - op: const
+    target: category
+    value: "encounter-diagnosis"
+    notes: "MimicCondition fixes category to encounter-diagnosis for every record; not sourced from OMOP, just asserted on output."
+
+  - op: drop_target
+    target: "extension[seq-num]"
+    reason: "MIMIC-only (mimic_hosp.diagnoses_icd.seq_num, the diagnosis priority rank). OMOP CDM's condition_occurrence has no equivalent column, so omop->fhir cannot populate this; left absent."

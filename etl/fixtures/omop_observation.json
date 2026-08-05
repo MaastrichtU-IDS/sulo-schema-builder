@@ -1,0 +1,15 @@
+[
+  {
+    "observation_id": 800001,
+    "person_id": 10002,
+    "observation_concept_id": null,
+    "observation_datetime": "2023-06-14T11:00:00",
+    "observation_type_concept_id": 38000280,
+    "observation_source_concept_id": null,
+    "value_as_number": null,
+    "value_as_string": "Patient reports occasional shortness of breath on exertion.",
+    "value_as_concept_id": null,
+    "qualifier_concept_id": null,
+    "visit_occurrence_id": 500002
+  }
+]

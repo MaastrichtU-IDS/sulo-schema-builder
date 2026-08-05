@@ -9,3 +9,9 @@ dist/
 # Generated paper artefact (kept locally, not tracked)
 paper.docx
 ~$*.docx
+
+# ETL scaffold virtualenv
+etl/.venv/
+etl/__pycache__/
+etl/**/__pycache__/
+.pytest_cache/

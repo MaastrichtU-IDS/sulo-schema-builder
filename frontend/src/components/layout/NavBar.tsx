@@ -2,6 +2,7 @@ import { Link, NavLink } from 'react-router-dom';
 
 const NAV_LINKS = [
   { to: '/ontology', label: 'Schema Builder' },
+  { to: '/mapping', label: 'Schema Mapping' },
 ];
 
 export default function NavBar() {

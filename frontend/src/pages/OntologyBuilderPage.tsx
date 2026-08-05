@@ -1318,12 +1318,35 @@ const OMOP_EXAMPLE_CLASSES: { name: string; label: string; description: string; 
   { name: 'DoseQuantity',         label: 'Dose Quantity',          description: 'The quantity of a drug dispensed or administered.',                                               mapsToConceptIri: `${SULO}Quantity` },
 ];
 
+const FHIR_EXAMPLE_CLASSES: { name: string; label: string; description: string; mapsToConceptIri?: string; superClassName?: string }[] = [
+  { name: 'Code',                       label: 'Code',                        description: 'A coded value with its identifier, coding system/version, and display name.',      mapsToConceptIri: `${SULO}InformationObject` },
+  { name: 'Patient',                    label: 'Patient',                     description: 'The subject of care a clinical resource is about.',                                mapsToConceptIri: `${SULO}SpatialObject` },
+  { name: 'Encounter',                  label: 'Encounter',                   description: 'A healthcare encounter between a patient and the healthcare system.',               mapsToConceptIri: `${SULO}Process` },
+  { name: 'Status',                     label: 'Status',                      description: 'The categorical status of a clinical resource (e.g. active, completed, stopped).', mapsToConceptIri: `${SULO}Quality` },
+  { name: 'Route',                      label: 'Route',                       description: 'The categorical route of administration of a medication (e.g. oral, intravenous).', mapsToConceptIri: `${SULO}Quality` },
+  { name: 'Frequency',                  label: 'Frequency',                   description: 'The categorical dosing frequency of a medication.',                                mapsToConceptIri: `${SULO}Quality` },
+  { name: 'ResultInterpretation',       label: 'Result Interpretation',       description: 'The categorical clinical interpretation of a lab result (e.g. high, low, normal, abnormal).', mapsToConceptIri: `${SULO}Quality` },
+  { name: 'SubjectOfCareRole',          label: 'Subject of Care Role',        description: 'The role played by a patient as the subject of a clinical event.',                 mapsToConceptIri: `${SULO}Role` },
+  { name: 'Dose',                       label: 'Dose',                        description: 'The quantity of a medication administered, dispensed, or requested.',              mapsToConceptIri: `${SULO}Quantity` },
+  { name: 'Specimen',                   label: 'Specimen',                    description: 'A biological specimen collected from a patient for laboratory analysis.',          mapsToConceptIri: `${SULO}SpatialObject` },
+  { name: 'Condition',                  label: 'Condition',                   description: 'A clinical condition, problem, or diagnosis recorded for a patient.',              mapsToConceptIri: `${SULO}Process` },
+  { name: 'Medication',                 label: 'Medication',                  description: 'A pharmaceutical substance or drug formulation identified by a code.',             mapsToConceptIri: `${SULO}SpatialObject` },
+  { name: 'MedicationEvent',            label: 'Medication Event',            description: 'The shared parent of a medication request, dispense, or administration event.',    mapsToConceptIri: `${SULO}Process` },
+  { name: 'MedicationRequest',          label: 'Medication Request',          description: 'An order or request for a medication.',                                            superClassName: 'MedicationEvent' },
+  { name: 'MedicationAdministration',   label: 'Medication Administration',   description: 'An event of a medication actually being administered to a patient.',              superClassName: 'MedicationEvent' },
+  { name: 'MedicationDispense',         label: 'Medication Dispense',         description: 'An event of a medication being dispensed to a patient.',                           superClassName: 'MedicationEvent' },
+  { name: 'Observation',                label: 'Observation',                 description: 'A clinical fact recorded about a patient (a lab result or a vital sign).',         mapsToConceptIri: `${SULO}Process` },
+  { name: 'LabObservation',             label: 'Lab Observation',             description: 'An observation resulting from a laboratory test.',                                 superClassName: 'Observation' },
+  { name: 'VitalSignObservation',       label: 'Vital Sign Observation',      description: 'An observation of a vital sign (e.g. heart rate, blood pressure).',                superClassName: 'Observation' },
+];
+
 // ─── List page ────────────────────────────────────────────────────────────────
 
 function SchemaListPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [isCreatingExample, setIsCreatingExample] = useState(false);
   const [isCreatingOmopExample, setIsCreatingOmopExample] = useState(false);
+  const [isCreatingFhirExample, setIsCreatingFhirExample] = useState(false);
   const schemasQuery = useOntologySchemas();
   const createMutation = useCreateOntologySchema();
   const deleteMutation = useDeleteOntologySchema();
@@ -2693,6 +2716,360 @@ function SchemaListPage() {
     }
   }
 
+  async function handleLoadFhirExample() {
+    setIsCreatingFhirExample(true);
+    try {
+      const schema = await createMutation.mutateAsync({
+        title: 'MIMIC-IV FHIR Demo Schema',
+        description: 'Example schema mapping the Observation, Condition, and Medication resources of the MIMIC-IV Clinical Database Demo on FHIR (PhysioNet, kind-lab/mimic-fhir) to SULO.',
+        upperOntologyIri: 'https://w3id.org/sulo/',
+      });
+
+      // Create all 19 FHIR classes and index them by name.
+      // Subclasses (MedicationRequest/Administration/Dispense, LabObservation,
+      // VitalSignObservation) appear after their parent so superClassName
+      // resolves to a live ID at creation time.
+      const classMap = new Map<string, OntologyClass>();
+      for (const cls of FHIR_EXAMPLE_CLASSES) {
+        const { superClassName, ...rest } = cls;
+        const superCls = superClassName ? classMap.get(superClassName) : undefined;
+        const body = { ...rest, ...(superCls ? { superClassId: superCls.id } : {}) };
+        const created: OntologyClass = (await apiClient.post(`/ontology-schemas/${schema.id}/classes`, body)).data;
+        classMap.set(cls.name, created);
+      }
+
+      const code                     = classMap.get('Code')!;
+      const patient                  = classMap.get('Patient')!;
+      const encounter                = classMap.get('Encounter')!;
+      const status                   = classMap.get('Status')!;
+      const route                    = classMap.get('Route')!;
+      const frequency                = classMap.get('Frequency')!;
+      const resultInterpretation     = classMap.get('ResultInterpretation')!;
+      const dose                     = classMap.get('Dose')!;
+      const specimen                 = classMap.get('Specimen')!;
+      const condition                = classMap.get('Condition')!;
+      const medication               = classMap.get('Medication')!;
+      const medicationEvent          = classMap.get('MedicationEvent')!;
+      const medicationRequest        = classMap.get('MedicationRequest')!;
+      const medicationAdministration = classMap.get('MedicationAdministration')!;
+      const medicationDispense       = classMap.get('MedicationDispense')!;
+      const observation              = classMap.get('Observation')!;
+      const labObservation           = classMap.get('LabObservation')!;
+
+      // Referenced directly (no local class) — matches the SHACL export's
+      // `sh:class <https://w3id.org/sulo/Unit>` for hasDoseUnit/hasUnit.
+      const externalUnit = `${SULO}Unit`;
+
+      // ── Code properties ───────────────────────────────────────────────────────
+      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
+        name: 'hasIdentifier', label: 'Has Identifier',
+        description: "The code's identifier value within its coding system.",
+        propertyType: 'datatype', domainClassId: code.id, rangeClassIri: 'http://www.w3.org/2001/XMLSchema#string', isRequired: true,
+        mappingPattern: [{ subject: '?this', predicate: `${SULO}hasValue`, object: '?value' }],
+      });
+      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
+        name: 'hasName', label: 'Has Name',
+        description: "The code's human-readable display name.",
+        propertyType: 'datatype', domainClassId: code.id, rangeClassIri: 'http://www.w3.org/2001/XMLSchema#string', isRequired: false,
+        mappingPattern: [{ subject: '?this', predicate: `${SULO}hasLabel`, object: '?value' }],
+      });
+      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
+        name: 'hasCodingSystemAndVersion', label: 'Has Coding System And Version',
+        description: 'The coding system and version this code is drawn from (e.g. SNOMED-CT, LOINC).',
+        propertyType: 'datatype', domainClassId: code.id, rangeClassIri: 'http://www.w3.org/2001/XMLSchema#string', isRequired: true,
+        mappingPattern: [
+          { subject: '?this', predicate: `${SULO}hasFeature`, object: '?o1' },
+          { subject: '?o1',   predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: `${SULO}InformationObject` },
+          { subject: '?o1',   predicate: `${SULO}hasValue`, object: '?value' },
+        ],
+      });
+
+      // ── Encounter properties ──────────────────────────────────────────────────
+      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
+        name: 'hasAdmissionDate', label: 'Has Admission Date',
+        description: 'The date and time the patient was admitted for this encounter.',
+        propertyType: 'datatype', domainClassId: encounter.id, rangeClassIri: 'http://www.w3.org/2001/XMLSchema#dateTime', isRequired: false,
+        mappingPattern: [
+          { subject: '?this', predicate: `${SULO}atTime`, object: '?o1' },
+          { subject: '?o1',   predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: `${SULO}StartTime` },
+          { subject: '?o1',   predicate: `${SULO}hasValue`, object: '?value' },
+        ],
+      });
+      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
+        name: 'hasDischargeDate', label: 'Has Discharge Date',
+        description: 'The date and time the patient was discharged from this encounter.',
+        propertyType: 'datatype', domainClassId: encounter.id, rangeClassIri: 'http://www.w3.org/2001/XMLSchema#dateTime', isRequired: false,
+        mappingPattern: [
+          { subject: '?this', predicate: `${SULO}atTime`, object: '?o1' },
+          { subject: '?o1',   predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: `${SULO}EndTime` },
+          { subject: '?o1',   predicate: `${SULO}hasValue`, object: '?value' },
+        ],
+      });
+      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
+        name: 'hasPatient', label: 'Has Patient',
+        description: 'Links the encounter to the patient it concerns.',
+        propertyType: 'object', domainClassId: encounter.id, rangeClassIri: patient.url, isRequired: false,
+        mappingPattern: [
+          { subject: '?this', predicate: `${SULO}hasParticipant`, object: '?o1' },
+          { subject: '?o1',   predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: `${SULO}SubjectOfCareRole` },
+          { subject: '?o1',   predicate: `${SULO}isFeatureOf`, object: '?value' },
+        ],
+      });
+      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
+        name: 'hasStatus', label: 'Has Status',
+        description: "The encounter's status.",
+        propertyType: 'object', domainClassId: encounter.id, rangeClassIri: status.url, isRequired: false,
+        mappingPattern: [{ subject: '?this', predicate: `${SULO}hasFeature`, object: '?value' }],
+      });
+
+      // ── Dose properties ───────────────────────────────────────────────────────
+      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
+        name: 'hasDoseAmount', label: 'Has Dose Amount',
+        description: 'The numeric amount of the dose.',
+        propertyType: 'datatype', domainClassId: dose.id, rangeClassIri: 'http://www.w3.org/2001/XMLSchema#float', isRequired: false,
+        mappingPattern: [{ subject: '?this', predicate: `${SULO}hasValue`, object: '?value' }],
+      });
+      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
+        name: 'hasDoseUnit', label: 'Has Dose Unit',
+        description: 'The unit of measure the dose amount is expressed in.',
+        propertyType: 'object', domainClassId: dose.id, rangeClassIri: externalUnit, isRequired: false,
+        mappingPattern: [{ subject: '?this', predicate: `${SULO}hasPart`, object: '?value' }],
+      });
+
+      // ── Specimen properties ───────────────────────────────────────────────────
+      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
+        name: 'hasCode', label: 'Has Code',
+        description: 'The type of specimen collected.',
+        propertyType: 'object', domainClassId: specimen.id, rangeClassIri: code.url, isRequired: false,
+        mappingPattern: [{ subject: '?this', predicate: `${SULO}hasFeature`, object: '?value' }],
+      });
+      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
+        name: 'hasCollectionDate', label: 'Has Collection Date',
+        description: 'The date and time the specimen was collected.',
+        propertyType: 'datatype', domainClassId: specimen.id, rangeClassIri: 'http://www.w3.org/2001/XMLSchema#dateTime', isRequired: false,
+        mappingPattern: [
+          { subject: '?this', predicate: `${SULO}atTime`, object: '?o1' },
+          { subject: '?o1',   predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: `${SULO}TimeInstant` },
+          { subject: '?o1',   predicate: `${SULO}hasValue`, object: '?value' },
+        ],
+      });
+      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
+        name: 'hasPatient', label: 'Has Patient',
+        description: 'The patient the specimen was collected from.',
+        propertyType: 'object', domainClassId: specimen.id, rangeClassIri: patient.url, isRequired: false,
+        mappingPattern: [{ subject: '?this', predicate: `${SULO}isPartOf`, object: '?value' }],
+      });
+
+      // ── Condition properties ──────────────────────────────────────────────────
+      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
+        name: 'hasCode', label: 'Has Code',
+        description: 'The coded diagnosis or problem.',
+        propertyType: 'object', domainClassId: condition.id, rangeClassIri: code.url, isRequired: true,
+        mappingPattern: [{ subject: '?this', predicate: `${SULO}hasFeature`, object: '?value' }],
+      });
+      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
+        name: 'hasEncounter', label: 'Has Encounter',
+        description: 'The encounter this condition was recorded during.',
+        propertyType: 'object', domainClassId: condition.id, rangeClassIri: encounter.url, isRequired: true,
+        mappingPattern: [{ subject: '?this', predicate: `${SULO}isPartOf`, object: '?value' }],
+      });
+      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
+        name: 'hasPatient', label: 'Has Patient',
+        description: 'The patient this condition concerns.',
+        propertyType: 'object', domainClassId: condition.id, rangeClassIri: patient.url, isRequired: false,
+        mappingPattern: [
+          { subject: '?this', predicate: `${SULO}hasParticipant`, object: '?o1' },
+          { subject: '?o1',   predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: `${SULO}SubjectOfCareRole` },
+          { subject: '?o1',   predicate: `${SULO}isFeatureOf`, object: '?value' },
+        ],
+      });
+      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
+        name: 'hasRecordedDate', label: 'Has Recorded Date',
+        description: 'The date and time the condition was recorded.',
+        propertyType: 'datatype', domainClassId: condition.id, rangeClassIri: 'http://www.w3.org/2001/XMLSchema#dateTime', isRequired: false,
+        mappingPattern: [
+          { subject: '?this', predicate: `${SULO}atTime`, object: '?o1' },
+          { subject: '?o1',   predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: `${SULO}TimeInstant` },
+          { subject: '?o1',   predicate: `${SULO}hasValue`, object: '?value' },
+        ],
+      });
+      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
+        name: 'hasSeqNum', label: 'Has Sequence Number',
+        description: 'The ranking of the condition relative to other conditions for the same encounter.',
+        propertyType: 'datatype', domainClassId: condition.id, rangeClassIri: 'http://www.w3.org/2001/XMLSchema#integer', isRequired: false,
+        mappingPattern: [
+          { subject: '?this', predicate: `${SULO}hasFeature`, object: '?o1' },
+          { subject: '?o1',   predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: `${SULO}InformationObject` },
+          { subject: '?o1',   predicate: `${SULO}hasValue`, object: '?value' },
+        ],
+      });
+
+      // ── Medication properties ─────────────────────────────────────────────────
+      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
+        name: 'hasCode', label: 'Has Code',
+        description: 'The coded medication substance.',
+        propertyType: 'object', domainClassId: medication.id, rangeClassIri: code.url, isRequired: false,
+        mappingPattern: [{ subject: '?this', predicate: `${SULO}hasFeature`, object: '?value' }],
+      });
+
+      // ── MedicationEvent properties ────────────────────────────────────────────
+      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
+        name: 'hasDoseQuantity', label: 'Has Dose Quantity',
+        description: 'The dose administered, dispensed, or requested.',
+        propertyType: 'object', domainClassId: medicationEvent.id, rangeClassIri: dose.url, isRequired: false,
+        mappingPattern: [{ subject: '?this', predicate: `${SULO}hasFeature`, object: '?value' }],
+      });
+      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
+        name: 'hasEncounter', label: 'Has Encounter',
+        description: 'The encounter this medication event occurred during.',
+        propertyType: 'object', domainClassId: medicationEvent.id, rangeClassIri: encounter.url, isRequired: false,
+        mappingPattern: [{ subject: '?this', predicate: `${SULO}isPartOf`, object: '?value' }],
+      });
+      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
+        name: 'hasEventDate', label: 'Has Event Date',
+        description: 'The date and time of the medication event.',
+        propertyType: 'datatype', domainClassId: medicationEvent.id, rangeClassIri: 'http://www.w3.org/2001/XMLSchema#dateTime', isRequired: false,
+        mappingPattern: [
+          { subject: '?this', predicate: `${SULO}atTime`, object: '?o1' },
+          { subject: '?o1',   predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: `${SULO}TimeInstant` },
+          { subject: '?o1',   predicate: `${SULO}hasValue`, object: '?value' },
+        ],
+      });
+      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
+        name: 'hasFrequency', label: 'Has Frequency',
+        description: 'The dosing frequency.',
+        propertyType: 'object', domainClassId: medicationEvent.id, rangeClassIri: frequency.url, isRequired: false,
+        mappingPattern: [{ subject: '?this', predicate: `${SULO}hasFeature`, object: '?value' }],
+      });
+      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
+        name: 'hasMedication', label: 'Has Medication',
+        description: 'The medication substance involved.',
+        propertyType: 'object', domainClassId: medicationEvent.id, rangeClassIri: medication.url, isRequired: true,
+        mappingPattern: [{ subject: '?this', predicate: `${SULO}hasParticipant`, object: '?value' }],
+      });
+      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
+        name: 'hasPatient', label: 'Has Patient',
+        description: 'The patient this medication event concerns.',
+        propertyType: 'object', domainClassId: medicationEvent.id, rangeClassIri: patient.url, isRequired: false,
+        mappingPattern: [
+          { subject: '?this', predicate: `${SULO}hasParticipant`, object: '?o1' },
+          { subject: '?o1',   predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: `${SULO}SubjectOfCareRole` },
+          { subject: '?o1',   predicate: `${SULO}isFeatureOf`, object: '?value' },
+        ],
+      });
+      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
+        name: 'hasRoute', label: 'Has Route',
+        description: 'The route of administration.',
+        propertyType: 'object', domainClassId: medicationEvent.id, rangeClassIri: route.url, isRequired: false,
+        mappingPattern: [{ subject: '?this', predicate: `${SULO}hasFeature`, object: '?value' }],
+      });
+      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
+        name: 'hasStatus', label: 'Has Status',
+        description: "The medication event's status.",
+        propertyType: 'object', domainClassId: medicationEvent.id, rangeClassIri: status.url, isRequired: false,
+        mappingPattern: [{ subject: '?this', predicate: `${SULO}hasFeature`, object: '?value' }],
+      });
+
+      // ── MedicationAdministration / MedicationDispense properties ─────────────
+      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
+        name: 'hasRequest', label: 'Has Request',
+        description: 'The medication request this administration fulfills.',
+        propertyType: 'object', domainClassId: medicationAdministration.id, rangeClassIri: medicationRequest.url, isRequired: false,
+        mappingPattern: [{ subject: '?this', predicate: `${SULO}isIn`, object: '?value' }],
+      });
+      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
+        name: 'hasAuthorizingPrescription', label: 'Has Authorizing Prescription',
+        description: 'The medication request that authorized this dispense.',
+        propertyType: 'object', domainClassId: medicationDispense.id, rangeClassIri: medicationRequest.url, isRequired: false,
+        mappingPattern: [{ subject: '?this', predicate: `${SULO}isIn`, object: '?value' }],
+      });
+
+      // ── Observation properties ────────────────────────────────────────────────
+      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
+        name: 'hasCode', label: 'Has Code',
+        description: 'The coded test or vital sign type this observation is of.',
+        propertyType: 'object', domainClassId: observation.id, rangeClassIri: code.url, isRequired: true,
+        mappingPattern: [{ subject: '?this', predicate: `${SULO}hasFeature`, object: '?value' }],
+      });
+      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
+        name: 'hasEffectiveDate', label: 'Has Effective Date',
+        description: 'The date and time the observation applies to.',
+        propertyType: 'datatype', domainClassId: observation.id, rangeClassIri: 'http://www.w3.org/2001/XMLSchema#dateTime', isRequired: true,
+        mappingPattern: [
+          { subject: '?this', predicate: `${SULO}atTime`, object: '?o1' },
+          { subject: '?o1',   predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: `${SULO}TimeInstant` },
+          { subject: '?o1',   predicate: `${SULO}hasValue`, object: '?value' },
+        ],
+      });
+      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
+        name: 'hasEncounter', label: 'Has Encounter',
+        description: 'The encounter this observation was recorded during.',
+        propertyType: 'object', domainClassId: observation.id, rangeClassIri: encounter.url, isRequired: false,
+        mappingPattern: [{ subject: '?this', predicate: `${SULO}isPartOf`, object: '?value' }],
+      });
+      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
+        name: 'hasPatient', label: 'Has Patient',
+        description: 'The patient this observation concerns.',
+        propertyType: 'object', domainClassId: observation.id, rangeClassIri: patient.url, isRequired: false,
+        mappingPattern: [
+          { subject: '?this', predicate: `${SULO}hasParticipant`, object: '?o1' },
+          { subject: '?o1',   predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: `${SULO}SubjectOfCareRole` },
+          { subject: '?o1',   predicate: `${SULO}isFeatureOf`, object: '?value' },
+        ],
+      });
+      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
+        name: 'hasQuantityValue', label: 'Has Quantity Value',
+        description: 'The numeric result value.',
+        propertyType: 'datatype', domainClassId: observation.id, rangeClassIri: 'http://www.w3.org/2001/XMLSchema#float', isRequired: false,
+        mappingPattern: [
+          { subject: '?this', predicate: `${SULO}hasFeature`, object: '?o1' },
+          { subject: '?o1',   predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: `${SULO}InformationObject` },
+          { subject: '?o1',   predicate: `${SULO}hasValue`, object: '?value' },
+        ],
+      });
+      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
+        name: 'hasStatus', label: 'Has Status',
+        description: "The observation's status.",
+        propertyType: 'object', domainClassId: observation.id, rangeClassIri: status.url, isRequired: false,
+        mappingPattern: [{ subject: '?this', predicate: `${SULO}hasFeature`, object: '?value' }],
+      });
+      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
+        name: 'hasUnit', label: 'Has Unit',
+        description: 'The unit of measure the result value is expressed in.',
+        propertyType: 'object', domainClassId: observation.id, rangeClassIri: externalUnit, isRequired: false,
+        mappingPattern: [{ subject: '?this', predicate: `${SULO}hasFeature`, object: '?value' }],
+      });
+
+      // ── LabObservation properties ─────────────────────────────────────────────
+      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
+        name: 'hasInterpretation', label: 'Has Interpretation',
+        description: 'The clinical interpretation of the result.',
+        propertyType: 'object', domainClassId: labObservation.id, rangeClassIri: resultInterpretation.url, isRequired: false,
+        mappingPattern: [{ subject: '?this', predicate: `${SULO}hasFeature`, object: '?value' }],
+      });
+      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
+        name: 'hasReferenceRange', label: 'Has Reference Range',
+        description: 'The normal reference range for this result, as a display string.',
+        propertyType: 'datatype', domainClassId: labObservation.id, rangeClassIri: 'http://www.w3.org/2001/XMLSchema#string', isRequired: false,
+        mappingPattern: [
+          { subject: '?this', predicate: `${SULO}hasFeature`, object: '?o1' },
+          { subject: '?o1',   predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: `${SULO}InformationObject` },
+          { subject: '?o1',   predicate: `${SULO}hasValue`, object: '?value' },
+        ],
+      });
+      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
+        name: 'hasSpecimen', label: 'Has Specimen',
+        description: 'The specimen this lab result was obtained from.',
+        propertyType: 'object', domainClassId: labObservation.id, rangeClassIri: specimen.url, isRequired: false,
+        mappingPattern: [{ subject: '?this', predicate: `${SULO}hasParticipant`, object: '?value' }],
+      });
+
+      navigate(`/ontology/${schema.id}`);
+    } finally {
+      setIsCreatingFhirExample(false);
+    }
+  }
+
   const form = useForm<NewSchemaForm>({
     resolver: zodResolver(NewSchemaFormSchema),
     defaultValues: { title: '', description: '', upperOntologyIri: '' },
@@ -2721,7 +3098,7 @@ function SchemaListPage() {
         <div className="flex gap-2 shrink-0">
           <button
             onClick={handleLoadExample}
-            disabled={isCreatingExample || isCreatingOmopExample}
+            disabled={isCreatingExample || isCreatingOmopExample || isCreatingFhirExample}
             className="bg-slate-100 hover:bg-slate-200 disabled:opacity-50 text-slate-700 text-sm font-medium px-4 py-2 rounded-lg transition-colors border border-slate-300"
             title="Create a pre-populated clinical schema with 7 example classes"
           >
@@ -2729,11 +3106,19 @@ function SchemaListPage() {
           </button>
           <button
             onClick={handleLoadOmopExample}
-            disabled={isCreatingExample || isCreatingOmopExample}
+            disabled={isCreatingExample || isCreatingOmopExample || isCreatingFhirExample}
             className="bg-slate-100 hover:bg-slate-200 disabled:opacity-50 text-slate-700 text-sm font-medium px-4 py-2 rounded-lg transition-colors border border-slate-300"
             title="Create a pre-populated OMOP CDM schema with 20 classes mapped to SULO"
           >
             {isCreatingOmopExample ? 'Creating…' : 'Load OMOP Example'}
+          </button>
+          <button
+            onClick={handleLoadFhirExample}
+            disabled={isCreatingExample || isCreatingOmopExample || isCreatingFhirExample}
+            className="bg-slate-100 hover:bg-slate-200 disabled:opacity-50 text-slate-700 text-sm font-medium px-4 py-2 rounded-lg transition-colors border border-slate-300"
+            title="Create a pre-populated MIMIC-IV FHIR Demo schema with 19 classes mapped to SULO"
+          >
+            {isCreatingFhirExample ? 'Creating…' : 'Load FHIR Example'}
           </button>
           <button
             onClick={() => setShowCreate(!showCreate)}

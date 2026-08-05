@@ -60,6 +60,11 @@ Tests: `cd frontend && npm test` (vitest — export logic, validation, component
    ?role  sulo:isFeatureOf     ?value
    ```
 
+   See [docs/mapping-patterns.md](docs/mapping-patterns.md) for a catalog of
+   common patterns (direct relation, role-mediated participation, reified
+   values, and measurement quantities), each with its triple template and the
+   OWL it unfolds to.
+
 4. **Generate** — open the export modal and switch between the four tabs; copy or download each artefact.
 
 Click **Load Example** for a pre-built *Clinical Health Record Schema* (28 classes, 83 properties, 3 subclass relationships, 16 `hasCode` properties), or **Load OMOP Example** for the same domain in the OMOP CDM style.

@@ -1,0 +1,34 @@
+[
+  {
+    "drug_exposure_id": 900001,
+    "person_id": 10001,
+    "drug_concept_id": 19078461,
+    "drug_exposure_start_datetime": "2023-05-02T08:00:00",
+    "drug_exposure_end_datetime": "2023-05-02T08:05:00",
+    "drug_type_concept_id": 38000180,
+    "drug_source_concept_id": null,
+    "route_concept_id": 4132161,
+    "provider_id": 20001,
+    "quantity": 1.0,
+    "days_supply": null,
+    "refills": null,
+    "stop_reason": null,
+    "visit_occurrence_id": 500001
+  },
+  {
+    "drug_exposure_id": 900002,
+    "person_id": 10002,
+    "drug_concept_id": null,
+    "drug_exposure_start_datetime": "2023-06-15T14:30:00",
+    "drug_exposure_end_datetime": null,
+    "drug_type_concept_id": 38000180,
+    "drug_source_concept_id": null,
+    "route_concept_id": null,
+    "provider_id": null,
+    "quantity": null,
+    "days_supply": 30,
+    "refills": 2,
+    "stop_reason": null,
+    "visit_occurrence_id": 500002
+  }
+]

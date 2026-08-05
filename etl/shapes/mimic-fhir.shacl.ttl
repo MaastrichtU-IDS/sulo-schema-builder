@@ -1,0 +1,334 @@
+@prefix : <https://w3id.org/sulo/schema/resource/ontology-schema/e63b6fa5-5617-47dc-839e-3ab68d0f2894/> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+:CodeShape
+    a sh:NodeShape, owl:Class ;
+    sh:targetClass :Code ;
+    rdfs:label "Code" ;
+    sh:property [
+        sh:path :hasCodingSystemAndVersion ;
+        sh:name "Has Coding System And Version" ;
+        sh:datatype xsd:string ;
+        sh:minCount 1 ;
+    ] ;
+    sh:property [
+        sh:path :hasIdentifier ;
+        sh:name "Has Identifier" ;
+        sh:datatype xsd:string ;
+        sh:minCount 1 ;
+    ] ;
+    sh:property [
+        sh:path :hasName ;
+        sh:name "Has Name" ;
+        sh:datatype xsd:string ;
+        sh:minCount 0 ;
+    ] .
+
+:ConditionShape
+    a sh:NodeShape, owl:Class ;
+    sh:targetClass :Condition ;
+    rdfs:label "Condition" ;
+    sh:property [
+        sh:path :hasCode ;
+        sh:name "Has Code" ;
+        sh:class :Code ;
+        sh:minCount 1 ;
+    ] ;
+    sh:property [
+        sh:path :hasEncounter ;
+        sh:name "Has Encounter" ;
+        sh:class :Encounter ;
+        sh:minCount 1 ;
+    ] ;
+    sh:property [
+        sh:path :hasPatient ;
+        sh:name "Has Patient" ;
+        sh:class :Patient ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :hasRecordedDate ;
+        sh:name "Has Recorded Date" ;
+        sh:datatype xsd:dateTime ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :hasSeqNum ;
+        sh:name "Has Sequence Number" ;
+        sh:datatype xsd:integer ;
+        sh:minCount 0 ;
+    ] .
+
+:DoseShape
+    a sh:NodeShape, owl:Class ;
+    sh:targetClass :Dose ;
+    rdfs:label "Dose" ;
+    sh:property [
+        sh:path :hasDoseAmount ;
+        sh:name "Has Dose Amount" ;
+        sh:datatype xsd:float ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :hasDoseUnit ;
+        sh:name "Has Dose Unit" ;
+        sh:class <https://w3id.org/sulo/Unit> ;
+        sh:minCount 0 ;
+    ] .
+
+:EncounterShape
+    a sh:NodeShape, owl:Class ;
+    sh:targetClass :Encounter ;
+    rdfs:label "Encounter" ;
+    sh:property [
+        sh:path :hasAdmissionDate ;
+        sh:name "Has Admission Date" ;
+        sh:datatype xsd:dateTime ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :hasDischargeDate ;
+        sh:name "Has Discharge Date" ;
+        sh:datatype xsd:dateTime ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :hasPatient ;
+        sh:name "Has Patient" ;
+        sh:class :Patient ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :hasStatus ;
+        sh:name "Has Status" ;
+        sh:class :Status ;
+        sh:minCount 0 ;
+    ] .
+
+:FrequencyShape
+    a sh:NodeShape, owl:Class ;
+    sh:targetClass :Frequency ;
+    rdfs:label "Frequency" .
+
+:LabObservationShape
+    a sh:NodeShape, owl:Class ;
+    sh:targetClass :LabObservation ;
+    rdfs:subClassOf :Observation ;
+    rdfs:label "Lab Observation" ;
+    sh:property [
+        sh:path :hasInterpretation ;
+        sh:name "Has Interpretation" ;
+        sh:class :ResultInterpretation ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :hasReferenceRange ;
+        sh:name "Has Reference Range" ;
+        sh:datatype xsd:string ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :hasSpecimen ;
+        sh:name "Has Specimen" ;
+        sh:class :Specimen ;
+        sh:minCount 0 ;
+    ] .
+
+:MedicationShape
+    a sh:NodeShape, owl:Class ;
+    sh:targetClass :Medication ;
+    rdfs:label "Medication" ;
+    sh:property [
+        sh:path :hasCode ;
+        sh:name "Has Code" ;
+        sh:class :Code ;
+        sh:minCount 0 ;
+    ] .
+
+:MedicationAdministrationShape
+    a sh:NodeShape, owl:Class ;
+    sh:targetClass :MedicationAdministration ;
+    rdfs:subClassOf :MedicationEvent ;
+    rdfs:label "Medication Administration" ;
+    sh:property [
+        sh:path :hasRequest ;
+        sh:name "Has Request" ;
+        sh:class :MedicationRequest ;
+        sh:minCount 0 ;
+    ] .
+
+:MedicationDispenseShape
+    a sh:NodeShape, owl:Class ;
+    sh:targetClass :MedicationDispense ;
+    rdfs:subClassOf :MedicationEvent ;
+    rdfs:label "Medication Dispense" ;
+    sh:property [
+        sh:path :hasAuthorizingPrescription ;
+        sh:name "Has Authorizing Prescription" ;
+        sh:class :MedicationRequest ;
+        sh:minCount 0 ;
+    ] .
+
+:MedicationEventShape
+    a sh:NodeShape, owl:Class ;
+    sh:targetClass :MedicationEvent ;
+    rdfs:label "Medication Event" ;
+    sh:property [
+        sh:path :hasDoseQuantity ;
+        sh:name "Has Dose Quantity" ;
+        sh:class :Dose ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :hasEncounter ;
+        sh:name "Has Encounter" ;
+        sh:class :Encounter ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :hasEventDate ;
+        sh:name "Has Event Date" ;
+        sh:datatype xsd:dateTime ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :hasFrequency ;
+        sh:name "Has Frequency" ;
+        sh:class :Frequency ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :hasMedication ;
+        sh:name "Has Medication" ;
+        sh:class :Medication ;
+        sh:minCount 1 ;
+    ] ;
+    sh:property [
+        sh:path :hasPatient ;
+        sh:name "Has Patient" ;
+        sh:class :Patient ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :hasRoute ;
+        sh:name "Has Route" ;
+        sh:class :Route ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :hasStatus ;
+        sh:name "Has Status" ;
+        sh:class :Status ;
+        sh:minCount 0 ;
+    ] .
+
+:MedicationRequestShape
+    a sh:NodeShape, owl:Class ;
+    sh:targetClass :MedicationRequest ;
+    rdfs:subClassOf :MedicationEvent ;
+    rdfs:label "Medication Request" .
+
+:ObservationShape
+    a sh:NodeShape, owl:Class ;
+    sh:targetClass :Observation ;
+    rdfs:label "Observation" ;
+    sh:property [
+        sh:path :hasCode ;
+        sh:name "Has Code" ;
+        sh:class :Code ;
+        sh:minCount 1 ;
+    ] ;
+    sh:property [
+        sh:path :hasEffectiveDate ;
+        sh:name "Has Effective Date" ;
+        sh:datatype xsd:dateTime ;
+        sh:minCount 1 ;
+    ] ;
+    sh:property [
+        sh:path :hasEncounter ;
+        sh:name "Has Encounter" ;
+        sh:class :Encounter ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :hasPatient ;
+        sh:name "Has Patient" ;
+        sh:class :Patient ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :hasQuantityValue ;
+        sh:name "Has Quantity Value" ;
+        sh:datatype xsd:float ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :hasStatus ;
+        sh:name "Has Status" ;
+        sh:class :Status ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :hasUnit ;
+        sh:name "Has Unit" ;
+        sh:class <https://w3id.org/sulo/Unit> ;
+        sh:minCount 0 ;
+    ] .
+
+:PatientShape
+    a sh:NodeShape, owl:Class ;
+    sh:targetClass :Patient ;
+    rdfs:label "Patient" .
+
+:ResultInterpretationShape
+    a sh:NodeShape, owl:Class ;
+    sh:targetClass :ResultInterpretation ;
+    rdfs:label "Result Interpretation" .
+
+:RouteShape
+    a sh:NodeShape, owl:Class ;
+    sh:targetClass :Route ;
+    rdfs:label "Route" .
+
+:SpecimenShape
+    a sh:NodeShape, owl:Class ;
+    sh:targetClass :Specimen ;
+    rdfs:label "Specimen" ;
+    sh:property [
+        sh:path :hasCode ;
+        sh:name "Has Code" ;
+        sh:class :Code ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :hasCollectionDate ;
+        sh:name "Has Collection Date" ;
+        sh:datatype xsd:dateTime ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :hasPatient ;
+        sh:name "Has Patient" ;
+        sh:class :Patient ;
+        sh:minCount 0 ;
+    ] .
+
+:StatusShape
+    a sh:NodeShape, owl:Class ;
+    sh:targetClass :Status ;
+    rdfs:label "Status" .
+
+:SubjectOfCareRoleShape
+    a sh:NodeShape, owl:Class ;
+    sh:targetClass :SubjectOfCareRole ;
+    rdfs:label "Subject of Care Role" .
+
+:VitalSignObservationShape
+    a sh:NodeShape, owl:Class ;
+    sh:targetClass :VitalSignObservation ;
+    rdfs:subClassOf :Observation ;
+    rdfs:label "Vital Sign Observation" .
+

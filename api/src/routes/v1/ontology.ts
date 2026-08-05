@@ -2,6 +2,7 @@ import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { Parser as N3Parser } from 'n3';
 import { sparqlSelect, sparqlUpdate } from '../../services/sparql.service.js';
+import { fetchFullSchema } from '../../services/schema.service.js';
 import { PREFIXES } from '../../rdf/prefixes.js';
 import { randomUUID } from 'crypto';
 
@@ -212,116 +213,46 @@ const ontologyRoutes: FastifyPluginAsync = async (fastify) => {
   // GET /ontology-schemas/:id — get one with classes and properties
   fastify.get('/:id', async (request, reply) => {
     const { id } = IdParam.parse(request.params);
-    const sIri = schemaIri(id);
 
-    // Fetch schema metadata
-    const metaRows = await sparqlSelect(fastify, `
-      SELECT ?title ?description ?upperOntologyIri
-      WHERE {
-        ${iri(sIri)} a <${SM}OntologySchema> .
-        OPTIONAL { ${iri(sIri)} <${DCT}title> ?title }
-        OPTIONAL { ${iri(sIri)} <${DCT}description> ?description }
-        OPTIONAL { ${iri(sIri)} <${SM}upperOntologyIri> ?upperOntologyIri }
-      }
-    `);
-    if (!metaRows.length) return reply.notFound(`OntologySchema ${id} not found`);
-    const meta = metaRows[0];
+    // The full-schema fetch (metadata + classes + properties) is shared with
+    // schemaMatching.service.ts, which needs to fetch two schemas the same way.
+    const schema = await fetchFullSchema(fastify, id);
+    if (!schema) return reply.notFound(`OntologySchema ${id} not found`);
 
-    // Fetch classes
-    const classRows = await sparqlSelect(fastify, `
-      SELECT ?cls ?name ?label ?description ?mapsTo ?superCls
+    // This route additionally reports propertyFeatures/inverse/disjoint —
+    // fields fetchFullSchema() doesn't need for shape-matching purposes —
+    // fetched here as a second, targeted pass keyed by the property IRIs
+    // fetchFullSchema() already resolved.
+    const extraRows = await sparqlSelect(fastify, `
+      SELECT ?prop ?regexPattern ?regexVariable ?propertyFeatures ?inversePropertyIri ?disjointPropertyIris
       WHERE {
-        ${iri(sIri)} <${SM}hasClass> ?cls .
-        OPTIONAL { ?cls <${DCT}identifier> ?name }
-        OPTIONAL { ?cls <http://www.w3.org/2000/01/rdf-schema#label> ?label }
-        OPTIONAL { ?cls <${DCT}description> ?description }
-        OPTIONAL { ?cls <${SM}mapsToConcept> ?mapsTo }
-        OPTIONAL { ?cls <${SM}superClass> ?superCls }
-      }
-      ORDER BY ?name
-    `);
-
-    // Fetch properties
-    const propRows = await sparqlSelect(fastify, `
-      SELECT ?prop ?name ?label ?description ?propertyType ?domainClass ?rangeClassIri ?mappingPattern ?regexPattern ?regexVariable ?isRequired
-      WHERE {
-        ${iri(sIri)} <${SM}hasOntologyProperty> ?prop .
-        OPTIONAL { ?prop <${DCT}identifier> ?name }
-        OPTIONAL { ?prop <http://www.w3.org/2000/01/rdf-schema#label> ?label }
-        OPTIONAL { ?prop <${DCT}description> ?description }
-        OPTIONAL { ?prop <${SM}propertyType> ?propertyType }
-        OPTIONAL { ?prop <${SM}domainClass> ?domainClass }
-        OPTIONAL { ?prop <${SM}rangeClassIri> ?rangeClassIri }
-        OPTIONAL { ?prop <${SM}mappingPattern> ?mappingPattern }
+        ${iri(schema.url)} <${SM}hasOntologyProperty> ?prop .
         OPTIONAL { ?prop <${SM}regexPattern> ?regexPattern }
         OPTIONAL { ?prop <${SM}regexVariable> ?regexVariable }
-        OPTIONAL { ?prop <${SM}isRequired> ?isRequired }
         OPTIONAL { ?prop <${SM}propertyFeatures> ?propertyFeatures }
         OPTIONAL { ?prop <${SM}inversePropertyIri> ?inversePropertyIri }
         OPTIONAL { ?prop <${SM}disjointPropertyIris> ?disjointPropertyIris }
       }
-      ORDER BY ?name
     `);
+    const extraByUrl = new Map(extraRows.map((r) => [r['prop']?.value, r]));
 
-    const classPrefix = classIri('');
-    const classes = classRows.map((r) => {
-      const url = r['cls']?.value ?? '';
-      const superClsUrl = r['superCls']?.value;
-      // Only keep superClassId if it is actually a class in this schema (not an inferred rdfs/owl IRI)
-      const superClassId =
-        superClsUrl && superClsUrl.startsWith(classPrefix)
-          ? superClsUrl.slice(classPrefix.length)
-          : undefined;
+    const properties = schema.properties.map((p) => {
+      const r = extraByUrl.get(p.url);
       return {
-        id: url.split('/').pop() ?? url,
-        url,
-        name: r['name']?.value ?? '',
-        label: r['label']?.value,
-        description: r['description']?.value,
-        mapsToConceptIri: r['mapsTo']?.value,
-        superClassId,
-      };
-    });
-
-    const classById = new Map(classes.map((c) => [c.url, c]));
-
-    const properties = propRows.map((r) => {
-      const url = r['prop']?.value ?? '';
-      const domainUrl = r['domainClass']?.value;
-      return {
-        id: url.split('/').pop() ?? url,
-        url,
-        name: r['name']?.value ?? '',
-        label: r['label']?.value,
-        description: r['description']?.value,
-        propertyType: (r['propertyType']?.value ?? 'datatype') as 'object' | 'datatype',
-        domainClassId: domainUrl ? (domainUrl.split('/').pop() ?? domainUrl) : undefined,
-        rangeClassIri: r['rangeClassIri']?.value,
-        mappingPattern: r['mappingPattern']?.value
-          ? (() => { try { return JSON.parse(r['mappingPattern']!.value) as { subject: string; predicate: string; object: string }[]; } catch { return []; } })()
-          : [],
-        regexPattern: r['regexPattern']?.value,
-        regexVariable: r['regexVariable']?.value,
-        isRequired: r['isRequired']?.value === 'true',
-        propertyFeatures: r['propertyFeatures']?.value
+        ...p,
+        regexPattern: r?.['regexPattern']?.value,
+        regexVariable: r?.['regexVariable']?.value,
+        propertyFeatures: r?.['propertyFeatures']?.value
           ? (() => { try { return JSON.parse(r['propertyFeatures']!.value); } catch { return []; } })()
           : [],
-        inversePropertyIri: r['inversePropertyIri']?.value,
-        disjointPropertyIris: r['disjointPropertyIris']?.value
+        inversePropertyIri: r?.['inversePropertyIri']?.value,
+        disjointPropertyIris: r?.['disjointPropertyIris']?.value
           ? (() => { try { return JSON.parse(r['disjointPropertyIris']!.value); } catch { return []; } })()
           : [],
       };
     });
 
-    return {
-      id,
-      url: sIri,
-      title: meta['title']?.value ?? '',
-      description: meta['description']?.value,
-      upperOntologyIri: meta['upperOntologyIri']?.value,
-      classes,
-      properties,
-    };
+    return { ...schema, properties };
   });
 
   // POST /ontology-schemas — create
