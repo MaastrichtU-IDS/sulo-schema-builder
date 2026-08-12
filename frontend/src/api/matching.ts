@@ -91,6 +91,43 @@ export async function generateConstructQueries(params: ConstructParams): Promise
   return data.pairs;
 }
 
+// ─── ShEx ShapeMap transformability check (mirrors shex.service.ts) ─────────
+// Compiles both properties' own mapping patterns into ShEx shapes
+// (shexSpec/shex) and checks "transformability" with a real ShapeMap
+// (shexSpec/shape-map) run through the actual shex-validate tool — a
+// standards-based check independent of this tool's own shape-key comparison.
+
+export interface ShexVerdict {
+  conformant: boolean;
+  errors?: unknown;
+}
+
+export interface ShexPropertyPairResult {
+  sourcePropertyId: string;
+  sourcePropertyName: string;
+  targetPropertyId: string;
+  targetPropertyName: string;
+  sourceShex: string;
+  targetShex: string;
+  sourceRootLabel: string;
+  targetRootLabel: string;
+  sampleData: string;
+  sourceAcceptsTarget: ShexVerdict;
+  targetAcceptsSource: ShexVerdict;
+  transformable: boolean;
+}
+
+export interface ShexCheckParams {
+  sourceSchemaId: string;
+  targetSchemaId: string;
+  pairs: Array<{ sourcePropertyId: string; targetPropertyId: string }>;
+}
+
+export async function checkShexTransformability(params: ShexCheckParams): Promise<ShexPropertyPairResult[]> {
+  const { data } = await apiClient.post('/matching/shex', params);
+  return data.pairs;
+}
+
 // ─── Hooks ────────────────────────────────────────────────────────────────────
 
 export function useCompareSchemas() {
@@ -103,4 +140,8 @@ export function useGenerateMappingYaml() {
 
 export function useGenerateConstructQueries() {
   return useMutation({ mutationFn: generateConstructQueries });
+}
+
+export function useCheckShexTransformability() {
+  return useMutation({ mutationFn: checkShexTransformability });
 }

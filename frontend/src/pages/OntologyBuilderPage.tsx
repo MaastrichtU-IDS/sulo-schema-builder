@@ -1251,6 +1251,19 @@ function EditPropertyForm({
 
 const SULO = 'https://w3id.org/sulo/';
 
+// A class's canonical IRI falls back to a schema-local IRI whenever
+// mapsToConceptIri sits inside the bare SULO namespace — so two independently
+// authored schemas' same-meaning Role subclasses (OMOP's PatientRole, FHIR's
+// SubjectOfCareRole) never resolve to the same IRI even though both declare
+// category "Role", which silently breaks cross-schema round-tripping through
+// SULO. Pointing both at a shared, non-SULO-namespaced IRI here (the same
+// mechanism already used for external codes like SNOMED) makes them resolve
+// identically instead.
+const SHARED_ROLES = {
+  subjectOfCare: 'https://w3id.org/sulo-schema-builder/roles/SubjectOfCareRole',
+  performer: 'https://w3id.org/sulo-schema-builder/roles/PerformerRole',
+};
+
 const CLINICAL_EXAMPLE_CLASSES: { name: string; label: string; description: string; mapsToConceptIri: string; superClassName?: string }[] = [
   { name: 'ClinicalVisit',       label: 'Clinical Visit',                description: 'A healthcare encounter between a patient and a provider.',                          mapsToConceptIri: `${SULO}Process` },
   { name: 'Measurement',         label: 'Measurement',                   description: 'The outcome of a laboratory test or diagnostic analysis.',                          mapsToConceptIri: `${SULO}InformationObject` },
@@ -1308,14 +1321,16 @@ const OMOP_EXAMPLE_CLASSES: { name: string; label: string; description: string; 
   { name: 'Device',               label: 'Device',                 description: 'A medical device or instrument used in diagnosis or therapy.',                                    mapsToConceptIri: `${SULO}SpatialObject` },
   { name: 'Specimen',             label: 'Specimen',               description: 'A biological specimen collected from a person for laboratory analysis.',                          mapsToConceptIri: `${SULO}SpatialObject` },
   // Roles (used in Pattern B participant chains)
-  { name: 'PatientRole',          label: 'Patient Role',           description: 'The role played by a person as the subject of a clinical event.',                                mapsToConceptIri: `${SULO}Role` },
-  { name: 'ProviderRole',         label: 'Provider Role',          description: 'The role played by a provider who participates in a clinical event.',                            mapsToConceptIri: `${SULO}Role` },
+  { name: 'PatientRole',          label: 'Patient Role',           description: 'The role played by a person as the subject of a clinical event.',                                mapsToConceptIri: SHARED_ROLES.subjectOfCare },
+  { name: 'ProviderRole',         label: 'Provider Role',          description: 'The role played by a provider who participates in a clinical event.',                            mapsToConceptIri: SHARED_ROLES.performer },
   { name: 'OutputRole',           label: 'Output Role',            description: 'The role of an entity produced as an output of a clinical process.',                             mapsToConceptIri: `${SULO}Role` },
   { name: 'InstrumentRole',       label: 'Instrument Role',        description: 'The role of a device or instrument used in a clinical process.',                                 mapsToConceptIri: `${SULO}Role` },
   // Value carriers
   { name: 'MeasurementValue',     label: 'Measurement Value',      description: 'A numerical or categorical value obtained from a measurement.',                                   mapsToConceptIri: `${SULO}Quantity` },
   { name: 'Unit',                 label: 'Unit',                   description: 'A unit of measure associated with a measurement or dose.',                                        mapsToConceptIri: `${SULO}Quality` },
   { name: 'DoseQuantity',         label: 'Dose Quantity',          description: 'The quantity of a drug dispensed or administered.',                                               mapsToConceptIri: `${SULO}Quantity` },
+  // Added to mirror PMC12935678's FHIR<->OMOP Observation/Measurement crosswalk
+  { name: 'MeasurementEvent',     label: 'Measurement Event',      description: 'Groups two or more Measurement rows that jointly report one composite reading (e.g. systolic+diastolic blood pressure).', mapsToConceptIri: `${SULO}Process` },
 ];
 
 const FHIR_EXAMPLE_CLASSES: { name: string; label: string; description: string; mapsToConceptIri?: string; superClassName?: string }[] = [
@@ -1326,7 +1341,7 @@ const FHIR_EXAMPLE_CLASSES: { name: string; label: string; description: string; 
   { name: 'Route',                      label: 'Route',                       description: 'The categorical route of administration of a medication (e.g. oral, intravenous).', mapsToConceptIri: `${SULO}Quality` },
   { name: 'Frequency',                  label: 'Frequency',                   description: 'The categorical dosing frequency of a medication.',                                mapsToConceptIri: `${SULO}Quality` },
   { name: 'ResultInterpretation',       label: 'Result Interpretation',       description: 'The categorical clinical interpretation of a lab result (e.g. high, low, normal, abnormal).', mapsToConceptIri: `${SULO}Quality` },
-  { name: 'SubjectOfCareRole',          label: 'Subject of Care Role',        description: 'The role played by a patient as the subject of a clinical event.',                 mapsToConceptIri: `${SULO}Role` },
+  { name: 'SubjectOfCareRole',          label: 'Subject of Care Role',        description: 'The role played by a patient as the subject of a clinical event.',                 mapsToConceptIri: SHARED_ROLES.subjectOfCare },
   { name: 'Dose',                       label: 'Dose',                        description: 'The quantity of a medication administered, dispensed, or requested.',              mapsToConceptIri: `${SULO}Quantity` },
   { name: 'Specimen',                   label: 'Specimen',                    description: 'A biological specimen collected from a patient for laboratory analysis.',          mapsToConceptIri: `${SULO}SpatialObject` },
   { name: 'Condition',                  label: 'Condition',                   description: 'A clinical condition, problem, or diagnosis recorded for a patient.',              mapsToConceptIri: `${SULO}Process` },
@@ -1338,6 +1353,12 @@ const FHIR_EXAMPLE_CLASSES: { name: string; label: string; description: string; 
   { name: 'Observation',                label: 'Observation',                 description: 'A clinical fact recorded about a patient (a lab result or a vital sign).',         mapsToConceptIri: `${SULO}Process` },
   { name: 'LabObservation',             label: 'Lab Observation',             description: 'An observation resulting from a laboratory test.',                                 superClassName: 'Observation' },
   { name: 'VitalSignObservation',       label: 'Vital Sign Observation',      description: 'An observation of a vital sign (e.g. heart rate, blood pressure).',                superClassName: 'Observation' },
+  // Added to mirror PMC12935678's FHIR<->OMOP Observation/Measurement crosswalk
+  { name: 'Practitioner',               label: 'Practitioner',                description: 'A clinician who performed or is otherwise responsible for a clinical observation or event.', mapsToConceptIri: `${SULO}SpatialObject` },
+  { name: 'PerformerRole',              label: 'Performer Role',              description: 'The role played by a practitioner as the performer of an observation.',             mapsToConceptIri: SHARED_ROLES.performer },
+  { name: 'ObservationComponent',       label: 'Observation Component',       description: 'One component of a composite observation (e.g. the systolic reading within a blood-pressure observation).', mapsToConceptIri: `${SULO}Process` },
+  { name: 'Comparator',                 label: 'Comparator',                  description: 'The categorical qualifier on a result value (e.g. less-than, greater-or-equal).', mapsToConceptIri: `${SULO}Quality` },
+  { name: 'Category',                   label: 'Category',                    description: 'The categorical classification of an observation (e.g. vital-signs, laboratory).', mapsToConceptIri: `${SULO}Quality` },
 ];
 
 // ─── List page ────────────────────────────────────────────────────────────────
@@ -1986,6 +2007,7 @@ function SchemaListPage() {
       const measurementValue    = classMap.get('MeasurementValue')!;
       const unit                = classMap.get('Unit')!;
       const doseQuantity        = classMap.get('DoseQuantity')!;
+      const measurementEvent    = classMap.get('MeasurementEvent')!;
 
       // ── Concept properties ────────────────────────────────────────────────────
       await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
@@ -2300,8 +2322,14 @@ function SchemaListPage() {
         name: 'value_as_number', label: 'Value As Number',
         description: 'Numeric result of the measurement.',
         propertyType: 'datatype', domainClassId: measurement.id, rangeClassIri: 'http://www.w3.org/2001/XMLSchema#float', isRequired: false,
+        // Routed through an InformationObject carrier (not the bare hasValue
+        // shortcut Measurement's own InformationObject category would allow)
+        // so this matches FHIR hasQuantityValue's shape exactly — needed for
+        // lossless OMOP<->SULO<->FHIR round-tripping (PMC12935678 crosswalk).
         mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/hasValue', object: '?value' },
+          { subject: '?this', predicate: 'https://w3id.org/sulo/hasFeature', object: '?o1' },
+          { subject: '?o1', predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: 'https://w3id.org/sulo/InformationObject' },
+          { subject: '?o1', predicate: 'https://w3id.org/sulo/hasValue', object: '?value' },
         ],
       });
       await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
@@ -2343,7 +2371,9 @@ function SchemaListPage() {
         description: 'Lower bound of the normal reference range for this measurement.',
         propertyType: 'datatype', domainClassId: measurement.id, rangeClassIri: 'http://www.w3.org/2001/XMLSchema#decimal', isRequired: false,
         mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/hasValue', object: '?value' },
+          { subject: '?this', predicate: 'https://w3id.org/sulo/hasFeature', object: '?o1' },
+          { subject: '?o1', predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: 'https://w3id.org/sulo/InformationObject' },
+          { subject: '?o1', predicate: 'https://w3id.org/sulo/hasValue', object: '?value' },
         ],
       });
       await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
@@ -2351,7 +2381,9 @@ function SchemaListPage() {
         description: 'Upper bound of the normal reference range for this measurement.',
         propertyType: 'datatype', domainClassId: measurement.id, rangeClassIri: 'http://www.w3.org/2001/XMLSchema#decimal', isRequired: false,
         mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/hasValue', object: '?value' },
+          { subject: '?this', predicate: 'https://w3id.org/sulo/hasFeature', object: '?o1' },
+          { subject: '?o1', predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: 'https://w3id.org/sulo/InformationObject' },
+          { subject: '?o1', predicate: 'https://w3id.org/sulo/hasValue', object: '?value' },
         ],
       });
 
@@ -2710,6 +2742,102 @@ function SchemaListPage() {
         ],
       });
 
+      // ── Fields added to mirror PMC12935678's FHIR<->OMOP Observation/Measurement crosswalk ──
+      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
+        name: 'measurement_id', label: 'Measurement ID',
+        description: 'The row-level surrogate identifier of this measurement.',
+        propertyType: 'datatype', domainClassId: measurement.id, rangeClassIri: 'http://www.w3.org/2001/XMLSchema#integer', isRequired: false,
+        mappingPattern: [
+          { subject: '?this', predicate: 'https://w3id.org/sulo/hasFeature', object: '?o1' },
+          { subject: '?o1', predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: 'https://w3id.org/sulo/InformationObject' },
+          { subject: '?o1', predicate: 'https://w3id.org/sulo/hasValue', object: '?value' },
+        ],
+      });
+      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
+        name: 'measurement_date', label: 'Measurement Date',
+        description: 'The date (without time) the measurement was taken.',
+        propertyType: 'datatype', domainClassId: measurement.id, rangeClassIri: 'http://www.w3.org/2001/XMLSchema#date', isRequired: false,
+        mappingPattern: [
+          { subject: '?this', predicate: 'https://w3id.org/sulo/atTime', object: '?o1' },
+          { subject: '?o1', predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: 'https://w3id.org/sulo/TimeInstant' },
+          { subject: '?o1', predicate: 'https://w3id.org/sulo/hasValue', object: '?value' },
+        ],
+      });
+      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
+        name: 'measurement_time', label: 'Measurement Time',
+        description: 'The time-of-day component of the measurement, stored separately from the date.',
+        propertyType: 'datatype', domainClassId: measurement.id, rangeClassIri: 'http://www.w3.org/2001/XMLSchema#time', isRequired: false,
+        mappingPattern: [
+          { subject: '?this', predicate: 'https://w3id.org/sulo/atTime', object: '?o1' },
+          { subject: '?o1', predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: 'https://w3id.org/sulo/TimeInstant' },
+          { subject: '?o1', predicate: 'https://w3id.org/sulo/hasValue', object: '?value' },
+        ],
+      });
+      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
+        name: 'measurement_source_value', label: 'Measurement Source Value',
+        description: 'The raw, unmapped source string for the measurement concept, as it appeared in the source data.',
+        propertyType: 'datatype', domainClassId: measurement.id, rangeClassIri: 'http://www.w3.org/2001/XMLSchema#string', isRequired: false,
+        mappingPattern: [
+          { subject: '?this', predicate: 'https://w3id.org/sulo/hasFeature', object: '?o1' },
+          { subject: '?o1', predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: 'https://w3id.org/sulo/InformationObject' },
+          { subject: '?o1', predicate: 'https://w3id.org/sulo/hasValue', object: '?value' },
+        ],
+      });
+      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
+        name: 'value_source_value', label: 'Value Source Value',
+        description: 'The raw, unmapped source string for the result value, as it appeared in the source data.',
+        propertyType: 'datatype', domainClassId: measurement.id, rangeClassIri: 'http://www.w3.org/2001/XMLSchema#string', isRequired: false,
+        mappingPattern: [
+          { subject: '?this', predicate: 'https://w3id.org/sulo/hasFeature', object: '?o1' },
+          { subject: '?o1', predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: 'https://w3id.org/sulo/InformationObject' },
+          { subject: '?o1', predicate: 'https://w3id.org/sulo/hasValue', object: '?value' },
+        ],
+      });
+      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
+        name: 'hasMeasurementEvent', label: 'Has Measurement Event',
+        description: 'Links this measurement to the composite event it is one component of (e.g. one BP reading occasion).',
+        propertyType: 'object', domainClassId: measurement.id, rangeClassIri: measurementEvent.url, isRequired: false,
+        mappingPattern: [
+          { subject: '?this', predicate: 'https://w3id.org/sulo/isIn', object: '?value' },
+        ],
+      });
+      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
+        name: 'race_concept_id', label: 'Race Concept ID',
+        description: "Standardised concept reflecting the person's race.",
+        propertyType: 'object', domainClassId: person.id, rangeClassIri: concept.url, isRequired: false,
+        mappingPattern: [
+          { subject: '?this', predicate: 'https://w3id.org/sulo/hasFeature', object: '?value' },
+        ],
+      });
+      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
+        name: 'ethnicity_concept_id', label: 'Ethnicity Concept ID',
+        description: "Standardised concept reflecting the person's ethnicity.",
+        propertyType: 'object', domainClassId: person.id, rangeClassIri: concept.url, isRequired: false,
+        mappingPattern: [
+          { subject: '?this', predicate: 'https://w3id.org/sulo/hasFeature', object: '?value' },
+        ],
+      });
+      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
+        name: 'person_source_value', label: 'Person Source Value',
+        description: 'The raw source-system identifier for this person.',
+        propertyType: 'datatype', domainClassId: person.id, rangeClassIri: 'http://www.w3.org/2001/XMLSchema#string', isRequired: false,
+        mappingPattern: [
+          { subject: '?this', predicate: 'https://w3id.org/sulo/hasFeature', object: '?o1' },
+          { subject: '?o1', predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: 'https://w3id.org/sulo/InformationObject' },
+          { subject: '?o1', predicate: 'https://w3id.org/sulo/hasValue', object: '?value' },
+        ],
+      });
+      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
+        name: 'visit_occurrence_source_value', label: 'Visit Occurrence Source Value',
+        description: 'The raw source-system identifier for this visit.',
+        propertyType: 'datatype', domainClassId: visitOccurrence.id, rangeClassIri: 'http://www.w3.org/2001/XMLSchema#string', isRequired: false,
+        mappingPattern: [
+          { subject: '?this', predicate: 'https://w3id.org/sulo/hasFeature', object: '?o1' },
+          { subject: '?o1', predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: 'https://w3id.org/sulo/InformationObject' },
+          { subject: '?o1', predicate: 'https://w3id.org/sulo/hasValue', object: '?value' },
+        ],
+      });
+
       navigate(`/ontology/${schema.id}`);
     } finally {
       setIsCreatingOmopExample(false);
@@ -2755,6 +2883,12 @@ function SchemaListPage() {
       const medicationDispense       = classMap.get('MedicationDispense')!;
       const observation              = classMap.get('Observation')!;
       const labObservation           = classMap.get('LabObservation')!;
+      const practitioner             = classMap.get('Practitioner')!;
+      const performerRole            = classMap.get('PerformerRole')!;
+      const subjectOfCareRole        = classMap.get('SubjectOfCareRole')!;
+      const observationComponent     = classMap.get('ObservationComponent')!;
+      const comparator               = classMap.get('Comparator')!;
+      const category                 = classMap.get('Category')!;
 
       // Referenced directly (no local class) — matches the SHACL export's
       // `sh:class <https://w3id.org/sulo/Unit>` for hasDoseUnit/hasUnit.
@@ -2811,7 +2945,7 @@ function SchemaListPage() {
         propertyType: 'object', domainClassId: encounter.id, rangeClassIri: patient.url, isRequired: false,
         mappingPattern: [
           { subject: '?this', predicate: `${SULO}hasParticipant`, object: '?o1' },
-          { subject: '?o1',   predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: `${SULO}SubjectOfCareRole` },
+          { subject: '?o1',   predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: subjectOfCareRole.url },
           { subject: '?o1',   predicate: `${SULO}isFeatureOf`, object: '?value' },
         ],
       });
@@ -2879,7 +3013,7 @@ function SchemaListPage() {
         propertyType: 'object', domainClassId: condition.id, rangeClassIri: patient.url, isRequired: false,
         mappingPattern: [
           { subject: '?this', predicate: `${SULO}hasParticipant`, object: '?o1' },
-          { subject: '?o1',   predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: `${SULO}SubjectOfCareRole` },
+          { subject: '?o1',   predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: subjectOfCareRole.url },
           { subject: '?o1',   predicate: `${SULO}isFeatureOf`, object: '?value' },
         ],
       });
@@ -2953,7 +3087,7 @@ function SchemaListPage() {
         propertyType: 'object', domainClassId: medicationEvent.id, rangeClassIri: patient.url, isRequired: false,
         mappingPattern: [
           { subject: '?this', predicate: `${SULO}hasParticipant`, object: '?o1' },
-          { subject: '?o1',   predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: `${SULO}SubjectOfCareRole` },
+          { subject: '?o1',   predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: subjectOfCareRole.url },
           { subject: '?o1',   predicate: `${SULO}isFeatureOf`, object: '?value' },
         ],
       });
@@ -3013,7 +3147,7 @@ function SchemaListPage() {
         propertyType: 'object', domainClassId: observation.id, rangeClassIri: patient.url, isRequired: false,
         mappingPattern: [
           { subject: '?this', predicate: `${SULO}hasParticipant`, object: '?o1' },
-          { subject: '?o1',   predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: `${SULO}SubjectOfCareRole` },
+          { subject: '?o1',   predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: subjectOfCareRole.url },
           { subject: '?o1',   predicate: `${SULO}isFeatureOf`, object: '?value' },
         ],
       });
@@ -3062,6 +3196,82 @@ function SchemaListPage() {
         description: 'The specimen this lab result was obtained from.',
         propertyType: 'object', domainClassId: labObservation.id, rangeClassIri: specimen.url, isRequired: false,
         mappingPattern: [{ subject: '?this', predicate: `${SULO}hasParticipant`, object: '?value' }],
+      });
+
+      // ── Fields added to mirror PMC12935678's FHIR<->OMOP Observation/Measurement crosswalk ──
+      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
+        name: 'hasObservationIdentifier', label: 'Has Identifier',
+        description: 'The resource-level identifier of this observation.',
+        propertyType: 'datatype', domainClassId: observation.id, rangeClassIri: 'http://www.w3.org/2001/XMLSchema#string', isRequired: false,
+        mappingPattern: [
+          { subject: '?this', predicate: `${SULO}hasFeature`, object: '?o1' },
+          { subject: '?o1',   predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: `${SULO}InformationObject` },
+          { subject: '?o1',   predicate: `${SULO}hasValue`, object: '?value' },
+        ],
+      });
+      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
+        name: 'hasPerformer', label: 'Has Performer',
+        description: 'The practitioner who performed this observation.',
+        propertyType: 'object', domainClassId: observation.id, rangeClassIri: practitioner.url, isRequired: false,
+        mappingPattern: [
+          { subject: '?this', predicate: `${SULO}hasParticipant`, object: '?o1' },
+          { subject: '?o1',   predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: performerRole.url },
+          { subject: '?o1',   predicate: `${SULO}isFeatureOf`, object: '?value' },
+        ],
+      });
+      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
+        name: 'hasCategory', label: 'Has Category',
+        description: 'The categorical classification of this observation (e.g. vital-signs).',
+        propertyType: 'object', domainClassId: observation.id, rangeClassIri: category.url, isRequired: false,
+        mappingPattern: [{ subject: '?this', predicate: `${SULO}hasFeature`, object: '?value' }],
+      });
+      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
+        name: 'hasComparator', label: 'Has Comparator',
+        description: 'The categorical qualifier on the result value (less-than, greater-or-equal, etc).',
+        propertyType: 'object', domainClassId: observation.id, rangeClassIri: comparator.url, isRequired: false,
+        mappingPattern: [{ subject: '?this', predicate: `${SULO}hasFeature`, object: '?value' }],
+      });
+      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
+        name: 'hasComponent', label: 'Has Component',
+        description: 'One component of this composite observation (e.g. the systolic reading within a blood-pressure observation).',
+        propertyType: 'object', domainClassId: observation.id, rangeClassIri: observationComponent.url, isRequired: false,
+        mappingPattern: [{ subject: '?this', predicate: `${SULO}hasPart`, object: '?value' }],
+      });
+      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
+        name: 'hasComponentCode', label: 'Has Code',
+        description: "This component's own coded type (e.g. LOINC 8480-6 for systolic).",
+        propertyType: 'object', domainClassId: observationComponent.id, rangeClassIri: code.url, isRequired: true,
+        mappingPattern: [{ subject: '?this', predicate: `${SULO}hasFeature`, object: '?value' }],
+      });
+      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
+        name: 'hasComponentValue', label: 'Has Quantity Value',
+        description: "This component's own numeric result value.",
+        propertyType: 'datatype', domainClassId: observationComponent.id, rangeClassIri: 'http://www.w3.org/2001/XMLSchema#float', isRequired: false,
+        mappingPattern: [
+          { subject: '?this', predicate: `${SULO}hasFeature`, object: '?o1' },
+          { subject: '?o1',   predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: `${SULO}InformationObject` },
+          { subject: '?o1',   predicate: `${SULO}hasValue`, object: '?value' },
+        ],
+      });
+      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
+        name: 'hasReferenceRangeLow', label: 'Has Reference Range Low',
+        description: 'The lower bound of the normal reference range, as a number (mirrors OMOP range_low 1:1).',
+        propertyType: 'datatype', domainClassId: labObservation.id, rangeClassIri: 'http://www.w3.org/2001/XMLSchema#decimal', isRequired: false,
+        mappingPattern: [
+          { subject: '?this', predicate: `${SULO}hasFeature`, object: '?o1' },
+          { subject: '?o1',   predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: `${SULO}InformationObject` },
+          { subject: '?o1',   predicate: `${SULO}hasValue`, object: '?value' },
+        ],
+      });
+      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
+        name: 'hasReferenceRangeHigh', label: 'Has Reference Range High',
+        description: 'The upper bound of the normal reference range, as a number (mirrors OMOP range_high 1:1).',
+        propertyType: 'datatype', domainClassId: labObservation.id, rangeClassIri: 'http://www.w3.org/2001/XMLSchema#decimal', isRequired: false,
+        mappingPattern: [
+          { subject: '?this', predicate: `${SULO}hasFeature`, object: '?o1' },
+          { subject: '?o1',   predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: `${SULO}InformationObject` },
+          { subject: '?o1',   predicate: `${SULO}hasValue`, object: '?value' },
+        ],
       });
 
       navigate(`/ontology/${schema.id}`);

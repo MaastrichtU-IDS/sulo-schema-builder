@@ -36,4 +36,14 @@ export const config = {
     maxExplanations: parseInt(optional('REASONER_MAX_EXPLANATIONS', '1'), 10),
   },
 
+  // ShEx ShapeMap-based cross-schema transformability checking (shexSpec/shape-map).
+  shex: {
+    // The `shex-validate` binary installed by the @shexjs/cli dependency.
+    shexValidatePath: optional(
+      'SHEX_VALIDATE_PATH',
+      resolve(__dirname, '..', 'node_modules', '.bin', 'shex-validate'),
+    ),
+    timeoutMs: parseInt(optional('SHEX_TIMEOUT_MS', '15000'), 10),
+  },
+
 } as const;

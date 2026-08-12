@@ -4,6 +4,7 @@ import { compareSchemas, generateDraftYaml } from '../../services/schemaMatching
 import { fetchFullSchema } from '../../services/schema.service.js';
 import { buildBridgeConstruct, buildForwardConstruct, buildReverseConstruct } from '../../services/sparqlConstruct.service.js';
 import type { ValueTransform } from '../../services/sparqlConstruct.service.js';
+import { checkShexTransformability, ShexUnavailableError } from '../../services/shex.service.js';
 
 const CompareBody = z.object({
   sourceSchemaId: z.string().min(1),
@@ -111,6 +112,55 @@ const matchingRoutes: FastifyPluginAsync = async (fastify) => {
       .filter((p): p is NonNullable<typeof p> => p !== null);
 
     return { pairs };
+  });
+
+  // POST /matching/shex — for each confirmed property pair, compile both
+  // properties' own mapping patterns into ShEx shapes (shexSpec/shex), and
+  // check "transformability" with a real ShapeMap (shexSpec/shape-map) run
+  // through the actual `shex-validate` tool: does target-shaped sample data
+  // conform to the source's shape, and vice versa? This is independent of
+  // (and a stronger check than) this tool's own shape-key string comparison
+  // used by /compare — it validates against a standards-based artifact any
+  // ShEx-conformant tool could also check.
+  const ShexBody = z.object({
+    sourceSchemaId: z.string().min(1),
+    targetSchemaId: z.string().min(1),
+    pairs: z.array(z.object({
+      sourcePropertyId: z.string().min(1),
+      targetPropertyId: z.string().min(1),
+    })).min(1).max(50),
+  });
+
+  fastify.post('/shex', async (request, reply) => {
+    const body = ShexBody.parse(request.body);
+    const [sourceSchema, targetSchema] = await Promise.all([
+      fetchFullSchema(fastify, body.sourceSchemaId),
+      fetchFullSchema(fastify, body.targetSchemaId),
+    ]);
+    if (!sourceSchema || !targetSchema) return reply.notFound('One or both schemas were not found');
+
+    try {
+      const pairs = await Promise.all(body.pairs.map(async ({ sourcePropertyId, targetPropertyId }) => {
+        const sourceProp = sourceSchema.properties.find((p) => p.id === sourcePropertyId);
+        const targetProp = targetSchema.properties.find((p) => p.id === targetPropertyId);
+        if (!sourceProp || !targetProp) return null;
+        const result = await checkShexTransformability(sourceProp, sourceSchema, targetProp, targetSchema);
+        if (!result) return null;
+        return {
+          sourcePropertyId: sourceProp.id,
+          sourcePropertyName: sourceProp.name,
+          targetPropertyId: targetProp.id,
+          targetPropertyName: targetProp.name,
+          ...result,
+        };
+      }));
+      return { pairs: pairs.filter((p): p is NonNullable<typeof p> => p !== null) };
+    } catch (err) {
+      if (err instanceof ShexUnavailableError) {
+        return reply.serviceUnavailable(err.message);
+      }
+      throw err;
+    }
   });
 };
 
