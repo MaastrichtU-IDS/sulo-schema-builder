@@ -4,6 +4,7 @@ import {
   escTtl,
   shortenIri,
   buildOwlExpr,
+  buildReverseOwlExpr,
   buildMermaid,
   generateExports,
   PROPERTY_FEATURE_OWL,
@@ -147,6 +148,79 @@ describe('buildOwlExpr', () => {
     expect(out).toContain('owl:onProperty sulo:isFeatureOf');
     expect(out).toContain('owl:someValuesFrom :Person');
   });
+
+  // A "hasChild"-style n-ary pattern: two independent forward chains off
+  // ?this and ?value converge on a shared ?o2 (a HavingChild process) rather
+  // than one linear ?this→...→?value chain. ?o2 is only reachable from
+  // ?value's side by walking the ?o3→?o2 edge backwards, which the plain
+  // forward-only walk previously dropped entirely — the whole ChildRole/
+  // isFeatureOf/?value tail vanished from the exported expression.
+  it('folds a convergent n-ary pattern via an inverse restriction, reaching ?value through a shared node', () => {
+    const pattern: TripleTemplate[] = [
+      { subject: '?this', predicate: 'https://w3id.org/sulo/hasFeature', object: '?o1' },
+      { subject: '?o1', predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: 'https://ex/ParentRole' },
+      { subject: '?o1', predicate: 'https://w3id.org/sulo/isParticipantIn', object: '?o2' },
+      { subject: '?o2', predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: 'https://ex/HavingChild' },
+      { subject: '?o3', predicate: 'https://w3id.org/sulo/isParticipantIn', object: '?o2' },
+      { subject: '?o3', predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: 'https://ex/ChildRole' },
+      { subject: '?o3', predicate: 'https://w3id.org/sulo/isFeatureOf', object: '?value' },
+    ];
+    const out = buildOwlExpr('?this', pattern, 'https://ex/Person', pfx, classMap, 'https://ex/Person');
+    expect(out).toContain(':Person');
+    expect(out).toContain('owl:onProperty sulo:hasFeature');
+    expect(out).toContain(':ParentRole');
+    expect(out).toContain('owl:onProperty sulo:isParticipantIn');
+    expect(out).toContain(':HavingChild');
+    // the previously-dropped tail: reached only via the inverted isParticipantIn edge
+    expect(out).toContain('owl:inverseOf sulo:isParticipantIn');
+    expect(out).toContain(':ChildRole');
+    expect(out).toContain('owl:onProperty sulo:isFeatureOf');
+    expect(out).toContain('owl:someValuesFrom :Person');
+  });
+});
+
+describe('buildReverseOwlExpr', () => {
+  const pfx = { '': 'https://ex/', sulo: 'https://w3id.org/sulo/' };
+  const classMap = new Map<string, string>();
+
+  it('includes the range class and walks a linear chain back to the domain class', () => {
+    const pattern: TripleTemplate[] = [
+      { subject: '?this', predicate: 'https://w3id.org/sulo/hasParticipant', object: '?o1' },
+      { subject: '?o1', predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: 'https://ex/Role' },
+      { subject: '?o1', predicate: 'https://w3id.org/sulo/isFeatureOf', object: '?value' },
+    ];
+    const out = buildReverseOwlExpr('?value', pattern, 'https://ex/Visit', 'https://ex/Person', pfx, classMap);
+    expect(out).toContain(':Person');
+    expect(out).toContain('owl:inverseOf sulo:isFeatureOf');
+    expect(out).toContain(':Role');
+    expect(out).toContain('owl:inverseOf sulo:hasParticipant');
+    expect(out).toContain(':Visit');
+  });
+
+  // Mirrors the buildOwlExpr n-ary test above, from the ?value side: reaching
+  // back to ?o2 means walking the ?o3→?o2 edge forward (not inverted, since
+  // we're now the one extending toward it), matching the domain-side result.
+  it('folds a convergent n-ary pattern via a forward restriction when walking back from ?value', () => {
+    const pattern: TripleTemplate[] = [
+      { subject: '?this', predicate: 'https://w3id.org/sulo/hasFeature', object: '?o1' },
+      { subject: '?o1', predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: 'https://ex/ParentRole' },
+      { subject: '?o1', predicate: 'https://w3id.org/sulo/isParticipantIn', object: '?o2' },
+      { subject: '?o2', predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: 'https://ex/HavingChild' },
+      { subject: '?o3', predicate: 'https://w3id.org/sulo/isParticipantIn', object: '?o2' },
+      { subject: '?o3', predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: 'https://ex/ChildRole' },
+      { subject: '?o3', predicate: 'https://w3id.org/sulo/isFeatureOf', object: '?value' },
+    ];
+    const out = buildReverseOwlExpr('?value', pattern, 'https://ex/Person', 'https://ex/Person', pfx, classMap);
+    expect(out).toContain(':Person');
+    expect(out).toContain('owl:inverseOf sulo:isFeatureOf');
+    expect(out).toContain(':ChildRole');
+    // the forward (non-inverted) hop from ?o3 to the shared ?o2 node
+    expect(out).toContain('owl:onProperty sulo:isParticipantIn');
+    expect(out).toContain(':HavingChild');
+    expect(out).toContain('owl:inverseOf sulo:isParticipantIn');
+    expect(out).toContain(':ParentRole');
+    expect(out).toContain('owl:inverseOf sulo:hasFeature');
+  });
 });
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -201,6 +275,29 @@ describe('generateExports — plain vs OWL', () => {
     expect(turtleOwl).toContain('a owl:Class');
     expect(turtleOwl).toContain('owl:imports <https://w3id.org/sulo/>');
     expect(turtleOwl).toContain('rdfs:subClassOf sulo:Process');
+  });
+
+  // The domain/range equivalent-class axioms need an anchor IRI to hang
+  // owl:equivalentClass off of (there's no real class to attach it to — it's
+  // synthesized per property). That anchor is a readable, deterministic
+  // `{DomainClass}_{propertyName}_domain`/`_range` name under the schema's
+  // own namespace, not a random UUID.
+  it('mints readable, deterministic domain/range equivalent-class anchor IRIs instead of random UUIDs', () => {
+    const visit  = cls('c1', 'ClinicalVisit', { mapsToConceptIri: 'https://w3id.org/sulo/Process' });
+    const person = cls('c2', 'Person', { mapsToConceptIri: 'https://w3id.org/sulo/SpatialObject' });
+    const p = prop('p1', 'hasPatient', {
+      propertyType: 'object', domainClassId: 'c1', rangeClassIri: person.url,
+      mappingPattern: [
+        { subject: '?this', predicate: 'https://w3id.org/sulo/hasParticipant', object: '?value' },
+      ],
+    });
+    const s2 = schema([visit, person], [p], { upperOntologyIri: 'https://w3id.org/sulo/' });
+    const { turtleOwl } = generateExports(s2);
+    expect(turtleOwl).toContain('owl:equivalentClass');
+    expect(turtleOwl).toContain(`rdfs:domain <${s2.url}/ClinicalVisit_hasPatient_domain>`);
+    expect(turtleOwl).toContain(`<${s2.url}/ClinicalVisit_hasPatient_domain>\n    owl:equivalentClass`);
+    expect(turtleOwl).toContain(`rdfs:range <${s2.url}/ClinicalVisit_hasPatient_range>`);
+    expect(turtleOwl).toContain(`<${s2.url}/ClinicalVisit_hasPatient_range>\n    owl:equivalentClass`);
   });
 });
 

@@ -214,6 +214,18 @@ function ConceptCombobox({ value, onChange, concepts, loading, placeholder }: Co
 
 const SUBJECT_VARS = ['?this', '?o1', '?o2', '?o3', '?o4'];
 const OBJECT_VARS  = ['?value', '?o1', '?o2', '?o3', '?o4'];
+const RDF_TYPE = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type';
+// Not a SULO property, so it never comes back from the upper-ontology concept
+// fetch — but every reification pattern in this tool's own conventions needs
+// an `?oN a <Role/Process/...>` triple, so it's pinned in as its own option
+// rather than requiring the user to paste the raw IRI by hand.
+const RDF_TYPE_CONCEPT: UpperConcept = {
+  iri: RDF_TYPE,
+  localName: 'type',
+  type: 'property',
+  label: 'a (rdf:type)',
+  comment: 'Asserts the class of the subject — use to type an intermediate node (e.g. ?o1 a Role).',
+};
 
 interface TriplePatternEditorProps {
   value: TripleTemplate[];
@@ -225,7 +237,7 @@ interface TriplePatternEditorProps {
 
 function TriplePatternEditor({ value, onChange, concepts, classes, loading }: TriplePatternEditorProps) {
   const propConcepts = useMemo(
-    () => concepts.filter((c) => c.type === 'property'),
+    () => [RDF_TYPE_CONCEPT, ...concepts.filter((c) => c.type === 'property')],
     [concepts],
   );
   const classConcepts = useMemo(
@@ -344,7 +356,7 @@ function TriplePatternEditor({ value, onChange, concepts, classes, loading }: Tr
       {value.length > 0 && value.every((t) => t.predicate) && (
         <p className="text-xs font-mono text-slate-500 bg-slate-50 rounded px-2 py-1.5 break-all leading-relaxed">
           {value.map((t, i) => {
-            const localPred = t.predicate.split(/[/#]/).pop() ?? t.predicate;
+            const localPred = t.predicate === RDF_TYPE ? 'a' : (t.predicate.split(/[/#]/).pop() ?? t.predicate);
             const localObj  = t.object.startsWith('?')
               ? t.object
               : (classes?.find((c) => c.url === t.object)?.label

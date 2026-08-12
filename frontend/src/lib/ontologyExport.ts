@@ -2,9 +2,7 @@
 //
 // Extracted from OntologyBuilderPage so it can be unit-tested without pulling
 // in React, ReactFlow, or the rest of the page. Everything here is a pure
-// function of its inputs (the one exception, generateExports, uses
-// crypto.randomUUID() to mint blank-ish anchor IRIs for OWL equivalent-class
-// axioms — those IRIs are non-deterministic but their structure is stable).
+// function of its inputs.
 
 import type {
   OntologyClass,
@@ -75,6 +73,16 @@ export function turtleBlock(subject: string, pairs: [string, string][]): string 
 // Type-assertion triples (?o rdf:type <IRI>) become intersection members.
 // Property chains (?o pred ?next) become owl:someValuesFrom restrictions.
 // The terminal ?value is replaced by terminalClassIri.
+//
+// Most patterns are a simple forward chain from ?this to ?value, but n-ary
+// (role-mediated) patterns can *converge*: two independent forward chains
+// (e.g. ?this→?o1 and ?value→?o3) both point into a shared intermediate node
+// (?o2), so ?value is only reachable from ?o2 by walking a triple backwards.
+// `visited` tracks which triples have already been folded into the
+// expression (by object identity, since `pattern` is threaded through
+// unchanged) so each edge is consumed exactly once — both to stop a forward
+// hop from immediately re-entering the edge it just arrived on, and to stop
+// two convergent chains from looping back and forth across the shared node.
 export function buildOwlExpr(
   subjectVar: string,
   pattern: TripleTemplate[],
@@ -82,25 +90,43 @@ export function buildOwlExpr(
   pfxMap: Record<string, string>,
   classMap: Map<string, string>,   // url → :LocalName for schema classes
   subjectClassIri?: string,        // optional: include this class as the type of the subject
+  visited: Set<TripleTemplate> = new Set(),
 ): string {
   const RDF_TYPE  = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type';
-  const triples   = pattern.filter((t) => t.subject === subjectVar && t.predicate);
   const resolveIri = (iri: string) => classMap.get(iri) ?? shortenIri(iri, pfxMap);
 
   const typeMembers: string[] = subjectClassIri ? [resolveIri(subjectClassIri)] : [];
   const restrictions: string[] = [];
 
-  for (const t of triples) {
+  const forwardTriples = pattern.filter((t) => t.subject === subjectVar && t.predicate && !visited.has(t));
+  for (const t of forwardTriples) {
+    visited.add(t);
     const pred = shortenIri(t.predicate, pfxMap);
     if (t.predicate === RDF_TYPE && !t.object.startsWith('?')) {
       typeMembers.push(resolveIri(t.object));
     } else if (t.object === '?value') {
       restrictions.push(`[ a owl:Restriction ; owl:onProperty ${pred} ; owl:someValuesFrom ${resolveIri(terminalClassIri)} ]`);
     } else if (t.object.startsWith('?')) {
-      const inner = buildOwlExpr(t.object, pattern, terminalClassIri, pfxMap, classMap);
+      const inner = buildOwlExpr(t.object, pattern, terminalClassIri, pfxMap, classMap, undefined, visited);
       restrictions.push(`[ a owl:Restriction ; owl:onProperty ${pred} ; owl:someValuesFrom ${inner} ]`);
     } else {
       typeMembers.push(resolveIri(t.object));
+    }
+  }
+
+  // A convergent n-ary pattern reaches ?value only via another variable's
+  // forward chain into this node — fold that in as an inverse-property
+  // restriction. Never done for ?this (nothing should point "back into" the
+  // subject) or ?value (it's the terminal leaf, already handled above).
+  if (subjectVar !== '?this' && subjectVar !== '?value') {
+    const backwardTriples = pattern.filter((t) => t.object === subjectVar && t.predicate && !visited.has(t));
+    for (const t of backwardTriples) {
+      visited.add(t);
+      const pred = shortenIri(t.predicate, pfxMap);
+      const inner = t.subject === '?this'
+        ? (subjectClassIri ? resolveIri(subjectClassIri) : 'owl:Thing')
+        : buildOwlExpr(t.subject, pattern, terminalClassIri, pfxMap, classMap, undefined, visited);
+      restrictions.push(`[ a owl:Restriction ; owl:onProperty [ owl:inverseOf ${pred} ] ; owl:someValuesFrom ${inner} ]`);
     }
   }
 
@@ -117,6 +143,7 @@ export function buildReverseOwlExpr(
   rangeClassIri: string,      // IRI of the range class (included at ?value start)
   pfxMap: Record<string, string>,
   classMap: Map<string, string>,
+  visited: Set<TripleTemplate> = new Set(),
 ): string {
   const RDF_TYPE = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type';
   const resolveIri = (iri: string) => classMap.get(iri) ?? shortenIri(iri, pfxMap);
@@ -129,19 +156,37 @@ export function buildReverseOwlExpr(
 
   // Forward rdf:type constraints on this variable
   for (const t of pattern) {
-    if (t.subject === currentVar && t.predicate === RDF_TYPE && !t.object.startsWith('?')) {
+    if (t.subject === currentVar && t.predicate === RDF_TYPE && !t.object.startsWith('?') && !visited.has(t)) {
       members.push(resolveIri(t.object));
+      visited.add(t);
     }
   }
 
   // Inverse restrictions: triples where this var appears as object
   for (const t of pattern) {
-    if (t.object !== currentVar) continue;
+    if (t.object !== currentVar || visited.has(t)) continue;
+    visited.add(t);
     const pred = shortenIri(t.predicate, pfxMap);
     const inner = t.subject === '?this'
       ? resolveIri(domainClassIri)
-      : buildReverseOwlExpr(t.subject, pattern, domainClassIri, rangeClassIri, pfxMap, classMap);
+      : buildReverseOwlExpr(t.subject, pattern, domainClassIri, rangeClassIri, pfxMap, classMap, visited);
     members.push(`[ a owl:Restriction ; owl:onProperty [ owl:inverseOf ${pred} ] ; owl:someValuesFrom ${inner} ]`);
+  }
+
+  // A convergent n-ary pattern can also require walking *forward* from an
+  // intermediate variable (e.g. the other participant's own chain toward a
+  // shared node) — mirrors buildOwlExpr's forward step, but as a normal
+  // (non-inverted) restriction since we're now the one reaching forward.
+  if (currentVar !== '?value') {
+    for (const t of pattern) {
+      if (t.subject !== currentVar || t.predicate === RDF_TYPE || visited.has(t)) continue;
+      visited.add(t);
+      const pred = shortenIri(t.predicate, pfxMap);
+      const inner = t.object === '?value'
+        ? resolveIri(rangeClassIri)
+        : buildReverseOwlExpr(t.object, pattern, domainClassIri, rangeClassIri, pfxMap, classMap, visited);
+      members.push(`[ a owl:Restriction ; owl:onProperty ${pred} ; owl:someValuesFrom ${inner} ]`);
+    }
   }
 
   if (members.length === 0) return 'owl:Thing';
@@ -274,7 +319,7 @@ export function generateExports(schema: OntologySchema): ExportResult {
 
         // Domain
         if (includeSulo && prop.mappingPattern.length > 0 && domCls) {
-          const domainRef = `<https://w3id.org/sulo/schema/resource/ontology-class/${crypto.randomUUID()}>`;
+          const domainRef = `<${base}${domCls.name}_${prop.name}_domain>`;
           pairs.push(['rdfs:domain', domainRef]);
           const expr = buildOwlExpr('?this', prop.mappingPattern, prop.rangeClassIri ?? domCls.url, pfxMap, classMap, domCls.url);
           domainClassDefs.push(`${domainRef}\n    owl:equivalentClass ${expr} .`);
@@ -292,7 +337,7 @@ export function generateExports(schema: OntologySchema): ExportResult {
           pairs.push(['rdfs:range', `[ owl:unionOf (${uniqueRanges.map((c) => extIri(c)).join(' ')}) ]`]);
         } else if (uniqueRanges.length === 1) {
           if (includeSulo && prop.mappingPattern.length > 0 && prop.rangeClassIri && domCls && prop.propertyType === 'object') {
-            const rangeRef = `<https://w3id.org/sulo/schema/resource/ontology-class/${crypto.randomUUID()}>`;
+            const rangeRef = `<${base}${domCls.name}_${prop.name}_range>`;
             pairs.push(['rdfs:range', rangeRef]);
             const expr = buildReverseOwlExpr('?value', prop.mappingPattern, domCls.url, prop.rangeClassIri, pfxMap, classMap);
             domainClassDefs.push(`${rangeRef}\n    owl:equivalentClass ${expr} .`);
