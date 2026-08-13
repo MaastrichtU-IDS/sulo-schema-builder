@@ -12,7 +12,7 @@
 // the container.
 
 import { execFile } from 'node:child_process';
-import { mkdtemp, readFile, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, writeFile, rm, mkdir, copyFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { config } from '../config.js';
@@ -131,11 +131,30 @@ export function parseInconsistency(md: string): ServerClash | null {
 
 // ─── ROBOT invocation ───────────────────────────────────────────────────────────
 
-function runRobot(args: string[]): Promise<{ stdout: string; stderr: string }> {
+// Packaged builds bundle resources/robot.jar as a pkg asset, readable via
+// Node's (patched) fs — but the JVM opens files directly against the real
+// filesystem, so the jar has to be extracted to a real path once per process
+// before `java -jar` can load it. Memoized: robot.jar doesn't change at runtime.
+let extractedRobotJar: Promise<string> | null = null;
+
+async function resolveRobotJarPath(): Promise<string> {
+  extractedRobotJar ??= (async () => {
+    const dest = join(config.appDataDir, 'robot.jar');
+    await mkdir(config.appDataDir, { recursive: true });
+    await copyFile(config.reasoner.robotJarPath, dest);
+    return dest;
+  })();
+  return extractedRobotJar;
+}
+
+async function runRobot(args: string[]): Promise<{ stdout: string; stderr: string }> {
+  const fullArgs = config.isPackaged
+    ? [...config.reasoner.baseArgs, await resolveRobotJarPath(), ...args]
+    : args;
   return new Promise((resolve, reject) => {
     execFile(
-      config.reasoner.robotPath,
-      args,
+      config.reasoner.command,
+      fullArgs,
       { timeout: config.reasoner.timeoutMs, maxBuffer: 32 * 1024 * 1024 },
       (err, stdout, stderr) => {
         if (err) {
