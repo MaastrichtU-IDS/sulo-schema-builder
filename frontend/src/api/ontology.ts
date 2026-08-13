@@ -48,6 +48,8 @@ export interface OntologySchema {
   title: string;
   description?: string;
   upperOntologyIri?: string;
+  /** Overrides `url` as the namespace all classes/properties are minted under, when set. */
+  baseUri?: string;
   classes: OntologyClass[];
   properties: OntologyProperty[];
 }
@@ -58,6 +60,7 @@ export interface OntologySchemaSummary {
   title: string;
   description?: string;
   upperOntologyIri?: string;
+  baseUri?: string;
 }
 
 // ─── Server-side full OWL DL reasoning ──────────────────────────────────────────
@@ -75,9 +78,64 @@ export interface ConsistencyReport {
   clashes: ServerClash[];
 }
 
+export interface JavaStatus {
+  available: boolean;
+  path?: string;
+  /** Major version, e.g. 21. */
+  version?: number;
+  /** As the JVM reports it, e.g. "21.0.2". */
+  versionString?: string;
+  reason?: 'not_found' | 'too_old' | 'error';
+  detail?: string;
+}
+
+export interface RobotStatus {
+  state: 'missing' | 'downloading' | 'ready' | 'error';
+  path?: string;
+  received?: number;
+  total?: number;
+  error?: string;
+  version: string;
+}
+
+export interface SuloStatus {
+  version?: string;
+  modified?: string;
+  source: 'bundled' | 'downloaded' | 'override';
+  path: string;
+  checkedAt?: string;
+  updateError?: string;
+}
+
+export interface ReasonerStatus {
+  enabled: boolean;
+  reasoner: string;
+  /**
+   * True only for the packaged desktop app, which finds a JVM and downloads
+   * ROBOT itself. Docker and local dev get both from the environment, so
+   * there is no setup UI to offer and the check button shows unconditionally.
+   */
+  managed: boolean;
+  java: JavaStatus;
+  robot: RobotStatus;
+  sulo: SuloStatus;
+}
+
 /** Whether the server offers the full OWL DL (HermiT) consistency check. */
-export async function getReasonerStatus(): Promise<{ enabled: boolean; reasoner: string }> {
+export async function getReasonerStatus(): Promise<ReasonerStatus> {
   const { data } = await apiClient.get('/reason/status');
+  return data;
+}
+
+/** Point the app at an existing JVM. Rejects with a 400 if it isn't usable. */
+export async function setJavaPath(path: string): Promise<ReasonerStatus> {
+  const { data } = await apiClient.post('/reason/java-path', { path });
+  return data;
+}
+
+/** Retry a failed or not-yet-started ROBOT download. */
+export async function retryRobotDownload(): Promise<ReasonerStatus> {
+  const { data } = await apiClient.post('/reason/robot/download');
   return data;
 }
 
@@ -107,7 +165,7 @@ export function useOntologySchema(id: string) {
 export function useCreateOntologySchema() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: { title: string; description?: string; upperOntologyIri?: string }) =>
+    mutationFn: (data: { title: string; description?: string; upperOntologyIri?: string; baseUri?: string }) =>
       apiClient.post('/ontology-schemas', data).then((r) => r.data as OntologySchema),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['ontology-schemas'] }),
   });
@@ -116,7 +174,7 @@ export function useCreateOntologySchema() {
 export function useUpdateOntologySchema(id: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: { title?: string; description?: string; upperOntologyIri?: string }) =>
+    mutationFn: (data: { title?: string; description?: string; upperOntologyIri?: string; baseUri?: string }) =>
       apiClient.patch(`/ontology-schemas/${id}`, data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['ontology-schema', id] });

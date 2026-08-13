@@ -1,0 +1,58 @@
+name: CI
+
+# Fast gate on every change: typecheck and unit tests for both packages.
+# Deliberately no Rust, Tauri or native packaging here — that lives in
+# release.yml and takes minutes rather than seconds.
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            api/package-lock.json
+            frontend/package-lock.json
+
+      - name: Install api dependencies
+        working-directory: api
+        run: npm ci
+
+      - name: Typecheck api
+        working-directory: api
+        run: npx tsc --noEmit
+
+      - name: Test api
+        working-directory: api
+        run: npm test
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Typecheck frontend
+        working-directory: frontend
+        run: npx tsc --noEmit
+
+      - name: Test frontend
+        working-directory: frontend
+        run: npm test
+
+      # Catches build-only breakage (bad imports, Vite config) that tsc and
+      # vitest both miss.
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build

@@ -9,12 +9,14 @@ export const NewSchemaFormSchema = z.object({
   title: z.string().min(1, 'Ontology title is required'),
   description: z.string().optional(),
   upperOntologyIri: z.string().url('Must be a valid URL').or(z.literal('')).optional(),
+  baseUri: z.string().url('Must be a valid URL').or(z.literal('')).optional(),
 });
 
 export const EditSchemaFormSchema = z.object({
   title: z.string().min(1, 'Ontology title is required'),
   description: z.string().optional(),
   upperOntologyIri: z.string().url('Must be a valid URL').or(z.literal('')).optional(),
+  baseUri: z.string().url('Must be a valid URL').or(z.literal('')).optional(),
 });
 
 export const NewClassFormSchema = z.object({

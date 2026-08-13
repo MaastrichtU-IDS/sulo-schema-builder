@@ -48,6 +48,57 @@ cd frontend && npm install && npm run dev    # Vite on :5173
 
 Tests: `cd frontend && npm test` (vitest — export logic, validation, components).
 
+## Desktop builds
+
+Bundles for macOS (Apple Silicon), Linux x64 and Windows x64 are attached to
+each [release](https://github.com/MaastrichtU-IDS/sulo-schema-builder/releases),
+built by `.github/workflows/release.yml`. To build locally instead, run
+`just package-mac`, `just package-linux` or `just package-win` on a machine of
+that OS — the desktop bundle isn't cross-compiled.
+
+**The bundles are unsigned**, so both platforms will warn on first launch:
+
+| Platform | First run |
+|---|---|
+| macOS | Right-click the app → **Open** (double-clicking shows only "unidentified developer"). Or `xattr -d com.apple.quarantine "/Applications/SULO Schema Builder.app"`. |
+| Windows | SmartScreen → **More info** → **Run anyway**. |
+
+Publishing a release is tag-driven: push a `v*` tag whose version matches
+`desktop/src-tauri/tauri.conf.json` and a draft release is created with the
+bundles attached. Running the workflow manually builds the same bundles as
+downloadable workflow artifacts without touching releases.
+
+## Consistency check requirements
+
+The **Check consistency** action runs full OWL DL reasoning (HermiT via
+[ROBOT](http://robot.obolibrary.org/)), which needs a Java runtime and the ROBOT
+jar. Everything else in the app works without either.
+
+- **Java 11 or newer** — [download Temurin](https://adoptium.net/temurin/releases/?version=21).
+  The desktop app looks for it in `JAVA_PATH`, `JAVA_HOME`, macOS's
+  `/usr/libexec/java_home`, and then on `PATH`. Apps launched from the Finder or
+  Start Menu don't inherit your shell's `PATH`, so a Java installed via Homebrew,
+  SDKMAN or asdf may not be found automatically — the consistency panel has a
+  field where you can point at it directly, and the path is remembered.
+- **ROBOT** downloads itself on first launch (~91 MB) into the app's data folder
+  and is verified against a pinned checksum. It isn't bundled, because it would
+  otherwise dominate the size of every download. If the machine is offline, drop
+  `robot.jar` into that folder yourself and press **Retry download**:
+
+  | Platform | Data folder |
+  |---|---|
+  | macOS / Linux | `~/.sulo-schema-builder/` |
+  | Windows | `%APPDATA%\sulo-schema-builder\` |
+
+- **SULO** ships with the app as an offline fallback, and is refreshed from
+  <https://w3id.org/sulo/> in the background when a newer version is published.
+  The version actually used is shown under each consistency result — worth
+  recording alongside any result you cite, since generated OWL declares
+  `owl:imports <https://w3id.org/sulo/>` and tracks whatever is current.
+
+The Docker image bakes in both a JRE and ROBOT, so none of the above applies
+there.
+
 ## Usage
 
 1. **Create a schema** — give it a title and an upper-ontology IRI (e.g. `https://w3id.org/sulo/`).

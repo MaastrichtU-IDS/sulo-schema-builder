@@ -197,7 +197,13 @@ export function buildReverseOwlExpr(
 export interface ExportResult { turtlePlain: string; turtleOwl: string; shaclTtl: string; }
 
 export function generateExports(schema: OntologySchema): ExportResult {
-  const base    = schema.url.endsWith('/') ? schema.url : schema.url + '/';
+  // A custom baseUri overrides the auto-generated ontology-schema/{uuid}
+  // namespace as the prefix `:ClassName`/`:propertyName` expand under — the
+  // ontology document's own identity (schema.url, used for the header triple
+  // below) is unaffected. Must match the API's schema route so a schema's
+  // stored classes/properties mint the same IRIs everywhere.
+  const baseSource = schema.baseUri || schema.url;
+  const base = /[/#]$/.test(baseSource) ? baseSource : `${baseSource}/`;
   const upperRaw = schema.upperOntologyIri ?? '';
   const upperNs  = upperRaw
     ? (upperRaw.endsWith('/') || upperRaw.endsWith('#') ? upperRaw : upperRaw + '/')

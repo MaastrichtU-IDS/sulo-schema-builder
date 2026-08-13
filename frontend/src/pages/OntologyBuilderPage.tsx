@@ -31,12 +31,18 @@ import {
   useUpperConcepts,
   getReasonerStatus,
   reasonOntologyServer,
+  setJavaPath,
+  retryRobotDownload,
   type OntologyClass,
   type OntologyProperty,
   type OntologySchema,
   type UpperConcept,
   type TripleTemplate,
   type ConsistencyReport,
+  type ReasonerStatus,
+  type JavaStatus,
+  type RobotStatus,
+  type SuloStatus,
 } from '../api/ontology.js';
 import { apiClient } from '../api/client.js';
 import {
@@ -823,21 +829,177 @@ function ExportModal({ schema, onClose }: { schema: OntologySchema; onClose: () 
 
 // ─── Consistency panel ─────────────────────────────────────────────────────────
 
+const JAVA_DOWNLOAD_URL = 'https://adoptium.net/temurin/releases/?version=21';
+
+function formatMb(bytes?: number): string {
+  return bytes === undefined ? '?' : `${(bytes / 1_000_000).toFixed(1)} MB`;
+}
+
+/**
+ * Prompt for a JVM when the packaged app can't find one.
+ *
+ * A plain path field rather than a native file picker: the desktop shell points
+ * its webview at the local API's URL, so the page is ordinary remote content and
+ * never receives the Tauri API — a file dialog isn't reachable from here.
+ */
+function JavaSetup({ java, onResolved }: { java: JavaStatus; onResolved: (s: ReasonerStatus) => void }) {
+  const [path, setPath] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!path.trim()) return;
+    setBusy(true);
+    setError('');
+    try {
+      onResolved(await setJavaPath(path.trim()));
+    } catch (err: unknown) {
+      const e2 = err as { response?: { data?: { message?: string } } };
+      setError(e2.response?.data?.message ?? 'That path could not be used as a Java runtime.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="rounded-lg bg-amber-50 border border-amber-200 p-4 text-xs text-amber-900 space-y-3">
+      <div>
+        <p className="font-medium">
+          {java.reason === 'too_old'
+            ? `Java ${java.version ?? ''} found, but the reasoner needs 11 or newer.`
+            : 'The consistency check needs Java, and none was found.'}
+        </p>
+        <p className="mt-1 text-amber-800">
+          Install Java 11+ —{' '}
+          <a href={JAVA_DOWNLOAD_URL} target="_blank" rel="noreferrer" className="underline font-medium">
+            download Temurin
+          </a>
+          {' '}— then reopen this panel. Everything else in the app works without it.
+        </p>
+        {java.detail && <p className="mt-1 font-mono text-[11px] text-amber-700 break-all">{java.detail}</p>}
+      </div>
+
+      <form onSubmit={submit} className="space-y-1.5">
+        <label className="block font-medium">
+          Already have Java? Point us at it.
+        </label>
+        <p className="text-amber-800">
+          Apps launched from the Finder or Start Menu don&apos;t see your shell&apos;s PATH, so a Java
+          installed via Homebrew, SDKMAN or asdf may need naming explicitly.
+        </p>
+        <div className="flex gap-2">
+          <input
+            value={path}
+            onChange={(e) => setPath(e.target.value)}
+            placeholder="/opt/homebrew/opt/openjdk@21/bin/java"
+            className="flex-1 border border-amber-300 rounded-lg px-2 py-1 font-mono text-[11px] bg-white focus:outline-none focus:ring-2 focus:ring-amber-400"
+          />
+          <button
+            type="submit"
+            disabled={busy || !path.trim()}
+            className="bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white px-3 py-1 rounded-lg transition-colors shrink-0"
+          >
+            {busy ? 'Checking…' : 'Use this'}
+          </button>
+        </div>
+        {error && <p className="text-rose-700 font-medium">{error}</p>}
+      </form>
+    </div>
+  );
+}
+
+function RobotSetup({ robot, onRetried }: { robot: RobotStatus; onRetried: (s: ReasonerStatus) => void }) {
+  const [busy, setBusy] = useState(false);
+
+  async function retry() {
+    setBusy(true);
+    try {
+      onRetried(await retryRobotDownload());
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (robot.state === 'error') {
+    return (
+      <div className="rounded-lg bg-amber-50 border border-amber-200 p-4 text-xs text-amber-900 space-y-2">
+        <p className="font-medium">The reasoner (ROBOT {robot.version}) couldn&apos;t be downloaded.</p>
+        {robot.error && <p className="font-mono text-[11px] text-amber-700 break-all">{robot.error}</p>}
+        <p>
+          If this machine is offline, you can place <span className="font-mono">robot.jar</span> in the
+          app&apos;s data folder by hand and retry.
+        </p>
+        <button
+          onClick={retry}
+          disabled={busy}
+          className="bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white px-3 py-1 rounded-lg transition-colors"
+        >
+          {busy ? 'Retrying…' : 'Retry download'}
+        </button>
+      </div>
+    );
+  }
+
+  const pct = robot.total ? Math.round(((robot.received ?? 0) / robot.total) * 100) : null;
+  return (
+    <div className="rounded-lg bg-slate-50 border border-slate-200 p-4 text-xs text-slate-600 space-y-2">
+      <p className="font-medium text-slate-700">Downloading the reasoner (ROBOT {robot.version})…</p>
+      <p>
+        This happens once, on first launch — it isn&apos;t bundled with the app because it&apos;s large.
+      </p>
+      <div className="h-1.5 bg-slate-200 rounded-full overflow-hidden">
+        <div
+          className="h-full bg-indigo-500 transition-all duration-500"
+          style={{ width: pct === null ? '35%' : `${pct}%` }}
+        />
+      </div>
+      <p className="font-mono text-[11px] text-slate-500">
+        {formatMb(robot.received)}{robot.total ? ` / ${formatMb(robot.total)}` : ''}
+      </p>
+    </div>
+  );
+}
+
+function SuloFootnote({ sulo }: { sulo: SuloStatus }) {
+  return (
+    <p className="text-[11px] text-slate-400 mt-3 pt-2 border-t border-slate-100">
+      Reasoned against SULO {sulo.version ?? 'of unknown version'}
+      {sulo.source === 'downloaded' ? ' (latest published)' : sulo.source === 'override' ? ' (local override)' : ' (bundled)'}
+      {sulo.updateError ? ' — could not check for a newer release.' : '.'}
+    </p>
+  );
+}
+
 function ConsistencyPanel({ turtleOwl }: { turtleOwl: string }) {
   // Server-side full OWL DL (HermiT) consistency check.
-  const [serverEnabled, setServerEnabled] = useState<boolean | null>(null);
+  const [status, setStatus]               = useState<ReasonerStatus | null>(null);
+  const [statusFailed, setStatusFailed]   = useState(false);
   const [serverReport, setServerReport]   = useState<ConsistencyReport | null>(null);
   const [serverState, setServerState]     = useState<'idle' | 'loading' | 'error'>('idle');
   const [serverError, setServerError]     = useState<string>('');
 
-  // Probe whether the backend reasoner is available (controls the button).
+  // Probe what the backend can actually do: whether a JVM was found, whether
+  // ROBOT has finished downloading, and which SULO is in use.
   useEffect(() => {
     let alive = true;
     getReasonerStatus()
-      .then((s) => { if (alive) setServerEnabled(s.enabled); })
-      .catch(() => { if (alive) setServerEnabled(false); });
+      .then((s) => { if (alive) setStatus(s); })
+      .catch(() => { if (alive) setStatusFailed(true); });
     return () => { alive = false; };
   }, []);
+
+  // While the first-launch download is in flight, keep the progress readout
+  // moving. Polling stops as soon as the state is terminal.
+  const downloading = status?.robot.state === 'downloading';
+  useEffect(() => {
+    if (!downloading) return;
+    let alive = true;
+    const id = setInterval(() => {
+      getReasonerStatus().then((s) => { if (alive) setStatus(s); }).catch(() => {});
+    }, 2000);
+    return () => { alive = false; clearInterval(id); };
+  }, [downloading]);
 
   // Any change to the generated OWL invalidates a stale result.
   useEffect(() => { setServerReport(null); setServerState('idle'); setServerError(''); }, [turtleOwl]);
@@ -852,19 +1014,41 @@ function ConsistencyPanel({ turtleOwl }: { turtleOwl: string }) {
       const e = err as { response?: { status?: number; data?: { message?: string } } };
       setServerState('error');
       setServerError(
-        e.response?.status === 503
-          ? 'Server-side reasoning is not available in this deployment.'
-          : e.response?.data?.message ?? 'The reasoner could not process this ontology.',
+        e.response?.data?.message
+          ?? (e.response?.status === 503
+            ? 'Server-side reasoning is not available in this deployment.'
+            : 'The reasoner could not process this ontology.'),
       );
     }
   }
 
-  if (serverEnabled === false) {
+  const notAvailable = (message: string) => (
+    <div className="min-h-[200px] flex items-center justify-center">
+      <div className="rounded-lg bg-amber-50 border border-amber-200 p-4 text-xs text-amber-800 max-w-md text-center">
+        {message}
+      </div>
+    </div>
+  );
+
+  if (statusFailed) return notAvailable('Server-side OWL DL reasoning is not available in this deployment.');
+  if (!status) return <div className="min-h-[200px] flex items-center justify-center text-sm text-slate-400">Checking…</div>;
+  if (!status.enabled) return notAvailable('Server-side OWL DL reasoning is disabled in this deployment.');
+
+  // Only the packaged desktop app manages its own toolchain; elsewhere Java and
+  // ROBOT come from the image or the host and there is nothing to set up.
+  if (status.managed && !status.java.available) {
     return (
-      <div className="min-h-[200px] flex items-center justify-center">
-        <div className="rounded-lg bg-amber-50 border border-amber-200 p-4 text-xs text-amber-800 max-w-md text-center">
-          Server-side OWL DL reasoning is not available in this deployment.
-        </div>
+      <div className="min-h-[200px]">
+        <JavaSetup java={status.java} onResolved={setStatus} />
+        <SuloFootnote sulo={status.sulo} />
+      </div>
+    );
+  }
+  if (status.managed && status.robot.state !== 'ready') {
+    return (
+      <div className="min-h-[200px]">
+        <RobotSetup robot={status.robot} onRetried={setStatus} />
+        <SuloFootnote sulo={status.sulo} />
       </div>
     );
   }
@@ -920,6 +1104,8 @@ function ConsistencyPanel({ turtleOwl }: { turtleOwl: string }) {
           ))}
         </div>
       )}
+
+      <SuloFootnote sulo={status.sulo} />
     </div>
   );
 }
@@ -2707,7 +2893,7 @@ function SchemaListPage() {
 
   const form = useForm<NewSchemaForm>({
     resolver: zodResolver(NewSchemaFormSchema),
-    defaultValues: { title: '', description: '', upperOntologyIri: '' },
+    defaultValues: { title: '', description: '', upperOntologyIri: '', baseUri: '' },
   });
 
   async function onSubmit(values: NewSchemaForm) {
@@ -2715,6 +2901,7 @@ function SchemaListPage() {
       title: values.title,
       description: values.description || undefined,
       upperOntologyIri: values.upperOntologyIri || undefined,
+      baseUri: values.baseUri || undefined,
     });
     form.reset();
     setShowCreate(false);
@@ -2783,6 +2970,15 @@ function SchemaListPage() {
                 The upper-level ontology your classes and properties will be aligned to — e.g. SULO, BioLink, schema.org.
               </p>
             </FieldRow>
+            <FieldRow label="Base URI (optional)" error={form.formState.errors.baseUri?.message}>
+              <Input
+                {...form.register('baseUri')}
+                placeholder="e.g. https://example.org/my-ontology/"
+              />
+              <p className="text-xs text-slate-400 mt-1">
+                Overrides the auto-generated namespace all classes and properties are minted under.
+              </p>
+            </FieldRow>
             <div className="flex gap-3">
               <button
                 type="submit"
@@ -2830,6 +3026,12 @@ function SchemaListPage() {
                 <div className="text-xs text-slate-400 mt-1">
                   Upper ontology:{' '}
                   <span className="font-mono text-violet-600">{schema.upperOntologyIri}</span>
+                </div>
+              )}
+              {schema.baseUri && (
+                <div className="text-xs text-slate-400 mt-1">
+                  Base URI:{' '}
+                  <span className="font-mono text-violet-600">{schema.baseUri}</span>
                 </div>
               )}
             </Link>
@@ -2898,7 +3100,7 @@ function SchemaDetailPage({ id }: { id: string }) {
 
   const metaForm = useForm<EditSchemaForm>({
     resolver: zodResolver(EditSchemaFormSchema),
-    defaultValues: { title: '', description: '', upperOntologyIri: '' },
+    defaultValues: { title: '', description: '', upperOntologyIri: '', baseUri: '' },
   });
 
   // Populate meta form when schema loads
@@ -2908,6 +3110,7 @@ function SchemaDetailPage({ id }: { id: string }) {
         title: schemaQuery.data.title,
         description: schemaQuery.data.description ?? '',
         upperOntologyIri: schemaQuery.data.upperOntologyIri ?? '',
+        baseUri: schemaQuery.data.baseUri ?? '',
       });
     }
   }, [schemaQuery.data]);
@@ -2919,6 +3122,7 @@ function SchemaDetailPage({ id }: { id: string }) {
       title: values.title,
       description: values.description || undefined,
       upperOntologyIri: values.upperOntologyIri || undefined,
+      baseUri: values.baseUri || undefined,
     });
     setEditingMeta(false);
   }
@@ -2990,6 +3194,12 @@ function SchemaDetailPage({ id }: { id: string }) {
                   </a>
                 </div>
               )}
+              {schema.baseUri && (
+                <div className="mt-2 ml-2 inline-flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-full px-3 py-1 text-xs text-slate-600">
+                  <span className="font-medium">Base URI:</span>
+                  <span className="font-mono">{schema.baseUri}</span>
+                </div>
+              )}
             </div>
             <div className="flex gap-2 shrink-0">
               <button
@@ -3035,6 +3245,15 @@ function SchemaDetailPage({ id }: { id: string }) {
                 />
                 <p className="text-xs text-slate-400 mt-1">
                   The upper-level ontology your classes and properties will be aligned to.
+                </p>
+              </FieldRow>
+              <FieldRow label="Base URI" error={metaForm.formState.errors.baseUri?.message}>
+                <Input
+                  {...metaForm.register('baseUri')}
+                  placeholder="e.g. https://example.org/my-ontology/"
+                />
+                <p className="text-xs text-slate-400 mt-1">
+                  Overrides the auto-generated namespace all classes and properties are minted under.
                 </p>
               </FieldRow>
               <div className="flex gap-3">

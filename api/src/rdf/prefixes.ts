@@ -28,10 +28,3 @@ export function expand(prefixed: string): string {
   if (!base) throw new Error(`Unknown prefix: ${prefix}`);
   return `${base}${local}`;
 }
-
-/** Build a SPARQL PREFIX block from the shared prefix map */
-export function sparqlPrefixes(): string {
-  return Object.entries(PREFIXES)
-    .map(([k, v]) => `PREFIX ${k}: <${v}>`)
-    .join('\n');
-}

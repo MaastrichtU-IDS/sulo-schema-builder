@@ -5,11 +5,15 @@ import { config } from './config.js';
 import corsPlugin from './plugins/cors.js';
 import helmetPlugin from './plugins/helmet.js';
 import sensiblePlugin from './plugins/sensible.js';
-import sparqlClientPlugin from './plugins/sparqlClient.js';
+import dbPlugin from './plugins/db.js';
+import staticFilesPlugin from './plugins/staticFiles.js';
 
 // Routes
 import v1Routes from './routes/v1/index.js';
-import sparqlProxyRoute from './routes/sparqlProxy.js';
+
+// Background bootstrap
+import { startRobotDownload } from './services/robot.service.js';
+import { startSuloUpdateCheck } from './services/sulo.service.js';
 
 export async function createServer() {
   const server = Fastify({
@@ -24,10 +28,29 @@ export async function createServer() {
   await server.register(corsPlugin);
   await server.register(helmetPlugin);
   await server.register(sensiblePlugin);
-  await server.register(sparqlClientPlugin);
+  await server.register(dbPlugin);
+  await server.register(staticFilesPlugin);
 
   await server.register(v1Routes, { prefix: '/api/v1' });
-  await server.register(sparqlProxyRoute, { prefix: '/sparql' });
+
+  // Packaged desktop builds fetch their own reasoning toolchain. Both of these
+  // are deliberately not awaited: the app has to start (and be usable for
+  // everything except the consistency check) with no network at all. Progress
+  // and failures are reported through GET /api/v1/reason/status.
+  if (config.isPackaged && config.reasoner.enabled) {
+    startRobotDownload();
+    startSuloUpdateCheck();
+  }
+
+  // Unmatched /api/* routes stay a JSON 404; everything else falls back to
+  // the SPA's index.html so client-side routes (e.g. /ontology/:id) survive
+  // a hard refresh.
+  server.setNotFoundHandler((request, reply) => {
+    if (request.url.startsWith('/api/')) {
+      return reply.code(404).send({ error: 'not_found', message: `Route ${request.method}:${request.url} not found` });
+    }
+    return reply.sendFile('index.html');
+  });
 
   return server;
 }
