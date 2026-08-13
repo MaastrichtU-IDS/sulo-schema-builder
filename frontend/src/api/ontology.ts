@@ -48,6 +48,8 @@ export interface OntologySchema {
   title: string;
   description?: string;
   upperOntologyIri?: string;
+  /** Overrides `url` as the namespace all classes/properties are minted under, when set. */
+  baseUri?: string;
   classes: OntologyClass[];
   properties: OntologyProperty[];
 }
@@ -58,6 +60,7 @@ export interface OntologySchemaSummary {
   title: string;
   description?: string;
   upperOntologyIri?: string;
+  baseUri?: string;
 }
 
 // ─── Server-side full OWL DL reasoning ──────────────────────────────────────────
@@ -107,7 +110,7 @@ export function useOntologySchema(id: string) {
 export function useCreateOntologySchema() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: { title: string; description?: string; upperOntologyIri?: string }) =>
+    mutationFn: (data: { title: string; description?: string; upperOntologyIri?: string; baseUri?: string }) =>
       apiClient.post('/ontology-schemas', data).then((r) => r.data as OntologySchema),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['ontology-schemas'] }),
   });
@@ -116,7 +119,7 @@ export function useCreateOntologySchema() {
 export function useUpdateOntologySchema(id: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: { title?: string; description?: string; upperOntologyIri?: string }) =>
+    mutationFn: (data: { title?: string; description?: string; upperOntologyIri?: string; baseUri?: string }) =>
       apiClient.patch(`/ontology-schemas/${id}`, data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['ontology-schema', id] });

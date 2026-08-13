@@ -1,7 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { Parser as N3Parser } from 'n3';
-import { sparqlSelect, sparqlUpdate } from '../../services/sparql.service.js';
 import { PREFIXES } from '../../rdf/prefixes.js';
 import { randomUUID } from 'crypto';
 
@@ -88,10 +87,6 @@ async function fetchUpperConcepts(ontologyIri: string): Promise<UpperConcept[]> 
   }
 }
 
-const SM = PREFIXES.suloschema;
-const DCT = PREFIXES.dct;
-const RDF = PREFIXES.rdf;
-const XSD = PREFIXES.xsd;
 const SHEXR = PREFIXES.suloschemaR;
 
 // ─── Zod schemas ─────────────────────────────────────────────────────────────
@@ -100,13 +95,23 @@ const CreateOntologySchemaBody = z.object({
   title: z.string().min(1),
   description: z.string().optional(),
   upperOntologyIri: z.string().url().optional(),
+  // Overrides the auto-generated ontology-schema/{id} namespace: when set,
+  // every class/property IRI this schema mints (:ClassName, :propertyName)
+  // resolves under this prefix instead. Must end in '/' or '#' for exports
+  // to concatenate a local name onto it correctly — normalized on write.
+  baseUri: z.string().url().optional(),
 });
 
 const UpdateOntologySchemaBody = z.object({
   title: z.string().min(1).optional(),
   description: z.string().optional(),
   upperOntologyIri: z.string().url().optional(),
+  baseUri: z.string().url().optional(),
 });
+
+function normalizeBaseUri(uri: string): string {
+  return /[/#]$/.test(uri) ? uri : `${uri}/`;
+}
 
 const AddClassBody = z.object({
   name: z.string().min(1),
@@ -172,13 +177,84 @@ const IdParam = z.object({ id: z.string().min(1) });
 const ClassIdParam = z.object({ id: z.string().min(1), classId: z.string().min(1) });
 const PropIdParam = z.object({ id: z.string().min(1), propId: z.string().min(1) });
 
-// ─── Helper ───────────────────────────────────────────────────────────────────
+// ─── Helpers ────────────────────────────────────────────────────────────────
 
 function schemaIri(id: string) { return `${SHEXR}ontology-schema/${id}`; }
 function classIri(id: string) { return `${SHEXR}ontology-class/${id}`; }
 function propIri(id: string) { return `${SHEXR}ontology-prop/${id}`; }
-function lit(s: string) { return `"${s.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"^^<${XSD}string>`; }
-function iri(s: string) { return `<${s}>`; }
+
+function parseJsonArray(value: string | null): unknown[] {
+  if (!value) return [];
+  try { return JSON.parse(value); } catch { return []; }
+}
+
+interface SchemaRow {
+  id: string;
+  title: string;
+  description: string | null;
+  upper_ontology_iri: string | null;
+  base_uri: string | null;
+}
+
+interface ClassRow {
+  id: string;
+  schema_id: string;
+  name: string;
+  label: string | null;
+  description: string | null;
+  maps_to_concept_iri: string | null;
+  super_class_id: string | null;
+}
+
+interface PropertyRow {
+  id: string;
+  schema_id: string;
+  name: string;
+  label: string | null;
+  description: string | null;
+  property_type: 'object' | 'datatype';
+  domain_class_id: string | null;
+  range_class_iri: string | null;
+  mapping_pattern: string | null;
+  regex_pattern: string | null;
+  regex_variable: string | null;
+  is_required: number;
+  property_features: string | null;
+  inverse_property_iri: string | null;
+  disjoint_property_iris: string | null;
+}
+
+function classRowToApi(row: ClassRow) {
+  return {
+    id: row.id,
+    url: classIri(row.id),
+    name: row.name,
+    label: row.label ?? undefined,
+    description: row.description ?? undefined,
+    mapsToConceptIri: row.maps_to_concept_iri ?? undefined,
+    superClassId: row.super_class_id ?? undefined,
+  };
+}
+
+function propertyRowToApi(row: PropertyRow) {
+  return {
+    id: row.id,
+    url: propIri(row.id),
+    name: row.name,
+    label: row.label ?? undefined,
+    description: row.description ?? undefined,
+    propertyType: row.property_type,
+    domainClassId: row.domain_class_id ?? undefined,
+    rangeClassIri: row.range_class_iri ?? undefined,
+    mappingPattern: parseJsonArray(row.mapping_pattern),
+    regexPattern: row.regex_pattern ?? undefined,
+    regexVariable: row.regex_variable ?? undefined,
+    isRequired: row.is_required === 1,
+    propertyFeatures: parseJsonArray(row.property_features),
+    inversePropertyIri: row.inverse_property_iri ?? undefined,
+    disjointPropertyIris: parseJsonArray(row.disjoint_property_iris),
+  };
+}
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
 
@@ -186,141 +262,46 @@ const ontologyRoutes: FastifyPluginAsync = async (fastify) => {
 
   // GET /ontology-schemas — list all
   fastify.get('/', async () => {
-    const sparql = `
-      SELECT ?schema ?title ?description ?upperOntologyIri
-      WHERE {
-        ?schema a <${SM}OntologySchema> .
-        OPTIONAL { ?schema <${DCT}title> ?title }
-        OPTIONAL { ?schema <${DCT}description> ?description }
-        OPTIONAL { ?schema <${SM}upperOntologyIri> ?upperOntologyIri }
-      }
-      ORDER BY ?title
-    `;
-    const rows = await sparqlSelect(fastify, sparql);
-    return rows.map((row) => {
-      const url = row['schema']?.value ?? '';
-      return {
-        id: url.split('/').pop() ?? url,
-        url,
-        title: row['title']?.value ?? '',
-        description: row['description']?.value,
-        upperOntologyIri: row['upperOntologyIri']?.value,
-      };
-    });
+    const rows = fastify.db
+      .prepare('SELECT id, title, description, upper_ontology_iri, base_uri FROM schemas ORDER BY title')
+      .all() as SchemaRow[];
+
+    return rows.map((row) => ({
+      id: row.id,
+      url: schemaIri(row.id),
+      title: row.title,
+      description: row.description ?? undefined,
+      upperOntologyIri: row.upper_ontology_iri ?? undefined,
+      baseUri: row.base_uri ?? undefined,
+    }));
   });
 
   // GET /ontology-schemas/:id — get one with classes and properties
   fastify.get('/:id', async (request, reply) => {
     const { id } = IdParam.parse(request.params);
-    const sIri = schemaIri(id);
 
-    // Fetch schema metadata
-    const metaRows = await sparqlSelect(fastify, `
-      SELECT ?title ?description ?upperOntologyIri
-      WHERE {
-        ${iri(sIri)} a <${SM}OntologySchema> .
-        OPTIONAL { ${iri(sIri)} <${DCT}title> ?title }
-        OPTIONAL { ${iri(sIri)} <${DCT}description> ?description }
-        OPTIONAL { ${iri(sIri)} <${SM}upperOntologyIri> ?upperOntologyIri }
-      }
-    `);
-    if (!metaRows.length) return reply.notFound(`OntologySchema ${id} not found`);
-    const meta = metaRows[0];
+    const meta = fastify.db
+      .prepare('SELECT id, title, description, upper_ontology_iri, base_uri FROM schemas WHERE id = ?')
+      .get(id) as SchemaRow | undefined;
+    if (!meta) return reply.notFound(`OntologySchema ${id} not found`);
 
-    // Fetch classes
-    const classRows = await sparqlSelect(fastify, `
-      SELECT ?cls ?name ?label ?description ?mapsTo ?superCls
-      WHERE {
-        ${iri(sIri)} <${SM}hasClass> ?cls .
-        OPTIONAL { ?cls <${DCT}identifier> ?name }
-        OPTIONAL { ?cls <http://www.w3.org/2000/01/rdf-schema#label> ?label }
-        OPTIONAL { ?cls <${DCT}description> ?description }
-        OPTIONAL { ?cls <${SM}mapsToConcept> ?mapsTo }
-        OPTIONAL { ?cls <${SM}superClass> ?superCls }
-      }
-      ORDER BY ?name
-    `);
+    const classRows = fastify.db
+      .prepare('SELECT * FROM classes WHERE schema_id = ? ORDER BY name')
+      .all(id) as ClassRow[];
 
-    // Fetch properties
-    const propRows = await sparqlSelect(fastify, `
-      SELECT ?prop ?name ?label ?description ?propertyType ?domainClass ?rangeClassIri ?mappingPattern ?regexPattern ?regexVariable ?isRequired
-      WHERE {
-        ${iri(sIri)} <${SM}hasOntologyProperty> ?prop .
-        OPTIONAL { ?prop <${DCT}identifier> ?name }
-        OPTIONAL { ?prop <http://www.w3.org/2000/01/rdf-schema#label> ?label }
-        OPTIONAL { ?prop <${DCT}description> ?description }
-        OPTIONAL { ?prop <${SM}propertyType> ?propertyType }
-        OPTIONAL { ?prop <${SM}domainClass> ?domainClass }
-        OPTIONAL { ?prop <${SM}rangeClassIri> ?rangeClassIri }
-        OPTIONAL { ?prop <${SM}mappingPattern> ?mappingPattern }
-        OPTIONAL { ?prop <${SM}regexPattern> ?regexPattern }
-        OPTIONAL { ?prop <${SM}regexVariable> ?regexVariable }
-        OPTIONAL { ?prop <${SM}isRequired> ?isRequired }
-        OPTIONAL { ?prop <${SM}propertyFeatures> ?propertyFeatures }
-        OPTIONAL { ?prop <${SM}inversePropertyIri> ?inversePropertyIri }
-        OPTIONAL { ?prop <${SM}disjointPropertyIris> ?disjointPropertyIris }
-      }
-      ORDER BY ?name
-    `);
-
-    const classPrefix = classIri('');
-    const classes = classRows.map((r) => {
-      const url = r['cls']?.value ?? '';
-      const superClsUrl = r['superCls']?.value;
-      // Only keep superClassId if it is actually a class in this schema (not an inferred rdfs/owl IRI)
-      const superClassId =
-        superClsUrl && superClsUrl.startsWith(classPrefix)
-          ? superClsUrl.slice(classPrefix.length)
-          : undefined;
-      return {
-        id: url.split('/').pop() ?? url,
-        url,
-        name: r['name']?.value ?? '',
-        label: r['label']?.value,
-        description: r['description']?.value,
-        mapsToConceptIri: r['mapsTo']?.value,
-        superClassId,
-      };
-    });
-
-    const classById = new Map(classes.map((c) => [c.url, c]));
-
-    const properties = propRows.map((r) => {
-      const url = r['prop']?.value ?? '';
-      const domainUrl = r['domainClass']?.value;
-      return {
-        id: url.split('/').pop() ?? url,
-        url,
-        name: r['name']?.value ?? '',
-        label: r['label']?.value,
-        description: r['description']?.value,
-        propertyType: (r['propertyType']?.value ?? 'datatype') as 'object' | 'datatype',
-        domainClassId: domainUrl ? (domainUrl.split('/').pop() ?? domainUrl) : undefined,
-        rangeClassIri: r['rangeClassIri']?.value,
-        mappingPattern: r['mappingPattern']?.value
-          ? (() => { try { return JSON.parse(r['mappingPattern']!.value) as { subject: string; predicate: string; object: string }[]; } catch { return []; } })()
-          : [],
-        regexPattern: r['regexPattern']?.value,
-        regexVariable: r['regexVariable']?.value,
-        isRequired: r['isRequired']?.value === 'true',
-        propertyFeatures: r['propertyFeatures']?.value
-          ? (() => { try { return JSON.parse(r['propertyFeatures']!.value); } catch { return []; } })()
-          : [],
-        inversePropertyIri: r['inversePropertyIri']?.value,
-        disjointPropertyIris: r['disjointPropertyIris']?.value
-          ? (() => { try { return JSON.parse(r['disjointPropertyIris']!.value); } catch { return []; } })()
-          : [],
-      };
-    });
+    const propRows = fastify.db
+      .prepare('SELECT * FROM properties WHERE schema_id = ? ORDER BY name')
+      .all(id) as PropertyRow[];
 
     return {
       id,
-      url: sIri,
-      title: meta['title']?.value ?? '',
-      description: meta['description']?.value,
-      upperOntologyIri: meta['upperOntologyIri']?.value,
-      classes,
-      properties,
+      url: schemaIri(id),
+      title: meta.title,
+      description: meta.description ?? undefined,
+      upperOntologyIri: meta.upper_ontology_iri ?? undefined,
+      baseUri: meta.base_uri ?? undefined,
+      classes: classRows.map(classRowToApi),
+      properties: propRows.map(propertyRowToApi),
     };
   });
 
@@ -328,65 +309,39 @@ const ontologyRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post('/', async (request, reply) => {
     const data = CreateOntologySchemaBody.parse(request.body);
     const id = randomUUID();
-    const sIri = schemaIri(id);
     const now = new Date().toISOString();
+    const baseUri = data.baseUri ? normalizeBaseUri(data.baseUri) : undefined;
 
-    let triples = `
-      ${iri(sIri)} a <${SM}OntologySchema> ;
-        <${DCT}title> ${lit(data.title)} ;
-        <${DCT}created> "${now}"^^<${XSD}dateTime> ;
-        <${DCT}modified> "${now}"^^<${XSD}dateTime> .
-    `;
-    if (data.description) {
-      triples += `\n      ${iri(sIri)} <${DCT}description> ${lit(data.description)} .`;
-    }
-    if (data.upperOntologyIri) {
-      triples += `\n      ${iri(sIri)} <${SM}upperOntologyIri> ${iri(data.upperOntologyIri)} .`;
-    }
+    fastify.db
+      .prepare(`
+        INSERT INTO schemas (id, title, description, upper_ontology_iri, base_uri, created_at, modified_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `)
+      .run(id, data.title, data.description ?? null, data.upperOntologyIri ?? null, baseUri ?? null, now, now);
 
-    await sparqlUpdate(fastify, `INSERT DATA { ${triples} }`);
-    return reply.code(201).send({ id, url: sIri, title: data.title, description: data.description, upperOntologyIri: data.upperOntologyIri, classes: [], properties: [] });
+    return reply.code(201).send({
+      id, url: schemaIri(id), title: data.title, description: data.description,
+      upperOntologyIri: data.upperOntologyIri, baseUri, classes: [], properties: [],
+    });
   });
 
   // PATCH /ontology-schemas/:id — update title/description/upperOntologyIri
   fastify.patch('/:id', async (request, reply) => {
     const { id } = IdParam.parse(request.params);
     const data = UpdateOntologySchemaBody.parse(request.body);
-    const sIri = schemaIri(id);
     const now = new Date().toISOString();
 
-    // Build individual DELETE+INSERT statements for each field being updated
-    const stmts: string[] = [];
+    const sets: string[] = ['modified_at = ?'];
+    const params: unknown[] = [now];
 
-    if (data.title !== undefined) {
-      stmts.push(`
-        DELETE { ${iri(sIri)} <${DCT}title> ?v }
-        INSERT { ${iri(sIri)} <${DCT}title> ${lit(data.title)} }
-        WHERE  { OPTIONAL { ${iri(sIri)} <${DCT}title> ?v } }
-      `);
-    }
-    if (data.description !== undefined) {
-      stmts.push(`
-        DELETE { ${iri(sIri)} <${DCT}description> ?v }
-        INSERT { ${iri(sIri)} <${DCT}description> ${lit(data.description)} }
-        WHERE  { OPTIONAL { ${iri(sIri)} <${DCT}description> ?v } }
-      `);
-    }
-    if (data.upperOntologyIri !== undefined) {
-      stmts.push(`
-        DELETE { ${iri(sIri)} <${SM}upperOntologyIri> ?v }
-        INSERT { ${iri(sIri)} <${SM}upperOntologyIri> ${iri(data.upperOntologyIri)} }
-        WHERE  { OPTIONAL { ${iri(sIri)} <${SM}upperOntologyIri> ?v } }
-      `);
-    }
-    stmts.push(`
-      DELETE { ${iri(sIri)} <${DCT}modified> ?v }
-      INSERT { ${iri(sIri)} <${DCT}modified> "${now}"^^<${XSD}dateTime> }
-      WHERE  { OPTIONAL { ${iri(sIri)} <${DCT}modified> ?v } }
-    `);
+    if (data.title !== undefined) { sets.push('title = ?'); params.push(data.title); }
+    if (data.description !== undefined) { sets.push('description = ?'); params.push(data.description); }
+    if (data.upperOntologyIri !== undefined) { sets.push('upper_ontology_iri = ?'); params.push(data.upperOntologyIri); }
+    if (data.baseUri !== undefined) { sets.push('base_uri = ?'); params.push(normalizeBaseUri(data.baseUri)); }
 
-    // Execute all statements as a SPARQL Update sequence (semicolon-separated)
-    await sparqlUpdate(fastify, stmts.join(';\n'));
+    fastify.db
+      .prepare(`UPDATE schemas SET ${sets.join(', ')} WHERE id = ?`)
+      .run(...params, id);
 
     return reply.code(204).send();
   });
@@ -394,65 +349,41 @@ const ontologyRoutes: FastifyPluginAsync = async (fastify) => {
   // DELETE /ontology-schemas/:id — delete schema and all its classes/properties
   fastify.delete('/:id', async (request, reply) => {
     const { id } = IdParam.parse(request.params);
-    const sIri = schemaIri(id);
-
-    await sparqlUpdate(fastify, `
-      DELETE { ?s ?p ?o }
-      WHERE {
-        { ${iri(sIri)} ?p ?o . BIND(${iri(sIri)} AS ?s) }
-        UNION
-        { ${iri(sIri)} <${SM}hasClass> ?s . ?s ?p ?o }
-        UNION
-        { ${iri(sIri)} <${SM}hasOntologyProperty> ?s . ?s ?p ?o }
-      }
-    `);
+    fastify.db.prepare('DELETE FROM schemas WHERE id = ?').run(id);
     return reply.code(204).send();
   });
 
   // GET /ontology-schemas/:id/upper-concepts — fetch owl:Class list from the upper ontology
   fastify.get('/:id/upper-concepts', async (request) => {
     const { id } = IdParam.parse(request.params);
-    const sIri = schemaIri(id);
 
-    const rows = await sparqlSelect(fastify, `
-      SELECT ?upper WHERE { ${iri(sIri)} <${SM}upperOntologyIri> ?upper } LIMIT 1
-    `);
-    const upperIri = rows[0]?.['upper']?.value;
-    if (!upperIri) return [];
+    const row = fastify.db
+      .prepare('SELECT upper_ontology_iri FROM schemas WHERE id = ?')
+      .get(id) as { upper_ontology_iri: string | null } | undefined;
+    if (!row?.upper_ontology_iri) return [];
 
-    return fetchUpperConcepts(upperIri);
+    return fetchUpperConcepts(row.upper_ontology_iri);
   });
 
   // POST /ontology-schemas/:id/classes — add a class
   fastify.post('/:id/classes', async (request, reply) => {
     const { id } = IdParam.parse(request.params);
     const data = AddClassBody.parse(request.body);
-    const sIri = schemaIri(id);
     const classId = randomUUID();
-    const cIri = classIri(classId);
 
-    let triples = `
-      ${iri(cIri)} a <${SM}OntologyClass> ;
-        <${DCT}identifier> ${lit(data.name)} .
-      ${iri(sIri)} <${SM}hasClass> ${iri(cIri)} .
-    `;
-    if (data.label) {
-      triples += `\n      ${iri(cIri)} <http://www.w3.org/2000/01/rdf-schema#label> ${lit(data.label)} .`;
-    }
-    if (data.description) {
-      triples += `\n      ${iri(cIri)} <${DCT}description> ${lit(data.description)} .`;
-    }
-    if (data.mapsToConceptIri) {
-      triples += `\n      ${iri(cIri)} <${SM}mapsToConcept> ${iri(data.mapsToConceptIri)} .`;
-    }
-    if (data.superClassId) {
-      triples += `\n      ${iri(cIri)} <${SM}superClass> ${iri(classIri(data.superClassId))} .`;
-    }
+    fastify.db
+      .prepare(`
+        INSERT INTO classes (id, schema_id, name, label, description, maps_to_concept_iri, super_class_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `)
+      .run(
+        classId, id, data.name, data.label ?? null, data.description ?? null,
+        data.mapsToConceptIri ?? null, data.superClassId ?? null,
+      );
 
-    await sparqlUpdate(fastify, `INSERT DATA { ${triples} }`);
     return reply.code(201).send({
       id: classId,
-      url: cIri,
+      url: classIri(classId),
       name: data.name,
       label: data.label,
       description: data.description,
@@ -461,99 +392,71 @@ const ontologyRoutes: FastifyPluginAsync = async (fastify) => {
     });
   });
 
-  // ─── SPARQL field-level helper ───────────────────────────────────────────────
-  function setOrDelete(sIri: string, pred: string, value: string | null, asIri = false): string {
-    const s = iri(sIri);
-    const p = `<${pred}>`;
-    const o = value ? (asIri ? iri(value) : lit(value)) : null;
-    return o
-      ? `DELETE { ${s} ${p} ?v } INSERT { ${s} ${p} ${o} } WHERE { OPTIONAL { ${s} ${p} ?v } }`
-      : `DELETE { ${s} ${p} ?v } WHERE { OPTIONAL { ${s} ${p} ?v } }`;
-  }
-
   // PATCH /ontology-schemas/:id/classes/:classId — update a class
   fastify.patch('/:id/classes/:classId', async (request, reply) => {
     const { classId } = ClassIdParam.parse(request.params);
     const data = UpdateClassBody.parse(request.body);
-    const cIri = classIri(classId);
-    const stmts: string[] = [];
 
-    if (data.name !== undefined)
-      stmts.push(setOrDelete(cIri, `${DCT}identifier`, data.name || null));
-    if (data.label !== undefined)
-      stmts.push(setOrDelete(cIri, 'http://www.w3.org/2000/01/rdf-schema#label', data.label || null));
-    if (data.description !== undefined)
-      stmts.push(setOrDelete(cIri, `${DCT}description`, data.description || null));
-    if (data.mapsToConceptIri !== undefined)
-      stmts.push(setOrDelete(cIri, `${SM}mapsToConcept`, data.mapsToConceptIri || null, true));
-    if (data.superClassId !== undefined)
-      stmts.push(setOrDelete(cIri, `${SM}superClass`,
-        data.superClassId ? classIri(data.superClassId) : null, true));
+    const sets: string[] = [];
+    const params: unknown[] = [];
 
-    if (stmts.length) await sparqlUpdate(fastify, stmts.join(';\n'));
+    if (data.name !== undefined) { sets.push('name = ?'); params.push(data.name); }
+    if (data.label !== undefined) { sets.push('label = ?'); params.push(data.label || null); }
+    if (data.description !== undefined) { sets.push('description = ?'); params.push(data.description || null); }
+    if (data.mapsToConceptIri !== undefined) { sets.push('maps_to_concept_iri = ?'); params.push(data.mapsToConceptIri || null); }
+    if (data.superClassId !== undefined) { sets.push('super_class_id = ?'); params.push(data.superClassId || null); }
+
+    if (sets.length) {
+      fastify.db
+        .prepare(`UPDATE classes SET ${sets.join(', ')} WHERE id = ?`)
+        .run(...params, classId);
+    }
     return reply.code(204).send();
   });
 
   // PATCH /ontology-schemas/:id/properties/:propId — update a property
   fastify.patch('/:id/properties/:propId', async (request, reply) => {
-    const { id, propId } = PropIdParam.parse(request.params);
+    const { propId } = PropIdParam.parse(request.params);
     const data = UpdatePropertyBody.parse(request.body);
-    const pIri = propIri(propId);
-    const stmts: string[] = [];
 
-    if (data.name !== undefined)
-      stmts.push(setOrDelete(pIri, `${DCT}identifier`, data.name || null));
-    if (data.label !== undefined)
-      stmts.push(setOrDelete(pIri, 'http://www.w3.org/2000/01/rdf-schema#label', data.label || null));
-    if (data.description !== undefined)
-      stmts.push(setOrDelete(pIri, `${DCT}description`, data.description || null));
-    if (data.propertyType !== undefined)
-      stmts.push(setOrDelete(pIri, `${SM}propertyType`, data.propertyType));
-    if (data.isRequired !== undefined)
-      stmts.push(setOrDelete(pIri, `${SM}isRequired`, String(data.isRequired)));
-    if (data.domainClassId !== undefined) {
-      const domIri = data.domainClassId ? classIri(data.domainClassId) : null;
-      stmts.push(setOrDelete(pIri, `${SM}domainClass`, domIri, true));
-    }
-    if (data.rangeClassIri !== undefined)
-      stmts.push(setOrDelete(pIri, `${SM}rangeClassIri`, data.rangeClassIri || null, true));
+    const sets: string[] = [];
+    const params: unknown[] = [];
+
+    if (data.name !== undefined) { sets.push('name = ?'); params.push(data.name); }
+    if (data.label !== undefined) { sets.push('label = ?'); params.push(data.label || null); }
+    if (data.description !== undefined) { sets.push('description = ?'); params.push(data.description || null); }
+    if (data.propertyType !== undefined) { sets.push('property_type = ?'); params.push(data.propertyType); }
+    if (data.isRequired !== undefined) { sets.push('is_required = ?'); params.push(data.isRequired ? 1 : 0); }
+    if (data.domainClassId !== undefined) { sets.push('domain_class_id = ?'); params.push(data.domainClassId || null); }
+    if (data.rangeClassIri !== undefined) { sets.push('range_class_iri = ?'); params.push(data.rangeClassIri || null); }
     if (data.mappingPattern !== undefined) {
-      const json = data.mappingPattern.length > 0 ? JSON.stringify(data.mappingPattern) : null;
-      stmts.push(setOrDelete(pIri, `${SM}mappingPattern`, json));
+      sets.push('mapping_pattern = ?');
+      params.push(data.mappingPattern.length > 0 ? JSON.stringify(data.mappingPattern) : null);
     }
-    if (data.regexPattern !== undefined)
-      stmts.push(setOrDelete(pIri, `${SM}regexPattern`, data.regexPattern || null));
-    if (data.regexVariable !== undefined)
-      stmts.push(setOrDelete(pIri, `${SM}regexVariable`, data.regexVariable || null));
+    if (data.regexPattern !== undefined) { sets.push('regex_pattern = ?'); params.push(data.regexPattern || null); }
+    if (data.regexVariable !== undefined) { sets.push('regex_variable = ?'); params.push(data.regexVariable || null); }
     if (data.propertyFeatures !== undefined) {
-      const json = data.propertyFeatures.length > 0 ? JSON.stringify(data.propertyFeatures) : null;
-      stmts.push(setOrDelete(pIri, `${SM}propertyFeatures`, json));
+      sets.push('property_features = ?');
+      params.push(data.propertyFeatures.length > 0 ? JSON.stringify(data.propertyFeatures) : null);
     }
-    if (data.inversePropertyIri !== undefined)
-      stmts.push(setOrDelete(pIri, `${SM}inversePropertyIri`, data.inversePropertyIri || null, true));
+    if (data.inversePropertyIri !== undefined) { sets.push('inverse_property_iri = ?'); params.push(data.inversePropertyIri || null); }
     if (data.disjointPropertyIris !== undefined) {
-      const json = data.disjointPropertyIris.length > 0 ? JSON.stringify(data.disjointPropertyIris) : null;
-      stmts.push(setOrDelete(pIri, `${SM}disjointPropertyIris`, json));
+      sets.push('disjoint_property_iris = ?');
+      params.push(data.disjointPropertyIris.length > 0 ? JSON.stringify(data.disjointPropertyIris) : null);
     }
 
-    if (stmts.length) await sparqlUpdate(fastify, stmts.join(';\n'));
+    if (sets.length) {
+      fastify.db
+        .prepare(`UPDATE properties SET ${sets.join(', ')} WHERE id = ?`)
+        .run(...params, propId);
+    }
     return reply.code(204).send();
   });
 
   // DELETE /ontology-schemas/:id/classes/:classId — remove a class
   fastify.delete('/:id/classes/:classId', async (request, reply) => {
-    const { id, classId } = ClassIdParam.parse(request.params);
-    const sIri = schemaIri(id);
-    const cIri = classIri(classId);
-
-    await sparqlUpdate(fastify, `
-      DELETE { ?s ?p ?o }
-      WHERE {
-        { ${iri(cIri)} ?p ?o . BIND(${iri(cIri)} AS ?s) }
-        UNION
-        { BIND(${iri(sIri)} AS ?s) . ?s <${SM}hasClass> ${iri(cIri)} . BIND(<${SM}hasClass> AS ?p) . BIND(${iri(cIri)} AS ?o) }
-      }
-    `);
+    const { classId } = ClassIdParam.parse(request.params);
+    fastify.db.prepare('DELETE FROM classes WHERE id = ?').run(classId);
     return reply.code(204).send();
   });
 
@@ -561,53 +464,30 @@ const ontologyRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post('/:id/properties', async (request, reply) => {
     const { id } = IdParam.parse(request.params);
     const data = AddPropertyBody.parse(request.body);
-    const sIri = schemaIri(id);
     const propId = randomUUID();
-    const pIri = propIri(propId);
-    const domainIri = data.domainClassId ? classIri(data.domainClassId) : null;
 
-    let triples = `
-      ${iri(pIri)} a <${SM}OntologyProperty> ;
-        <${DCT}identifier> ${lit(data.name)} ;
-        <${SM}propertyType> ${lit(data.propertyType)} ;
-        <${SM}isRequired> "${data.isRequired}"^^<${XSD}boolean> .
-      ${iri(sIri)} <${SM}hasOntologyProperty> ${iri(pIri)} .
-    `;
-    if (data.label) {
-      triples += `\n      ${iri(pIri)} <http://www.w3.org/2000/01/rdf-schema#label> ${lit(data.label)} .`;
-    }
-    if (data.description) {
-      triples += `\n      ${iri(pIri)} <${DCT}description> ${lit(data.description)} .`;
-    }
-    if (domainIri) {
-      triples += `\n      ${iri(pIri)} <${SM}domainClass> ${iri(domainIri)} .`;
-    }
-    if (data.rangeClassIri) {
-      triples += `\n      ${iri(pIri)} <${SM}rangeClassIri> ${iri(data.rangeClassIri)} .`;
-    }
-    if (data.mappingPattern && data.mappingPattern.length > 0) {
-      triples += `\n      ${iri(pIri)} <${SM}mappingPattern> ${lit(JSON.stringify(data.mappingPattern))} .`;
-    }
-    if (data.regexPattern) {
-      triples += `\n      ${iri(pIri)} <${SM}regexPattern> ${lit(data.regexPattern)} .`;
-    }
-    if (data.regexVariable) {
-      triples += `\n      ${iri(pIri)} <${SM}regexVariable> ${lit(data.regexVariable)} .`;
-    }
-    if (data.propertyFeatures && data.propertyFeatures.length > 0) {
-      triples += `\n      ${iri(pIri)} <${SM}propertyFeatures> ${lit(JSON.stringify(data.propertyFeatures))} .`;
-    }
-    if (data.inversePropertyIri) {
-      triples += `\n      ${iri(pIri)} <${SM}inversePropertyIri> ${iri(data.inversePropertyIri)} .`;
-    }
-    if (data.disjointPropertyIris && data.disjointPropertyIris.length > 0) {
-      triples += `\n      ${iri(pIri)} <${SM}disjointPropertyIris> ${lit(JSON.stringify(data.disjointPropertyIris))} .`;
-    }
+    fastify.db
+      .prepare(`
+        INSERT INTO properties (
+          id, schema_id, name, label, description, property_type,
+          domain_class_id, range_class_iri, mapping_pattern,
+          regex_pattern, regex_variable, is_required,
+          property_features, inverse_property_iri, disjoint_property_iris
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `)
+      .run(
+        propId, id, data.name, data.label ?? null, data.description ?? null, data.propertyType,
+        data.domainClassId ?? null, data.rangeClassIri ?? null,
+        data.mappingPattern && data.mappingPattern.length > 0 ? JSON.stringify(data.mappingPattern) : null,
+        data.regexPattern ?? null, data.regexVariable ?? null, data.isRequired ? 1 : 0,
+        data.propertyFeatures && data.propertyFeatures.length > 0 ? JSON.stringify(data.propertyFeatures) : null,
+        data.inversePropertyIri ?? null,
+        data.disjointPropertyIris && data.disjointPropertyIris.length > 0 ? JSON.stringify(data.disjointPropertyIris) : null,
+      );
 
-    await sparqlUpdate(fastify, `INSERT DATA { ${triples} }`);
     return reply.code(201).send({
       id: propId,
-      url: pIri,
+      url: propIri(propId),
       name: data.name,
       label: data.label,
       description: data.description,
@@ -626,18 +506,8 @@ const ontologyRoutes: FastifyPluginAsync = async (fastify) => {
 
   // DELETE /ontology-schemas/:id/properties/:propId — remove a property
   fastify.delete('/:id/properties/:propId', async (request, reply) => {
-    const { id, propId } = PropIdParam.parse(request.params);
-    const sIri = schemaIri(id);
-    const pIri = propIri(propId);
-
-    await sparqlUpdate(fastify, `
-      DELETE { ?s ?p ?o }
-      WHERE {
-        { ${iri(pIri)} ?p ?o . BIND(${iri(pIri)} AS ?s) }
-        UNION
-        { BIND(${iri(sIri)} AS ?s) . ?s <${SM}hasOntologyProperty> ${iri(pIri)} . BIND(<${SM}hasOntologyProperty> AS ?p) . BIND(${iri(pIri)} AS ?o) }
-      }
-    `);
+    const { propId } = PropIdParam.parse(request.params);
+    fastify.db.prepare('DELETE FROM properties WHERE id = ?').run(propId);
     return reply.code(204).send();
   });
 

@@ -2707,7 +2707,7 @@ function SchemaListPage() {
 
   const form = useForm<NewSchemaForm>({
     resolver: zodResolver(NewSchemaFormSchema),
-    defaultValues: { title: '', description: '', upperOntologyIri: '' },
+    defaultValues: { title: '', description: '', upperOntologyIri: '', baseUri: '' },
   });
 
   async function onSubmit(values: NewSchemaForm) {
@@ -2715,6 +2715,7 @@ function SchemaListPage() {
       title: values.title,
       description: values.description || undefined,
       upperOntologyIri: values.upperOntologyIri || undefined,
+      baseUri: values.baseUri || undefined,
     });
     form.reset();
     setShowCreate(false);
@@ -2783,6 +2784,15 @@ function SchemaListPage() {
                 The upper-level ontology your classes and properties will be aligned to — e.g. SULO, BioLink, schema.org.
               </p>
             </FieldRow>
+            <FieldRow label="Base URI (optional)" error={form.formState.errors.baseUri?.message}>
+              <Input
+                {...form.register('baseUri')}
+                placeholder="e.g. https://example.org/my-ontology/"
+              />
+              <p className="text-xs text-slate-400 mt-1">
+                Overrides the auto-generated namespace all classes and properties are minted under.
+              </p>
+            </FieldRow>
             <div className="flex gap-3">
               <button
                 type="submit"
@@ -2830,6 +2840,12 @@ function SchemaListPage() {
                 <div className="text-xs text-slate-400 mt-1">
                   Upper ontology:{' '}
                   <span className="font-mono text-violet-600">{schema.upperOntologyIri}</span>
+                </div>
+              )}
+              {schema.baseUri && (
+                <div className="text-xs text-slate-400 mt-1">
+                  Base URI:{' '}
+                  <span className="font-mono text-violet-600">{schema.baseUri}</span>
                 </div>
               )}
             </Link>
@@ -2898,7 +2914,7 @@ function SchemaDetailPage({ id }: { id: string }) {
 
   const metaForm = useForm<EditSchemaForm>({
     resolver: zodResolver(EditSchemaFormSchema),
-    defaultValues: { title: '', description: '', upperOntologyIri: '' },
+    defaultValues: { title: '', description: '', upperOntologyIri: '', baseUri: '' },
   });
 
   // Populate meta form when schema loads
@@ -2908,6 +2924,7 @@ function SchemaDetailPage({ id }: { id: string }) {
         title: schemaQuery.data.title,
         description: schemaQuery.data.description ?? '',
         upperOntologyIri: schemaQuery.data.upperOntologyIri ?? '',
+        baseUri: schemaQuery.data.baseUri ?? '',
       });
     }
   }, [schemaQuery.data]);
@@ -2919,6 +2936,7 @@ function SchemaDetailPage({ id }: { id: string }) {
       title: values.title,
       description: values.description || undefined,
       upperOntologyIri: values.upperOntologyIri || undefined,
+      baseUri: values.baseUri || undefined,
     });
     setEditingMeta(false);
   }
@@ -2990,6 +3008,12 @@ function SchemaDetailPage({ id }: { id: string }) {
                   </a>
                 </div>
               )}
+              {schema.baseUri && (
+                <div className="mt-2 ml-2 inline-flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-full px-3 py-1 text-xs text-slate-600">
+                  <span className="font-medium">Base URI:</span>
+                  <span className="font-mono">{schema.baseUri}</span>
+                </div>
+              )}
             </div>
             <div className="flex gap-2 shrink-0">
               <button
@@ -3035,6 +3059,15 @@ function SchemaDetailPage({ id }: { id: string }) {
                 />
                 <p className="text-xs text-slate-400 mt-1">
                   The upper-level ontology your classes and properties will be aligned to.
+                </p>
+              </FieldRow>
+              <FieldRow label="Base URI" error={metaForm.formState.errors.baseUri?.message}>
+                <Input
+                  {...metaForm.register('baseUri')}
+                  placeholder="e.g. https://example.org/my-ontology/"
+                />
+                <p className="text-xs text-slate-400 mt-1">
+                  Overrides the auto-generated namespace all classes and properties are minted under.
                 </p>
               </FieldRow>
               <div className="flex gap-3">

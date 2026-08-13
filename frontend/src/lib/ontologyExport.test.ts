@@ -302,6 +302,72 @@ describe('generateExports — plain vs OWL', () => {
 });
 
 // ════════════════════════════════════════════════════════════════════════════
+// generateExports — custom baseUri
+// ════════════════════════════════════════════════════════════════════════════
+
+describe('generateExports — custom baseUri', () => {
+  it('defaults to the schema URL when no baseUri is set', () => {
+    const c1 = cls('c1', 'Visit');
+    const s  = schema([c1], []);
+    const { turtlePlain } = generateExports(s);
+    expect(turtlePlain).toContain(`@prefix : <${s.url}/> .`);
+  });
+
+  it('mints class/property IRIs under a custom baseUri instead of the schema URL', () => {
+    const c1 = cls('c1', 'Visit');
+    const p1 = prop('p1', 'hasDate', { propertyType: 'datatype', domainClassId: 'c1' });
+    const s  = schema([c1], [p1], { baseUri: 'https://example.org/family/' });
+    const { turtlePlain } = generateExports(s);
+    expect(turtlePlain).toContain('@prefix : <https://example.org/family/> .');
+    expect(turtlePlain).toContain(':Visit');
+    expect(turtlePlain).toContain(':hasDate');
+    // the ontology document keeps its own identity IRI (schema.url) in the
+    // header triple — only the class/property namespace changes
+    expect(turtlePlain).toContain(s.url);
+  });
+
+  it('normalizes a baseUri with no trailing slash or hash', () => {
+    const c1 = cls('c1', 'Visit');
+    const s  = schema([c1], [], { baseUri: 'https://example.org/family' });
+    const { turtlePlain } = generateExports(s);
+    expect(turtlePlain).toContain('@prefix : <https://example.org/family/> .');
+  });
+
+  it('leaves a baseUri already ending in # untouched', () => {
+    const c1 = cls('c1', 'Visit');
+    const s  = schema([c1], [], { baseUri: 'https://example.org/family#' });
+    const { turtlePlain } = generateExports(s);
+    expect(turtlePlain).toContain('@prefix : <https://example.org/family#> .');
+  });
+
+  // The domain/range equivalent-class axioms need an anchor IRI to hang
+  // owl:equivalentClass off of (there's no real class to attach it to — it's
+  // synthesized per property). Those anchors are readable, deterministic
+  // `{DomainClass}_{propertyName}_domain`/`_range` names under the schema's
+  // own baseUri — not a random UUID, and not the hardcoded default
+  // namespace, or a schema using a custom baseUri would export two
+  // different namespaces.
+  it('mints readable, deterministic domain/range equivalent-class anchor IRIs under the custom baseUri', () => {
+    const visit   = cls('c1', 'ClinicalVisit', { mapsToConceptIri: 'https://w3id.org/sulo/Process' });
+    const person  = cls('c2', 'Person', { mapsToConceptIri: 'https://w3id.org/sulo/SpatialObject' });
+    const p = prop('p1', 'hasPatient', {
+      propertyType: 'object', domainClassId: 'c1', rangeClassIri: person.url,
+      mappingPattern: [
+        { subject: '?this', predicate: 'https://w3id.org/sulo/hasParticipant', object: '?value' },
+      ],
+    });
+    const s = schema([visit, person], [p], { baseUri: 'https://example.org/family/', upperOntologyIri: 'https://w3id.org/sulo/' });
+    const { turtleOwl } = generateExports(s);
+    expect(turtleOwl).toContain('owl:equivalentClass');
+    expect(turtleOwl).not.toContain('w3id.org/sulo/schema/resource/ontology-class/');
+    expect(turtleOwl).toContain('rdfs:domain <https://example.org/family/ClinicalVisit_hasPatient_domain>');
+    expect(turtleOwl).toContain('<https://example.org/family/ClinicalVisit_hasPatient_domain>\n    owl:equivalentClass');
+    expect(turtleOwl).toContain('rdfs:range <https://example.org/family/ClinicalVisit_hasPatient_range>');
+    expect(turtleOwl).toContain('<https://example.org/family/ClinicalVisit_hasPatient_range>\n    owl:equivalentClass');
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════════
 // generateExports — property characteristics (the feature we added)
 // ════════════════════════════════════════════════════════════════════════════
 
