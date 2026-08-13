@@ -131,20 +131,36 @@ export function parseInconsistency(md: string): ServerClash | null {
 
 // ─── ROBOT invocation ───────────────────────────────────────────────────────────
 
-// Packaged builds bundle resources/robot.jar as a pkg asset, readable via
-// Node's (patched) fs — but the JVM opens files directly against the real
-// filesystem, so the jar has to be extracted to a real path once per process
-// before `java -jar` can load it. Memoized: robot.jar doesn't change at runtime.
-let extractedRobotJar: Promise<string> | null = null;
+// Packaged builds bundle resources/robot.jar and resources/sulo.ttl as pkg
+// assets, readable via Node's (patched) fs — but the JVM ROBOT runs as opens
+// files directly against the real filesystem (both the jar it loads *and*
+// any --input path passed on the command line), so each has to be extracted
+// to a real path once per process before `java -jar ... --input ...` can
+// use it. Memoized: neither file changes at runtime.
+const extracted = new Map<string, Promise<string>>();
 
-async function resolveRobotJarPath(): Promise<string> {
-  extractedRobotJar ??= (async () => {
-    const dest = join(config.appDataDir, 'robot.jar');
-    await mkdir(config.appDataDir, { recursive: true });
-    await copyFile(config.reasoner.robotJarPath, dest);
-    return dest;
-  })();
-  return extractedRobotJar;
+async function extractForJvm(name: string, sourcePath: string): Promise<string> {
+  let promise = extracted.get(name);
+  if (!promise) {
+    promise = (async () => {
+      const dest = join(config.appDataDir, name);
+      await mkdir(config.appDataDir, { recursive: true });
+      await copyFile(sourcePath, dest);
+      return dest;
+    })();
+    extracted.set(name, promise);
+  }
+  return promise;
+}
+
+function resolveRobotJarPath(): Promise<string> {
+  return extractForJvm('robot.jar', config.reasoner.robotJarPath);
+}
+
+function resolveSuloPath(): Promise<string> {
+  return config.isPackaged
+    ? extractForJvm('sulo.ttl', config.reasoner.suloPath)
+    : Promise.resolve(config.reasoner.suloPath);
 }
 
 async function runRobot(args: string[]): Promise<{ stdout: string; stderr: string }> {
@@ -187,10 +203,11 @@ export async function reasonOntologyDL(turtleOwl: string): Promise<ConsistencyRe
   const mergedPath = join(dir, 'merged.ttl');
   const inconPath  = join(dir, 'incon.md');
   const unsatPath  = join(dir, 'unsat.md');
-  const { suloPath, maxExplanations } = config.reasoner;
+  const { maxExplanations } = config.reasoner;
 
   try {
     await writeFile(inputPath, turtleOwl, 'utf8');
+    const suloPath = await resolveSuloPath();
 
     // Merge SULO + the user's OWL into a single materialised file FIRST, then
     // run explain against that file. Chaining `merge … explain` in one ROBOT
