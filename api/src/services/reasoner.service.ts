@@ -16,6 +16,9 @@ import { mkdtemp, readFile, writeFile, rm, mkdir, copyFile } from 'node:fs/promi
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { config } from '../config.js';
+import { resolveJava } from './java.service.js';
+import { ensureRobotJar } from './robot.service.js';
+import { getSuloStatus, resolveSuloPath } from './sulo.service.js';
 
 export type ServerClashKind = 'unsatisfiable-class' | 'inconsistent-ontology';
 
@@ -131,12 +134,17 @@ export function parseInconsistency(md: string): ServerClash | null {
 
 // ─── ROBOT invocation ───────────────────────────────────────────────────────────
 
-// Packaged builds bundle resources/robot.jar and resources/sulo.ttl as pkg
-// assets, readable via Node's (patched) fs — but the JVM ROBOT runs as opens
-// files directly against the real filesystem (both the jar it loads *and*
-// any --input path passed on the command line), so each has to be extracted
-// to a real path once per process before `java -jar ... --input ...` can
-// use it. Memoized: neither file changes at runtime.
+// Packaged builds bundle resources/sulo.ttl as a pkg asset, readable via Node's
+// (patched) fs — but the JVM ROBOT runs as opens files directly against the real
+// filesystem (both the jar it loads *and* any --input path passed on the command
+// line), so it has to be extracted to a real path once per process before
+// `java -jar ... --input ...` can use it. Memoized: the file doesn't change at
+// runtime.
+//
+// robot.jar no longer needs this: it is downloaded to the app-data dir rather
+// than embedded (robot.service.ts), so it is already a real path. Neither does a
+// downloaded or SULO_TTL_PATH-overridden sulo.ttl — only the bundled copy lives
+// inside the snapshot.
 const extracted = new Map<string, Promise<string>>();
 
 async function extractForJvm(name: string, sourcePath: string): Promise<string> {
@@ -153,23 +161,50 @@ async function extractForJvm(name: string, sourcePath: string): Promise<string> 
   return promise;
 }
 
-function resolveRobotJarPath(): Promise<string> {
-  return extractForJvm('robot.jar', config.reasoner.robotJarPath);
+function suloPathForJvm(): Promise<string> {
+  const path = resolveSuloPath();
+  return config.isPackaged && getSuloStatus().source === 'bundled'
+    ? extractForJvm('sulo.ttl', path)
+    : Promise.resolve(path);
 }
 
-function resolveSuloPath(): Promise<string> {
-  return config.isPackaged
-    ? extractForJvm('sulo.ttl', config.reasoner.suloPath)
-    : Promise.resolve(config.reasoner.suloPath);
+/**
+ * Build the ROBOT invocation for this environment.
+ *
+ * Docker and local dev call a `robot` launcher on PATH, which brings its own
+ * JRE. Packaged desktop builds have neither, so they resolve the user's JVM and
+ * the downloaded jar first — and surface a specific ReasonerUnavailableError
+ * when either is missing, rather than letting execFile fail with a bare ENOENT.
+ */
+async function robotInvocation(args: string[]): Promise<{ command: string; args: string[] }> {
+  if (!config.isPackaged) return { command: config.reasoner.command, args };
+
+  const java = await resolveJava();
+  if (!java.available || !java.path) {
+    throw new ReasonerUnavailableError(
+      java.reason === 'too_old'
+        ? `Java ${java.version} was found, but ROBOT needs 11 or newer.`
+        : 'No Java runtime was found. Install Java 11+ or set its path in the consistency panel.',
+    );
+  }
+
+  let jar: string;
+  try {
+    jar = await ensureRobotJar();
+  } catch (err) {
+    throw new ReasonerUnavailableError(
+      `The ROBOT reasoner could not be downloaded: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
+
+  return { command: java.path, args: [...config.reasoner.baseArgs, jar, ...args] };
 }
 
 async function runRobot(args: string[]): Promise<{ stdout: string; stderr: string }> {
-  const fullArgs = config.isPackaged
-    ? [...config.reasoner.baseArgs, await resolveRobotJarPath(), ...args]
-    : args;
+  const { command, args: fullArgs } = await robotInvocation(args);
   return new Promise((resolve, reject) => {
     execFile(
-      config.reasoner.command,
+      command,
       fullArgs,
       { timeout: config.reasoner.timeoutMs, maxBuffer: 32 * 1024 * 1024 },
       (err, stdout, stderr) => {
@@ -207,7 +242,7 @@ export async function reasonOntologyDL(turtleOwl: string): Promise<ConsistencyRe
 
   try {
     await writeFile(inputPath, turtleOwl, 'utf8');
-    const suloPath = await resolveSuloPath();
+    const suloPath = await suloPathForJvm();
 
     // Merge SULO + the user's OWL into a single materialised file FIRST, then
     // run explain against that file. Chaining `merge … explain` in one ROBOT

@@ -40,3 +40,12 @@ CREATE TABLE IF NOT EXISTS properties (
   disjoint_property_iris TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_properties_schema ON properties(schema_id);
+
+-- Small key/value store for app-level state that isn't part of any schema:
+-- the user-supplied Java path, and the timestamp of the last SULO update check.
+-- New tables (unlike new columns) need no migration helper — the IF NOT EXISTS
+-- above runs against existing databases on every open.
+CREATE TABLE IF NOT EXISTS settings (
+  key   TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);

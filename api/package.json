@@ -39,7 +39,8 @@
   "pkg": {
     "assets": [
       "public/**/*",
-      "resources/**/*",
+      "resources/db-schema.sql",
+      "resources/sulo.ttl",
       "node_modules/better-sqlite3/build/Release/*.node",
       "node_modules/better-sqlite3/prebuilds/**/*"
     ],

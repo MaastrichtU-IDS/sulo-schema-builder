@@ -1,6 +1,10 @@
 /**
  * Builds a standalone desktop binary of the API: built frontend + resources
- * (incl. the ROBOT jar) bundled in as pkg assets, no separate Docker/nginx.
+ * bundled in as pkg assets, no separate Docker/nginx.
+ *
+ * The ROBOT jar is deliberately NOT bundled — at ~91 MB it dominated the
+ * download for a feature not every user reaches, so the app fetches and
+ * verifies it on first launch instead (api/src/services/robot.service.ts).
  *
  * Usage:
  *   node scripts/package-desktop.mjs [pkg-target]   # default: current platform
@@ -17,7 +21,7 @@
  * so a packaging run never leaves the local dev/test environment broken.
  */
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, rmSync, cpSync } from 'node:fs';
+import { rmSync, cpSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 
@@ -25,9 +29,6 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const apiRoot = resolve(__dirname, '..');
 const repoRoot = resolve(apiRoot, '..');
 const frontendRoot = resolve(repoRoot, 'frontend');
-
-const ROBOT_VERSION = '1.9.7';
-const ROBOT_JAR_PATH = resolve(apiRoot, 'resources', 'robot.jar');
 
 // Full Node version pkg-fetch currently resolves each major to, for
 // node-gyp's --target (which needs an exact semver, not just "22"). Update
@@ -77,17 +78,6 @@ console.log('--- building frontend ---');
 run('npm', ['run', 'build'], frontendRoot);
 rmSync(resolve(apiRoot, 'public'), { recursive: true, force: true });
 cpSync(resolve(frontendRoot, 'dist'), resolve(apiRoot, 'public'), { recursive: true });
-
-console.log('--- fetching ROBOT jar (if missing) ---');
-mkdirSync(dirname(ROBOT_JAR_PATH), { recursive: true });
-if (!existsSync(ROBOT_JAR_PATH)) {
-  run('curl', [
-    '-fL', '-o', ROBOT_JAR_PATH,
-    `https://github.com/ontodev/robot/releases/download/v${ROBOT_VERSION}/robot.jar`,
-  ], apiRoot);
-} else {
-  console.log(`already present: ${ROBOT_JAR_PATH}`);
-}
 
 console.log('--- building api ---');
 run('npm', ['run', 'build'], apiRoot);

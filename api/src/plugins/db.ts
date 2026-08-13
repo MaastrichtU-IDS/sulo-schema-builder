@@ -1,6 +1,7 @@
 import fp from 'fastify-plugin';
 import type { Database } from 'better-sqlite3';
 import { openDatabase } from '../db/connection.js';
+import { bindSettingsDb, unbindSettingsDb } from '../db/settings.js';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -12,7 +13,12 @@ export default fp(async (fastify) => {
   const db = openDatabase();
 
   fastify.decorate('db', db);
+  // Services that run outside a request (java/sulo) read app settings through
+  // this handle rather than threading a Database through every call site.
+  bindSettingsDb(db);
+
   fastify.addHook('onClose', (instance, done) => {
+    unbindSettingsDb();
     instance.db.close();
     done();
   });

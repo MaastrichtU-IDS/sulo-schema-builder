@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { Parser as N3Parser } from 'n3';
 import { PREFIXES } from '../../rdf/prefixes.js';
+import { fetchOntologyDocument } from '../../rdf/fetchOntology.js';
 import { randomUUID } from 'crypto';
 
 // ─── Upper concept fetcher ────────────────────────────────────────────────────
@@ -24,28 +24,11 @@ interface UpperConcept {
 }
 
 async function fetchUpperConcepts(ontologyIri: string): Promise<UpperConcept[]> {
-  let text: string;
-  let format: string;
+  const doc = await fetchOntologyDocument(ontologyIri);
+  if (!doc) return [];
 
   try {
-    const res = await fetch(ontologyIri, {
-      headers: { Accept: 'text/turtle;q=1, application/n-triples;q=0.9, text/n3;q=0.8' },
-      redirect: 'follow',
-      signal: AbortSignal.timeout(10_000),
-    });
-    if (!res.ok) return [];
-    text = await res.text();
-    const ct = res.headers.get('content-type') ?? '';
-    format = ct.includes('n-triples') ? 'N-Triples'
-           : ct.includes('n3')        ? 'N3'
-           : 'Turtle';
-  } catch {
-    return [];
-  }
-
-  try {
-    const parser = new N3Parser({ format });
-    const quads  = parser.parse(text);
+    const { quads } = doc;
 
     const conceptTypes = new Map<string, 'class' | 'property'>();
     const labels       = new Map<string, string>();

@@ -64,10 +64,26 @@ export const config = {
     // through pkg's virtual filesystem).
     command: isPackaged ? optional('JAVA_PATH', 'java') : optional('ROBOT_PATH', 'robot'),
     baseArgs: isPackaged ? ['-Xmx2g', '-jar'] : ([] as string[]),
-    // Bundled ROBOT jar, only used in packaged mode (see above).
-    robotJarPath: resolve(resourcesDir, 'robot.jar'),
-    // Full SULO ontology bundled with the API (../../resources/sulo.ttl from dist/config.js).
+    // ROBOT jar. At ~91 MB it is far too large to embed in every packaged
+    // binary for a feature not every user touches, so packaged builds download
+    // it into the per-user app-data dir on first launch (robot.service.ts) and
+    // verify it against the pinned digest below. Non-packaged runs keep using a
+    // jar sitting in resources/, if one was placed there.
+    robotJarPath: isPackaged ? resolve(dataDir, 'robot.jar') : resolve(resourcesDir, 'robot.jar'),
+    robotVersion: '1.9.7',
+    // sha256 of v1.9.7's robot.jar. ROBOT publishes no checksum file, so this
+    // was computed once from the release asset; bump it with robotVersion.
+    robotSha256: '91890c2e83d0f092dd08731376f154b36610544cfbe8685337a1bf7244ccaa2d',
+    // Full SULO ontology bundled with the API (../../resources/sulo.ttl from
+    // dist/config.js). This is the offline fallback and first-launch seed; a
+    // newer copy fetched from suloUrl lands in suloCachePath and wins when
+    // present (sulo.service.ts). SULO_TTL_PATH overrides both.
     suloPath: optional('SULO_TTL_PATH', resolve(resourcesDir, 'sulo.ttl')),
+    suloBundledPath: resolve(resourcesDir, 'sulo.ttl'),
+    suloCachePath: resolve(dataDir, 'sulo.ttl'),
+    suloUrl: optional('SULO_URL', 'https://w3id.org/sulo/'),
+    // How long a SULO update check is considered fresh (ms). 24h.
+    suloCheckIntervalMs: parseInt(optional('SULO_CHECK_INTERVAL_MS', String(24 * 60 * 60 * 1000)), 10),
     // Hard cap on a single reasoning run (ms).
     timeoutMs: parseInt(optional('REASONER_TIMEOUT_MS', '60000'), 10),
     // Max explanations to fetch per clash.
