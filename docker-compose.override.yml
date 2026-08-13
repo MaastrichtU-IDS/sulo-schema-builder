@@ -1,5 +1,5 @@
 # Development overrides — active automatically when running `docker compose up`
-# Exposes ports directly for debugging and enables API hot reload.
+# Publishes a second, un-proxied port for debugging and enables API hot reload.
 
 services:
   api:
@@ -13,7 +13,3 @@ services:
       LOG_LEVEL: debug
     ports:
       - "3000:3000"   # direct API access for curl/Postman
-
-  qlever:
-    ports:
-      - "7001:7001"   # direct QLever SPARQL access for debugging

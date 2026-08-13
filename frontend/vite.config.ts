@@ -6,9 +6,10 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      // In dev (outside Docker), proxy API and SPARQL calls to local services
-      '/api': 'http://localhost:3001',
-      '/sparql': 'http://localhost:7001',
+      // In dev (outside Docker), proxy API calls to the locally running api
+      // service — `npm run dev` in api/, or the `api` container's published
+      // dev port (docker-compose.override.yml).
+      '/api': 'http://localhost:3000',
     },
   },
   build: {
