@@ -48,6 +48,37 @@ cd frontend && npm install && npm run dev    # Vite on :5173
 
 Tests: `cd frontend && npm test` (vitest — export logic, validation, components).
 
+## Consistency check requirements
+
+The **Check consistency** action runs full OWL DL reasoning (HermiT via
+[ROBOT](http://robot.obolibrary.org/)), which needs a Java runtime and the ROBOT
+jar. Everything else in the app works without either.
+
+- **Java 11 or newer** — [download Temurin](https://adoptium.net/temurin/releases/?version=21).
+  The desktop app looks for it in `JAVA_PATH`, `JAVA_HOME`, macOS's
+  `/usr/libexec/java_home`, and then on `PATH`. Apps launched from the Finder or
+  Start Menu don't inherit your shell's `PATH`, so a Java installed via Homebrew,
+  SDKMAN or asdf may not be found automatically — the consistency panel has a
+  field where you can point at it directly, and the path is remembered.
+- **ROBOT** downloads itself on first launch (~91 MB) into the app's data folder
+  and is verified against a pinned checksum. It isn't bundled, because it would
+  otherwise dominate the size of every download. If the machine is offline, drop
+  `robot.jar` into that folder yourself and press **Retry download**:
+
+  | Platform | Data folder |
+  |---|---|
+  | macOS / Linux | `~/.sulo-schema-builder/` |
+  | Windows | `%APPDATA%\sulo-schema-builder\` |
+
+- **SULO** ships with the app as an offline fallback, and is refreshed from
+  <https://w3id.org/sulo/> in the background when a newer version is published.
+  The version actually used is shown under each consistency result — worth
+  recording alongside any result you cite, since generated OWL declares
+  `owl:imports <https://w3id.org/sulo/>` and tracks whatever is current.
+
+The Docker image bakes in both a JRE and ROBOT, so none of the above applies
+there.
+
 ## Usage
 
 1. **Create a schema** — give it a title and an upper-ontology IRI (e.g. `https://w3id.org/sulo/`).

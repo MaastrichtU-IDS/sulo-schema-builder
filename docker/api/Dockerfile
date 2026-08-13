@@ -35,6 +35,10 @@ RUN npm run build
 # ── Stage: ROBOT (shared reasoning toolchain) ─────────────────────────────────
 # ROBOT bundles the OWLAPI + HermiT (full OWL DL), used by the /api/v1/reason
 # endpoint for server-side consistency reasoning.
+#
+# Baking ROBOT and a JRE into the image is what keeps `isPackaged` false here,
+# so the runtime download in api/src/services/robot.service.ts never engages —
+# that path exists only for the packaged desktop app, which ships neither.
 FROM node:20-alpine AS robot
 ARG ROBOT_VERSION=1.9.7
 RUN apk add --no-cache wget \

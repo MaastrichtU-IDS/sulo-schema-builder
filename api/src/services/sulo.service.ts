@@ -188,9 +188,11 @@ export async function checkForSuloUpdate(force = false): Promise<boolean> {
 
   updateError = undefined;
 
+  // fetchOntologyDocument collapses "unreachable" and "didn't parse as RDF"
+  // into null, so the message covers both rather than asserting which it was.
   const doc = await fetchOntologyDocument(config.reasoner.suloUrl);
   if (!doc) {
-    updateError = `Could not reach ${config.reasoner.suloUrl}.`;
+    updateError = `Could not read SULO from ${config.reasoner.suloUrl}.`;
     return false;
   }
 
