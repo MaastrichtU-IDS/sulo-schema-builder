@@ -48,6 +48,26 @@ cd frontend && npm install && npm run dev    # Vite on :5173
 
 Tests: `cd frontend && npm test` (vitest — export logic, validation, components).
 
+## Desktop builds
+
+Bundles for macOS (Apple Silicon), Linux x64 and Windows x64 are attached to
+each [release](https://github.com/MaastrichtU-IDS/sulo-schema-builder/releases),
+built by `.github/workflows/release.yml`. To build locally instead, run
+`just package-mac`, `just package-linux` or `just package-win` on a machine of
+that OS — the desktop bundle isn't cross-compiled.
+
+**The bundles are unsigned**, so both platforms will warn on first launch:
+
+| Platform | First run |
+|---|---|
+| macOS | Right-click the app → **Open** (double-clicking shows only "unidentified developer"). Or `xattr -d com.apple.quarantine "/Applications/SULO Schema Builder.app"`. |
+| Windows | SmartScreen → **More info** → **Run anyway**. |
+
+Publishing a release is tag-driven: push a `v*` tag whose version matches
+`desktop/src-tauri/tauri.conf.json` and a draft release is created with the
+bundles attached. Running the workflow manually builds the same bundles as
+downloadable workflow artifacts without touching releases.
+
 ## Consistency check requirements
 
 The **Check consistency** action runs full OWL DL reasoning (HermiT via
