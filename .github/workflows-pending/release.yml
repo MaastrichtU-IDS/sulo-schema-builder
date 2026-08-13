@@ -1,0 +1,180 @@
+name: Release
+
+# Per-platform desktop bundles.
+#
+# Build and publish are deliberately separate: tauri-action is used purely as a
+# builder (no tagName/releaseName inputs), and the only step that can create a
+# GitHub Release is gated on `github.ref_type == 'tag'`. A workflow_dispatch run
+# therefore *cannot* publish — it leaves downloadable workflow artifacts only.
+#
+# Bundles are unsigned. macOS users need right-click → Open to get past
+# Gatekeeper and Windows shows a SmartScreen warning; see the signing stubs
+# below for turning that on later.
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    # Git Bash on the Windows runner, so the sidecar copy below is one command
+    # for all three platforms instead of a PowerShell variant.
+    shell: bash
+
+jobs:
+  bundle:
+    name: ${{ matrix.label }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Keep these pkgTarget/sidecar pairs in sync with justfile's
+          # package-* recipes — the justfile is the local path, this is release.
+          #
+          # No Intel Mac job: macos-13 is retired, and macos-15-intel (the last
+          # x86_64 image, gone Aug 2027) was deliberately skipped.
+          - label: macOS (Apple Silicon)
+            runner: macos-latest
+            pkgTarget: node22-macos-arm64
+            builtName: sulo-schema-builder-api
+            sidecarName: sulo-schema-builder-api-aarch64-apple-darwin
+          # ubuntu-22.04 begins deprecation 2026-09-17, so this targets 24.04.
+          # Note the AppImage produced here has a glibc 2.39 floor; the .deb and
+          # .rpm declare their own dependencies and are unaffected.
+          - label: Linux (x64)
+            runner: ubuntu-24.04
+            pkgTarget: node22-linux-x64
+            builtName: sulo-schema-builder-api
+            sidecarName: sulo-schema-builder-api-x86_64-unknown-linux-gnu
+          - label: Windows (x64)
+            runner: windows-latest
+            pkgTarget: node22-win-x64
+            builtName: sulo-schema-builder-api.exe
+            sidecarName: sulo-schema-builder-api-x86_64-pc-windows-msvc.exe
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # The bundle version comes from tauri.conf.json, NOT from the tag, so
+      # without this a `v0.2.0` tag would silently ship bundles labelled 0.1.0.
+      - name: Check the tag matches tauri.conf.json
+        if: github.ref_type == 'tag'
+        run: |
+          conf=$(node -p "require('./desktop/src-tauri/tauri.conf.json').version")
+          tag="${GITHUB_REF_NAME#v}"
+          if [ "$conf" != "$tag" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME implies version $tag, but desktop/src-tauri/tauri.conf.json says $conf. Bump the config or retag."
+            exit 1
+          fi
+          echo "Version $conf matches tag $GITHUB_REF_NAME."
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            api/package-lock.json
+            frontend/package-lock.json
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: desktop/src-tauri
+
+      # Tauri v2's own Linux prerequisites. Note libayatana-appindicator3-dev
+      # rather than the libappindicator3-dev most examples still show — the
+      # latter no longer exists on Ubuntu 24.04. `rpm` is needed because
+      # tauri.conf.json sets "targets": "all" and the RPM bundler shells out to
+      # rpmbuild; drop it and pass `--bundles deb,appimage` if RPM isn't wanted.
+      - name: Install Linux build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev build-essential curl wget file \
+            libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev \
+            rpm
+
+      # @yao-pkg/pkg downloads a prebuilt Node binary per target on each run.
+      - name: Cache pkg's Node binaries
+        uses: actions/cache@v4
+        with:
+          path: ~/.pkg-cache
+          key: pkg-cache-${{ matrix.pkgTarget }}-${{ hashFiles('api/package.json') }}
+          restore-keys: pkg-cache-${{ matrix.pkgTarget }}-
+
+      # package-desktop.mjs builds but does not install; `just install` is the
+      # local equivalent of these two.
+      - name: Install dependencies
+        run: |
+          npm ci --prefix api
+          npm ci --prefix frontend
+
+      - name: Build the API sidecar
+        run: node api/scripts/package-desktop.mjs ${{ matrix.pkgTarget }}
+
+      - name: Stage the sidecar for Tauri
+        run: |
+          cp "api/pkg-dist/${{ matrix.builtName }}" \
+             "desktop/src-tauri/binaries/${{ matrix.sidecarName }}"
+          ls -la desktop/src-tauri/binaries/
+
+      # Builder only — no tagName/releaseName, so this never creates or touches
+      # a Release. Publishing is the separate, tag-gated step below.
+      - name: Build the desktop bundles
+        id: tauri
+        uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # ── Signing (currently off) ─────────────────────────────────────
+          # Set these repo secrets and uncomment to produce signed, notarized
+          # macOS bundles. Windows needs a separate cert or Azure Trusted Signing.
+          # APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          # APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          # APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          # APPLE_ID: ${{ secrets.APPLE_ID }}
+          # APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          # APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        with:
+          projectPath: desktop
+
+      # artifactPaths is a JSON array and can include the macOS .app *directory*;
+      # filter to real files so both the upload and the release get clean input.
+      - name: Collect bundle paths
+        id: bundles
+        run: |
+          {
+            echo 'list<<ARTIFACTS_EOF'
+            node -e '
+              const fs = require("fs");
+              JSON.parse(process.argv[1])
+                .filter((p) => { try { return fs.statSync(p).isFile(); } catch { return false; } })
+                .forEach((p) => console.log(p));
+            ' '${{ steps.tauri.outputs.artifactPaths }}'
+            echo 'ARTIFACTS_EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Upload bundles as workflow artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: bundles-${{ matrix.runner }}
+          path: ${{ steps.bundles.outputs.list }}
+          if-no-files-found: error
+
+      # The ONLY step that can publish. Skipped entirely on manual runs.
+      # Each matrix job appends its own bundles to the one release for the tag.
+      - name: Attach bundles to the release
+        if: github.ref_type == 'tag'
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          name: SULO Schema Builder ${{ github.ref_name }}
+          files: ${{ steps.bundles.outputs.list }}
+          fail_on_unmatched_files: true
