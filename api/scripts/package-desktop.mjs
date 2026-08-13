@@ -58,7 +58,9 @@ const nodePlatform = PKG_PLATFORM_TO_NODE[pkgPlatform] ?? pkgPlatform;
 
 function run(cmd, args, cwd) {
   console.log(`$ ${cmd} ${args.join(' ')}`);
-  execFileSync(cmd, args, { cwd, stdio: 'inherit' });
+  // On Windows npm/npx are .cmd shims rather than executables, and Node
+  // refuses to spawn those without a shell (spawnSync npm ENOENT otherwise).
+  execFileSync(cmd, args, { cwd, stdio: 'inherit', shell: process.platform === 'win32' });
 }
 
 function rebuildBetterSqlite3(nodeTarget) {
