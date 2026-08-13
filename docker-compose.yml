@@ -12,6 +12,9 @@ services:
     environment:
       NODE_ENV: production
       DB_PATH: /app/data/sulo.db
+      # Required: the API defaults to loopback, and a container listening on
+      # 127.0.0.1 is unreachable through the published port above.
+      HOST: 0.0.0.0
     volumes:
       - api-data:/app/data
     networks:

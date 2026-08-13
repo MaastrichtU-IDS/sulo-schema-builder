@@ -54,6 +54,9 @@ RUN apk add --no-cache wget \
 FROM node:20-alpine AS production
 WORKDIR /app
 ENV NODE_ENV=production
+# The API binds loopback by default; in a container that would be unreachable
+# from outside, so listen on all interfaces here.
+ENV HOST=0.0.0.0
 
 # JRE + ROBOT for server-side OWL DL reasoning
 RUN apk add --no-cache openjdk17-jre-headless python3 make g++
@@ -74,6 +77,7 @@ CMD ["node", "dist/index.js"]
 FROM node:20-alpine AS development
 WORKDIR /app
 ENV NODE_ENV=development
+ENV HOST=0.0.0.0
 
 RUN apk add --no-cache openjdk17-jre-headless python3 make g++
 COPY --from=robot /opt/robot /opt/robot

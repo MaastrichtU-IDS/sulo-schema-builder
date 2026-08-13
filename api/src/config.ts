@@ -32,6 +32,14 @@ const resourcesDir = resolve(moduleDir, '..', 'resources');
 export const config = {
   env: optional('NODE_ENV', 'development'),
   port: parseInt(optional('PORT', '3000'), 10),
+  // Loopback by default. The desktop app's webview connects over 127.0.0.1, so
+  // binding wider gains nothing there and costs two things: the OS asks the
+  // user to approve incoming connections on first launch (Windows Firewall,
+  // macOS's "accept incoming network connections?"), and the REST API — with
+  // no auth in front of it — becomes reachable by anything on the same
+  // network. Deployments that must be reachable from another machine set
+  // HOST=0.0.0.0 explicitly; the Docker image and compose file both do.
+  host: optional('HOST', '127.0.0.1'),
   logLevel: optional('LOG_LEVEL', 'info'),
   isPackaged,
   appDataDir: dataDir,

@@ -27,6 +27,7 @@ App: **http://localhost:8080**. On first run QLever builds its index from the se
 |----------|---------|-------------|
 | `QLEVER_ACCESS_TOKEN` | `sulo-dev-token` | Token for QLever SPARQL UPDATE |
 | `BASE_NAMESPACE` | `https://w3id.org/sulo/schema/` | RDF base namespace for schema IRIs |
+| `HOST` | `127.0.0.1` | Interface the API binds to. Loopback by default — the REST API has no authentication, so it is not exposed to the network unless you ask for it. **Set `HOST=0.0.0.0` for any deployment that must be reachable from another machine**; the Docker image and compose file already do. |
 | `RESTORE_FROM` | _(unset)_ | Path to a backup `.ttl` inside the container to restore from |
 
 ## Local development
@@ -67,6 +68,15 @@ Publishing a release is tag-driven: push a `v*` tag whose version matches
 `desktop/src-tauri/tauri.conf.json` and a draft release is created with the
 bundles attached. Running the workflow manually builds the same bundles as
 downloadable workflow artifacts without touching releases.
+
+The app serves itself on loopback only, so it never asks the OS for permission
+to accept incoming connections and is not reachable from the rest of your
+network. If something goes wrong at startup — the reasoner toolchain is fetched
+on first launch — the backend's output is written to `sulo-schema-builder.log`
+in the app's data folder (`~/.sulo-schema-builder/`, `%APPDATA%\sulo-schema-builder\`
+on Windows). It is rewritten each launch, so reproduce the problem and then
+attach it. On Windows the app runs without a console window, which is why the
+log file is the only place that output goes.
 
 ## Consistency check requirements
 

@@ -1,6 +1,6 @@
 {
   "name": "sulo-schema-builder-api",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "SULO-Compliant Schema Builder REST API",
   "type": "module",
   "main": "dist/index.js",
