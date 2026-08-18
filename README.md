@@ -12,42 +12,57 @@ A web application that bridges domain **schema design** and formal **OWL ontolog
 - **Four exports** from one schema — RDF/Turtle, OWL + SULO, SHACL, and Mermaid UML.
 - **OWL DL error detection** — the SULO alignment lets a reasoner surface modelling errors (e.g. disjointness clashes) invisible to schema validators and SHACL.
 
-## Quick start (Docker)
+## Storage modes
+
+The same build runs in two modes; the server tells the SPA which one is active
+via `GET /api/v1/app-config` (`SCHEMA_STORAGE` env var; `sqlite` unless set):
+
+- **`sqlite`** (desktop app, local dev) — the single-user mode: schemas live in
+  an embedded SQLite database behind the REST API on loopback.
+- **`browser`** (web deployment; the Docker image defaults to this) — the
+  multi-visitor mode: schemas live in each visitor's own browser (IndexedDB),
+  so users cannot see or edit each other's work and the server stores **no
+  user data at all**. The server keeps only two stateless, rate-limited
+  endpoints: the HermiT consistency check and an SSRF-hardened upper-ontology
+  proxy (needed because most ontology IRIs don't send CORS headers). Schemas
+  move between machines/users via the in-app **Share** button — a compressed
+  link (URL fragment, never sent to the server) or a `.json` export file,
+  which doubles as a backup.
+
+## Quick start (Docker, web deployment)
 
 ```bash
 git clone https://github.com/MaastrichtU-IDS/sulo-schema-builder.git
 cd sulo-schema-builder
-cp .env.example .env      # optional
 docker compose up --build
 ```
 
-App: **http://localhost:8080**. On first run QLever builds its index from the seed Turtle in `sparql/` (a few seconds; reused afterwards).
+App: **http://localhost:8080**, in browser storage mode.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `QLEVER_ACCESS_TOKEN` | `sulo-dev-token` | Token for QLever SPARQL UPDATE |
+| `SCHEMA_STORAGE` | `sqlite` (`browser` in the Docker image) | Storage mode, see above |
 | `BASE_NAMESPACE` | `https://w3id.org/sulo/schema/` | RDF base namespace for schema IRIs |
-| `HOST` | `127.0.0.1` | Interface the API binds to. Loopback by default — the REST API has no authentication, so it is not exposed to the network unless you ask for it. **Set `HOST=0.0.0.0` for any deployment that must be reachable from another machine**; the Docker image and compose file already do. |
-| `RESTORE_FROM` | _(unset)_ | Path to a backup `.ttl` inside the container to restore from |
+| `HOST` | `127.0.0.1` | Interface the API binds to. Loopback by default. **Set `HOST=0.0.0.0` for any deployment that must be reachable from another machine**; the Docker image and compose file already do. |
+| `REASONER_MAX_CONCURRENT` | `1` | Simultaneous HermiT runs (each spawns a JVM) |
+| `REASONER_MAX_INPUT_BYTES` | `1000000` in browser mode, `5000000` otherwise | Max size of the submitted Turtle |
 
 ## Local development
 
-Run QLever in Docker, then the API and frontend on the host:
-
 ```bash
-docker compose up qlever qlever-init        # QLever on :7001
-
-cd api      && npm install && npm run dev    # API on :3001
-cd frontend && npm install && npm run dev    # Vite on :5173
+cd api      && npm install && npm run dev    # API on :3000 (sqlite mode)
+cd frontend && npm install && npm run dev    # Vite on :5173, proxies /api
 ```
+
+`SCHEMA_STORAGE=browser npm run dev` in `api/` to develop against browser
+storage mode instead.
 
 | Component | Stack |
 |-----------|-------|
-| Frontend | React 18, Vite, Tailwind CSS, React Flow |
-| API | Fastify 5, TypeScript, N3.js |
-| Triplestore | QLever (SPARQL 1.1 — any compliant store works) |
+| Frontend | React 18, Vite, Tailwind CSS, React Flow, Dexie (IndexedDB) |
+| API | Fastify 5, TypeScript, N3.js, better-sqlite3 (sqlite mode only) |
 
-Tests: `cd frontend && npm test` (vitest — export logic, validation, components).
+Tests: `npm test` in `frontend/` and in `api/` (vitest).
 
 ## Desktop builds
 

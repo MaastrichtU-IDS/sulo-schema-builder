@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { config } from '../../config.js';
-import { reasonOntologyDL, ReasonerUnavailableError } from '../../services/reasoner.service.js';
+import { reasonOntologyDL, ReasonerBusyError, ReasonerUnavailableError } from '../../services/reasoner.service.js';
 import { invalidateJavaCache, probeJava, resolveJava } from '../../services/java.service.js';
 import { ensureRobotJar, getRobotStatus } from '../../services/robot.service.js';
 import { checkForSuloUpdate, getSuloStatus } from '../../services/sulo.service.js';
@@ -9,7 +9,8 @@ import { setSetting, SETTING_JAVA_PATH } from '../../db/settings.js';
 
 const ReasonBody = z.object({
   // The OWL Turtle to check (frontend sends generateExports().turtleOwl).
-  turtle: z.string().min(1).max(5_000_000),
+  // Web deployments cap this far lower than desktop (config.reasoner.maxInputBytes).
+  turtle: z.string().min(1).max(config.reasoner.maxInputBytes),
 });
 
 const JavaPathBody = z.object({
@@ -66,6 +67,11 @@ const reasonRoutes: FastifyPluginAsync = async (fastify) => {
   // Probed before it is persisted, so a bad path comes back with a reason
   // instead of being stored and failing later at reasoning time.
   fastify.post('/java-path', async (request, reply) => {
+    // Desktop-only setup: everywhere else the JVM comes with the environment,
+    // and on a shared web server this must not be settable by visitors.
+    if (!managed) {
+      return reply.code(403).send({ error: 'not_managed', message: 'The Java path is managed by the environment here.' });
+    }
     const { path } = JavaPathBody.parse(request.body);
     const result = await probeJava(path.trim());
 
@@ -95,12 +101,20 @@ const reasonRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // POST /reason — run a full OWL DL consistency check (SULO + user OWL via HermiT).
-  fastify.post('/', async (request, reply) => {
+  fastify.post('/', {
+    config: {
+      // Enforced only when the rate-limit plugin is registered (browser mode).
+      rateLimit: { max: 10, timeWindow: '1 minute' },
+    },
+  }, async (request, reply) => {
     const { turtle } = ReasonBody.parse(request.body);
     try {
       const report = await reasonOntologyDL(turtle);
       return reply.send(report);
     } catch (err) {
+      if (err instanceof ReasonerBusyError) {
+        return reply.code(429).send({ error: 'reasoner_busy', message: err.message });
+      }
       if (err instanceof ReasonerUnavailableError) {
         return reply.code(503).send({ error: 'reasoner_unavailable', message: err.message });
       }

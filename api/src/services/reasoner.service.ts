@@ -39,6 +39,34 @@ export interface ConsistencyReport {
 }
 
 export class ReasonerUnavailableError extends Error {}
+export class ReasonerBusyError extends Error {}
+
+// ─── Concurrency gate ───────────────────────────────────────────────────────────
+//
+// Every reasoning run spawns a JVM, and HermiT is worst-case exponential — on a
+// shared web deployment, unbounded concurrent runs are the easiest way to OOM
+// the host. Runs beyond maxConcurrent wait in a bounded FIFO; beyond that the
+// request is rejected outright (the route maps ReasonerBusyError to a 429).
+
+let runningRuns = 0;
+const waitingRuns: Array<() => void> = [];
+
+async function withReasonerSlot<T>(fn: () => Promise<T>): Promise<T> {
+  const { maxConcurrent, maxQueue } = config.reasoner;
+  if (runningRuns >= maxConcurrent) {
+    if (waitingRuns.length >= maxQueue) {
+      throw new ReasonerBusyError('The reasoner is busy — try again in a moment.');
+    }
+    await new Promise<void>((resolve) => waitingRuns.push(resolve));
+  }
+  runningRuns++;
+  try {
+    return await fn();
+  } finally {
+    runningRuns--;
+    waitingRuns.shift()?.();
+  }
+}
 
 const ROBOT_NS = 'http://www.w3.org/2002/07/owl#Nothing';
 
@@ -232,7 +260,10 @@ export async function reasonOntologyDL(turtleOwl: string): Promise<ConsistencyRe
   if (!config.reasoner.enabled) {
     throw new ReasonerUnavailableError('Server-side reasoning is disabled');
   }
+  return withReasonerSlot(() => runReasoning(turtleOwl));
+}
 
+async function runReasoning(turtleOwl: string): Promise<ConsistencyReport> {
   const dir = await mkdtemp(join(tmpdir(), 'sulo-reason-'));
   const inputPath  = join(dir, 'input.ttl');
   const mergedPath = join(dir, 'merged.ttl');

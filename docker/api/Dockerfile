@@ -57,6 +57,12 @@ ENV NODE_ENV=production
 # The API binds loopback by default; in a container that would be unreachable
 # from outside, so listen on all interfaces here.
 ENV HOST=0.0.0.0
+# This image is the shared web deployment: schemas live in each visitor's
+# browser (IndexedDB), the server keeps no schema database, and only the
+# stateless endpoints (reasoning, upper-concept proxy) are served. The
+# single-user REST/SQLite mode belongs to the desktop app and local dev.
+# Override with SCHEMA_STORAGE=sqlite to run the legacy shared-database mode.
+ENV SCHEMA_STORAGE=browser
 
 # JRE + ROBOT for server-side OWL DL reasoning
 RUN apk add --no-cache openjdk17-jre-headless python3 make g++

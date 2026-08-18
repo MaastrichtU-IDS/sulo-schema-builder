@@ -22,6 +22,14 @@ function appDataDir(): string {
   return resolve(homedir(), '.sulo-schema-builder');
 }
 
+// Where schema data lives. 'sqlite' is the embedded database used by the
+// desktop app and local dev. 'browser' is the web-deployment mode: schemas
+// live in each visitor's browser (IndexedDB), the server keeps no schema
+// state at all, and only the stateless endpoints (reasoning, upper-concept
+// proxy) are registered. Packaged desktop builds are always 'sqlite'.
+const storage: 'sqlite' | 'browser' =
+  !isPackaged && optional('SCHEMA_STORAGE', 'sqlite') === 'browser' ? 'browser' : 'sqlite';
+
 const dataDir = isPackaged ? appDataDir() : resolve(moduleDir, '..', 'data');
 // dist/config.js lives directly in dist/, so moduleDir-relative resolution
 // is reliable here even inside a pkg snapshot (see pkgDirname.ts) — other,
@@ -42,6 +50,7 @@ export const config = {
   host: optional('HOST', '127.0.0.1'),
   logLevel: optional('LOG_LEVEL', 'info'),
   isPackaged,
+  storage,
   appDataDir: dataDir,
   resourcesDir,
 
@@ -94,6 +103,18 @@ export const config = {
     suloCheckIntervalMs: parseInt(optional('SULO_CHECK_INTERVAL_MS', String(24 * 60 * 60 * 1000)), 10),
     // Hard cap on a single reasoning run (ms).
     timeoutMs: parseInt(optional('REASONER_TIMEOUT_MS', '60000'), 10),
+    // How many reasoning runs may execute at once. Each run spawns a JVM, so
+    // on a shared web deployment this is the lever that keeps N students
+    // clicking "Check consistency" from OOMing the host. Excess requests wait
+    // in a short queue (reasoner.service.ts) and overflow is rejected.
+    maxConcurrent: parseInt(optional('REASONER_MAX_CONCURRENT', '1'), 10),
+    maxQueue: parseInt(optional('REASONER_MAX_QUEUE', '8'), 10),
+    // Upper bound on the submitted Turtle. Web deployments accept far less
+    // than the desktop app: a hand-built schema is a few hundred KB at most.
+    maxInputBytes: parseInt(
+      optional('REASONER_MAX_INPUT_BYTES', storage === 'browser' ? '1000000' : '5000000'),
+      10,
+    ),
     // Max explanations to fetch per clash.
     maxExplanations: parseInt(optional('REASONER_MAX_EXPLANATIONS', '1'), 10),
   },

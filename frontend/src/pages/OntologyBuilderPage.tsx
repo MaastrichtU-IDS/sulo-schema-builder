@@ -61,6 +61,16 @@ import {
   type NewPropertyForm,
 } from '../lib/formSchemas.js';
 import PropertyFeaturesEditor from '../components/PropertyFeaturesEditor.js';
+import { useQueryClient } from '@tanstack/react-query';
+import {
+  serializeSchema,
+  parseSchemaExport,
+  importSchemaExport,
+  buildShareUrl,
+  decodeShareFragment,
+  SHARE_FRAGMENT_PREFIX,
+  type SchemaExport,
+} from '../lib/schemaTransfer.js';
 
 // ─── Common XSD types for range dropdown ─────────────────────────────────────
 
@@ -1447,6 +1457,105 @@ function EditPropertyForm({
 
 // ─── Example schema template ──────────────────────────────────────────────────
 
+// ─── Share modal ─────────────────────────────────────────────────────────────
+
+function downloadTextFile(filename: string, text: string, mime: string) {
+  const blob = new Blob([text], { type: mime });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
+function ShareModal({ schema, onClose }: { schema: OntologySchema; onClose: () => void }) {
+  const [shareUrl, setShareUrl] = useState<string | null | 'pending'>('pending');
+  const [copied, setCopied] = useState(false);
+  const exportFile = useMemo(() => serializeSchema(schema), [schema]);
+
+  useEffect(() => {
+    let cancelled = false;
+    buildShareUrl(exportFile)
+      .then((url) => { if (!cancelled) setShareUrl(url); })
+      .catch(() => { if (!cancelled) setShareUrl(null); });
+    return () => { cancelled = true; };
+  }, [exportFile]);
+
+  function copyLink() {
+    if (typeof shareUrl !== 'string') return;
+    navigator.clipboard.writeText(shareUrl).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
+
+  function downloadJson() {
+    const safeTitle = schema.title.replace(/[^\w-]+/g, '_').slice(0, 60) || 'schema';
+    downloadTextFile(`${safeTitle}.sulo-schema.json`, JSON.stringify(exportFile, null, 2), 'application/json');
+  }
+
+  return (
+    <div className="fixed inset-0 bg-slate-900/40 flex items-center justify-center z-50 p-6" onClick={onClose}>
+      <div
+        className="bg-white rounded-xl shadow-xl max-w-lg w-full p-6 space-y-5"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div>
+          <h2 className="font-semibold text-slate-800 text-lg">Share “{schema.title}”</h2>
+          <p className="text-sm text-slate-500 mt-1">
+            Your schemas live in this browser. To hand this one to someone else — or move it to
+            another machine — share a link or a file. Importing always creates an independent copy.
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <div className="text-sm font-medium text-slate-700">Share link</div>
+          {shareUrl === 'pending' && <div className="text-sm text-slate-400">Preparing link…</div>}
+          {shareUrl === null && (
+            <div className="text-sm text-slate-500 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+              This schema is too large for a link — use the file export below instead.
+            </div>
+          )}
+          {typeof shareUrl === 'string' && (
+            <div className="flex gap-2 items-center">
+              <input
+                readOnly
+                value={shareUrl}
+                onFocus={(e) => e.currentTarget.select()}
+                className="flex-1 border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-mono text-slate-600 bg-slate-50"
+              />
+              <button
+                onClick={copyLink}
+                className="bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium px-4 py-1.5 rounded-lg transition-colors shrink-0"
+              >
+                {copied ? 'Copied ✓' : 'Copy'}
+              </button>
+            </div>
+          )}
+        </div>
+
+        <div className="space-y-2">
+          <div className="text-sm font-medium text-slate-700">File</div>
+          <button
+            onClick={downloadJson}
+            className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-medium px-4 py-1.5 rounded-lg transition-colors border border-slate-300"
+          >
+            Download .json
+          </button>
+          <p className="text-xs text-slate-400">
+            Also your backup: importing this file restores the schema on any machine.
+          </p>
+        </div>
+
+        <div className="flex justify-end">
+          <button onClick={onClose} className="text-sm text-slate-500 hover:text-slate-700 px-4 py-1.5">
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const SULO = 'https://w3id.org/sulo/';
 
 const CLINICAL_EXAMPLE_CLASSES: { name: string; label: string; description: string; mapsToConceptIri: string; superClassName?: string }[] = [
@@ -1522,10 +1631,55 @@ function SchemaListPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [isCreatingExample, setIsCreatingExample] = useState(false);
   const [isCreatingOmopExample, setIsCreatingOmopExample] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [pendingShare, setPendingShare] = useState<SchemaExport | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const schemasQuery = useOntologySchemas();
   const createMutation = useCreateOntologySchema();
   const deleteMutation = useDeleteOntologySchema();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+
+  // A visited share link carries the schema in the URL fragment (#s=…), which
+  // never reaches the server. Decode it and offer the import explicitly —
+  // nothing is written until the user confirms.
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (!hash.startsWith(SHARE_FRAGMENT_PREFIX)) return;
+    decodeShareFragment(hash.slice(SHARE_FRAGMENT_PREFIX.length))
+      .then(setPendingShare)
+      .catch((err: unknown) => setImportError(err instanceof Error ? err.message : 'Could not read the share link.'));
+    // Consume the fragment so a refresh doesn't re-prompt.
+    window.history.replaceState(null, '', window.location.pathname + window.location.search);
+  }, []);
+
+  async function runImport(file: SchemaExport) {
+    setIsImporting(true);
+    setImportError(null);
+    try {
+      const { id } = await importSchemaExport(file);
+      await queryClient.invalidateQueries({ queryKey: ['ontology-schemas'] });
+      setPendingShare(null);
+      navigate(`/ontology/${id}`);
+    } catch (err) {
+      setImportError(err instanceof Error ? err.message : 'Import failed.');
+    } finally {
+      setIsImporting(false);
+    }
+  }
+
+  async function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // allow re-selecting the same file
+    if (!file) return;
+    setImportError(null);
+    try {
+      await runImport(parseSchemaExport(await file.text()));
+    } catch (err) {
+      setImportError(err instanceof Error ? err.message : 'Import failed.');
+    }
+  }
 
   async function handleLoadExample() {
     setIsCreatingExample(true);
@@ -2918,6 +3072,21 @@ function SchemaListPage() {
           </p>
         </div>
         <div className="flex gap-2 shrink-0">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".json,application/json"
+            className="hidden"
+            onChange={handleImportFile}
+          />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isImporting}
+            className="bg-slate-100 hover:bg-slate-200 disabled:opacity-50 text-slate-700 text-sm font-medium px-4 py-2 rounded-lg transition-colors border border-slate-300"
+            title="Import a schema from a .sulo-schema.json export"
+          >
+            {isImporting ? 'Importing…' : 'Import'}
+          </button>
           <button
             onClick={handleLoadExample}
             disabled={isCreatingExample || isCreatingOmopExample}
@@ -2942,6 +3111,36 @@ function SchemaListPage() {
           </button>
         </div>
       </div>
+
+      {/* Shared-link import prompt */}
+      {pendingShare && (
+        <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-5 py-4 flex items-center justify-between gap-4">
+          <div className="text-sm text-slate-700">
+            Someone shared the schema <span className="font-semibold">“{pendingShare.schema.title}”</span> with
+            you ({pendingShare.schema.classes.length} classes, {pendingShare.schema.properties.length} properties).
+          </div>
+          <div className="flex gap-2 shrink-0">
+            <button
+              onClick={() => runImport(pendingShare)}
+              disabled={isImporting}
+              className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-sm font-medium px-4 py-1.5 rounded-lg transition-colors"
+            >
+              {isImporting ? 'Importing…' : 'Import'}
+            </button>
+            <button
+              onClick={() => setPendingShare(null)}
+              className="text-sm text-slate-500 hover:text-slate-700 px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-white transition-colors"
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
+      {importError && (
+        <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-600">
+          {importError}
+        </div>
+      )}
 
       {/* Create form */}
       {showCreate && (
@@ -3080,6 +3279,7 @@ function SchemaDetailPage({ id }: { id: string }) {
   const [showExport, setShowExport]   = useState(false);
   const [showConsistency, setShowConsistency] = useState(false);
   const [showDiagram, setShowDiagram] = useState(false);
+  const [showShare, setShowShare] = useState(false);
   const [editingClassId, setEditingClassId] = useState<string | null>(null);
   const [editingPropId, setEditingPropId] = useState<string | null>(null);
 
@@ -3219,6 +3419,13 @@ function SchemaDetailPage({ id }: { id: string }) {
                 className="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium px-4 py-1.5 rounded-lg transition-colors"
               >
                 Check consistency
+              </button>
+              <button
+                onClick={() => setShowShare(true)}
+                className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-medium px-4 py-1.5 rounded-lg transition-colors border border-slate-300"
+                title="Share this schema as a link or a .json file"
+              >
+                Share
               </button>
               <button
                 onClick={() => setEditingMeta(true)}
@@ -3524,6 +3731,7 @@ function SchemaDetailPage({ id }: { id: string }) {
       {/* ── Properties tab ── */}
       {showExport  && <ExportModal    schema={schema} onClose={() => setShowExport(false)}  />}
       {showConsistency && <ConsistencyModal schema={schema} onClose={() => setShowConsistency(false)} />}
+      {showShare   && <ShareModal     schema={schema} onClose={() => setShowShare(false)}   />}
       {showDiagram && <UmlDiagramView schema={schema} onClose={() => setShowDiagram(false)} />}
 
       {activeTab === 'properties' && (
