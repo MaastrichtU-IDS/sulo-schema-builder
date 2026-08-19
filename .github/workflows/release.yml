@@ -78,9 +78,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: |
-            api/package-lock.json
-            frontend/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - uses: dtolnay/rust-toolchain@stable
 
@@ -111,11 +109,11 @@ jobs:
           restore-keys: pkg-cache-${{ matrix.pkgTarget }}-
 
       # package-desktop.mjs builds but does not install; `just install` is the
-      # local equivalent of these two.
+      # local equivalent of this (both are a single root `npm install`/`npm ci`
+      # now that api and frontend are npm-workspace members sharing one
+      # root lockfile).
       - name: Install dependencies
-        run: |
-          npm ci --prefix api
-          npm ci --prefix frontend
+        run: npm ci
 
       - name: Build the API sidecar
         run: node api/scripts/package-desktop.mjs ${{ matrix.pkgTarget }}
