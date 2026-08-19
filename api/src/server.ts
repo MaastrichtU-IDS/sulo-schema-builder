@@ -6,6 +6,7 @@ import { config } from './config/index.js';
 import corsPlugin from './plugins/cors.js';
 import helmetPlugin from './plugins/helmet.js';
 import sensiblePlugin from './plugins/sensible.js';
+import errorHandlerPlugin from './plugins/errorHandler.js';
 import sqlitePlugin from './legacy/sqlite/plugin.js';
 import staticFilesPlugin from './plugins/staticFiles.js';
 
@@ -29,6 +30,9 @@ export async function createServer() {
   await server.register(corsPlugin);
   await server.register(helmetPlugin);
   await server.register(sensiblePlugin);
+  // After sensible (it uses reply.badRequest) and before any route, so both
+  // storage modes and the reason routes share it.
+  await server.register(errorHandlerPlugin);
   // Whichever database the selected storage mode needs, and only that one:
   // the SQLite plugin opens a file, the Postgres plugin opens a pool.
   //

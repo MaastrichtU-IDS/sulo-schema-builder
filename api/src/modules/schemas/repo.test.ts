@@ -78,7 +78,7 @@ describe('schemas service', () => {
       name: 'Visit', superClassId: parent.id, mapsToConceptIri: 'https://w3id.org/sulo/Process',
     });
 
-    await service.updateClass(t.db, child.id, { superClassId: '', mapsToConceptIri: '' });
+    await service.updateClass(t.db, schema.id, child.id, { superClassId: '', mapsToConceptIri: '' });
 
     const full = (await service.getSchemaWithChildren(t.db, schema.id))!;
     const updated = full.classes.find((c) => c.id === child.id)!;
@@ -106,9 +106,50 @@ describe('schemas service', () => {
       name: 'hasName', propertyType: 'datatype', domainClassId: cls.id,
     });
 
-    await service.deleteClass(t.db, cls.id);
+    await service.deleteClass(t.db, schema.id, cls.id);
 
     const full = (await service.getSchemaWithChildren(t.db, schema.id))!;
     expect(full.properties.find((p) => p.id === prop.id)!.domainClassId).toBeUndefined();
+  });
+
+  // Every child mutation is keyed on (schema_id, child_id), not on the child id
+  // alone. Harmless while one local user owns everything; the same shape is
+  // horizontal privilege escalation once an ACL authorizes on the schema id.
+  it('refuses to mutate or delete a child through another schema id', async () => {
+    const a = await service.createSchema(t.db, LOCAL_OWNER_ID, { title: 'A' });
+    const b = await service.createSchema(t.db, LOCAL_OWNER_ID, { title: 'B' });
+    const cls = await service.addClass(t.db, a.id, { name: 'Person', label: 'person' });
+    const prop = await service.addProperty(t.db, a.id, {
+      name: 'hasName', propertyType: 'datatype', label: 'has name',
+    });
+
+    expect(await service.updateClass(t.db, b.id, cls.id, { label: 'hacked' })).toBe(false);
+    expect(await service.deleteClass(t.db, b.id, cls.id)).toBe(false);
+    expect(await service.updateProperty(t.db, b.id, prop.id, { label: 'hacked' })).toBe(false);
+    expect(await service.deleteProperty(t.db, b.id, prop.id)).toBe(false);
+    // An empty patch cannot rely on an UPDATE's row count, so it probes instead.
+    expect(await service.updateClass(t.db, b.id, cls.id, {})).toBe(false);
+
+    const untouched = (await service.getSchemaWithChildren(t.db, a.id))!;
+    expect(untouched.classes).toHaveLength(1);
+    expect(untouched.classes[0].label).toBe('person');
+    expect(untouched.properties).toHaveLength(1);
+    expect(untouched.properties[0].label).toBe('has name');
+
+    // The owning schema id still works, including the empty-patch path.
+    expect(await service.updateClass(t.db, a.id, cls.id, {})).toBe(true);
+    expect(await service.updateClass(t.db, a.id, cls.id, { label: 'ok' })).toBe(true);
+    expect(await service.deleteProperty(t.db, a.id, prop.id)).toBe(true);
+    expect(await service.deleteClass(t.db, a.id, cls.id)).toBe(true);
+  });
+
+  it('reports a missing child as not found rather than silently succeeding', async () => {
+    const schema = await service.createSchema(t.db, LOCAL_OWNER_ID, { title: 'Empty' });
+    const ghost = '11111111-1111-1111-1111-111111111111';
+
+    expect(await service.updateClass(t.db, schema.id, ghost, { label: 'x' })).toBe(false);
+    expect(await service.deleteClass(t.db, schema.id, ghost)).toBe(false);
+    expect(await service.updateProperty(t.db, schema.id, ghost, { label: 'x' })).toBe(false);
+    expect(await service.deleteProperty(t.db, schema.id, ghost)).toBe(false);
   });
 });

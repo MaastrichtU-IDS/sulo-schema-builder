@@ -2,7 +2,9 @@
 // SQLite path this replaces; all persistence goes through service.ts.
 //
 // No authorization yet — every schema belongs to LOCAL_OWNER_ID until plan 2
-// introduces authentication and the ACL guards.
+// introduces authentication and the ACL guards. Child mutations are nonetheless
+// scoped to the schema in the path (not the child id alone), so the guard those
+// guards will attach to `:id` is the same key the write uses.
 
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
@@ -68,6 +70,12 @@ const schemasRoutes: FastifyPluginAsync = async (fastify) => {
     const parsed = UuidParam.safeParse(request.params);
     if (!parsed.success) return reply.badRequest('Malformed schema id');
 
+    // Without this the insert would hit classes_schema_id_fkey and surface as a
+    // 500; an unknown schema is a 404, the same as reading it.
+    if (!(await service.schemaExists(fastify.pg, parsed.data.id))) {
+      return reply.notFound(`OntologySchema ${parsed.data.id} not found`);
+    }
+
     const data = AddClassBody.parse(request.body);
     const created = await service.addClass(fastify.pg, parsed.data.id, data);
     return reply.code(201).send(created);
@@ -78,7 +86,8 @@ const schemasRoutes: FastifyPluginAsync = async (fastify) => {
     if (!parsed.success) return reply.badRequest('Malformed id');
 
     const data = UpdateClassBody.parse(request.body);
-    await service.updateClass(fastify.pg, parsed.data.classId, data);
+    const updated = await service.updateClass(fastify.pg, parsed.data.id, parsed.data.classId, data);
+    if (!updated) return reply.notFound(`Class ${parsed.data.classId} not found in schema ${parsed.data.id}`);
     return reply.code(204).send();
   });
 
@@ -86,13 +95,18 @@ const schemasRoutes: FastifyPluginAsync = async (fastify) => {
     const parsed = UuidClassParam.safeParse(request.params);
     if (!parsed.success) return reply.badRequest('Malformed id');
 
-    await service.deleteClass(fastify.pg, parsed.data.classId);
+    const deleted = await service.deleteClass(fastify.pg, parsed.data.id, parsed.data.classId);
+    if (!deleted) return reply.notFound(`Class ${parsed.data.classId} not found in schema ${parsed.data.id}`);
     return reply.code(204).send();
   });
 
   fastify.post('/:id/properties', async (request, reply) => {
     const parsed = UuidParam.safeParse(request.params);
     if (!parsed.success) return reply.badRequest('Malformed schema id');
+
+    if (!(await service.schemaExists(fastify.pg, parsed.data.id))) {
+      return reply.notFound(`OntologySchema ${parsed.data.id} not found`);
+    }
 
     const data = AddPropertyBody.parse(request.body);
     const created = await service.addProperty(fastify.pg, parsed.data.id, data);
@@ -104,7 +118,8 @@ const schemasRoutes: FastifyPluginAsync = async (fastify) => {
     if (!parsed.success) return reply.badRequest('Malformed id');
 
     const data = UpdatePropertyBody.parse(request.body);
-    await service.updateProperty(fastify.pg, parsed.data.propId, data);
+    const updated = await service.updateProperty(fastify.pg, parsed.data.id, parsed.data.propId, data);
+    if (!updated) return reply.notFound(`Property ${parsed.data.propId} not found in schema ${parsed.data.id}`);
     return reply.code(204).send();
   });
 
@@ -112,7 +127,8 @@ const schemasRoutes: FastifyPluginAsync = async (fastify) => {
     const parsed = UuidPropParam.safeParse(request.params);
     if (!parsed.success) return reply.badRequest('Malformed id');
 
-    await service.deleteProperty(fastify.pg, parsed.data.propId);
+    const deleted = await service.deleteProperty(fastify.pg, parsed.data.id, parsed.data.propId);
+    if (!deleted) return reply.notFound(`Property ${parsed.data.propId} not found in schema ${parsed.data.id}`);
     return reply.code(204).send();
   });
 };

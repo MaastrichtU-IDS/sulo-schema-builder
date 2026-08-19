@@ -1,6 +1,9 @@
 // Orchestration over repo.ts: input normalisation, PATCH semantics ('' clears
 // a field, absent leaves it), and assembling the full API response shape.
 
+// INVARIANT: `import type` only for kysely here and in repo.ts — a value import
+// breaks the packaged desktop binary. The reason is spelled out at the top of
+// repo.ts.
 import type { Kysely } from 'kysely';
 import type { DB } from '../../db/types.js';
 import * as repo from './repo.js';
@@ -53,6 +56,11 @@ function jsonOrNull(value: unknown[] | undefined): string | null | undefined {
 
 export async function listSchemas(db: Kysely<DB>, ownerId: string) {
   return (await repo.listSchemas(db, ownerId)).map(schemaRowToSummary);
+}
+
+/** Cheap existence probe, so a child insert can 404 instead of tripping an FK. */
+export async function schemaExists(db: Kysely<DB>, id: string): Promise<boolean> {
+  return (await repo.getSchemaRow(db, id)) !== undefined;
 }
 
 export async function getSchemaWithChildren(db: Kysely<DB>, id: string) {
@@ -110,18 +118,25 @@ export async function addClass(db: Kysely<DB>, schemaId: string, input: ClassInp
   return classRowToApi(row);
 }
 
-export async function updateClass(db: Kysely<DB>, classId: string, patch: ClassPatch): Promise<void> {
-  await repo.patchClass(db, classId, {
+/**
+ * Scoped to `schemaId`: a class is only reachable through the schema that owns
+ * it. Returns false when nothing matched, which the route turns into a 404.
+ */
+export async function updateClass(
+  db: Kysely<DB>, schemaId: string, classId: string, patch: ClassPatch,
+): Promise<boolean> {
+  const matched = await repo.patchClass(db, schemaId, classId, {
     ...(patch.name !== undefined ? { name: patch.name } : {}),
     ...(patch.label !== undefined ? { label: nullable(patch.label) } : {}),
     ...(patch.description !== undefined ? { description: nullable(patch.description) } : {}),
     ...(patch.mapsToConceptIri !== undefined ? { maps_to_concept_iri: nullable(patch.mapsToConceptIri) } : {}),
     ...(patch.superClassId !== undefined ? { super_class_id: nullable(patch.superClassId) } : {}),
   });
+  return matched > 0;
 }
 
-export async function deleteClass(db: Kysely<DB>, classId: string): Promise<void> {
-  await repo.removeClass(db, classId);
+export async function deleteClass(db: Kysely<DB>, schemaId: string, classId: string): Promise<boolean> {
+  return (await repo.removeClass(db, schemaId, classId)) > 0;
 }
 
 export async function addProperty(db: Kysely<DB>, schemaId: string, input: PropertyInput) {
@@ -144,8 +159,11 @@ export async function addProperty(db: Kysely<DB>, schemaId: string, input: Prope
   return propertyRowToApi(row);
 }
 
-export async function updateProperty(db: Kysely<DB>, propId: string, patch: PropertyPatch): Promise<void> {
-  await repo.patchProperty(db, propId, {
+/** Scoped to `schemaId` for the same reason as updateClass. */
+export async function updateProperty(
+  db: Kysely<DB>, schemaId: string, propId: string, patch: PropertyPatch,
+): Promise<boolean> {
+  const matched = await repo.patchProperty(db, schemaId, propId, {
     ...(patch.name !== undefined ? { name: patch.name } : {}),
     ...(patch.label !== undefined ? { label: nullable(patch.label) } : {}),
     ...(patch.description !== undefined ? { description: nullable(patch.description) } : {}),
@@ -162,8 +180,9 @@ export async function updateProperty(db: Kysely<DB>, propId: string, patch: Prop
       ? { disjoint_property_iris: jsonOrNull(patch.disjointPropertyIris) }
       : {}),
   });
+  return matched > 0;
 }
 
-export async function deleteProperty(db: Kysely<DB>, propId: string): Promise<void> {
-  await repo.removeProperty(db, propId);
+export async function deleteProperty(db: Kysely<DB>, schemaId: string, propId: string): Promise<boolean> {
+  return (await repo.removeProperty(db, schemaId, propId)) > 0;
 }
