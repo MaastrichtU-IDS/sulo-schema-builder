@@ -19,7 +19,7 @@
 
 import { execFile } from 'node:child_process';
 import { resolve } from 'node:path';
-import { getSetting, SETTING_JAVA_PATH } from '../db/settings.js';
+import { getSetting, SETTING_JAVA_PATH } from '../legacy/sqlite/settings.js';
 
 /** ROBOT 1.9.x requires Java 11 or newer. */
 export const MIN_JAVA_MAJOR = 11;

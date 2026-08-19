@@ -9,7 +9,7 @@
  *     [--qlever-url http://localhost:7001/sparql] \
  *     [--db-path ../data/sulo.db]
  */
-import { openDatabase } from '../src/db/connection.js';
+import { openDatabase } from '../src/legacy/sqlite/connection.js';
 import { PREFIXES } from '../src/rdf/prefixes.js';
 
 const SM = PREFIXES.suloschema;

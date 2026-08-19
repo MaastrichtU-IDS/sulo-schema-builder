@@ -13,7 +13,7 @@ const JAR_SHA = createHash('sha256').update(JAR_BYTES).digest('hex');
 // hoisted factory doesn't need the temp dir to exist yet.
 const shared = vi.hoisted(() => ({ dir: '', sha: '' }));
 
-vi.mock('../config.js', () => ({
+vi.mock('../config/index.js', () => ({
   config: {
     isPackaged: true,
     get reasoner() {

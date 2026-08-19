@@ -21,9 +21,9 @@ import { existsSync, readFileSync } from 'node:fs';
 import { mkdir, rename, rm, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import type { Quad } from 'n3';
-import { config } from '../config.js';
+import { config } from '../config/index.js';
 import { fetchOntologyDocument, parseOntology } from '../rdf/fetchOntology.js';
-import { getSetting, setSetting, SETTING_SULO_LAST_CHECKED } from '../db/settings.js';
+import { getSetting, setSetting, SETTING_SULO_LAST_CHECKED } from '../legacy/sqlite/settings.js';
 
 const RDF_TYPE     = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type';
 const OWL_ONTOLOGY = 'http://www.w3.org/2002/07/owl#Ontology';

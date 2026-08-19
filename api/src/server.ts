@@ -1,12 +1,12 @@
 import Fastify from 'fastify';
 import rateLimit from '@fastify/rate-limit';
-import { config } from './config.js';
+import { config } from './config/index.js';
 
 // Plugins
 import corsPlugin from './plugins/cors.js';
 import helmetPlugin from './plugins/helmet.js';
 import sensiblePlugin from './plugins/sensible.js';
-import dbPlugin from './plugins/db.js';
+import sqlitePlugin from './legacy/sqlite/plugin.js';
 import staticFilesPlugin from './plugins/staticFiles.js';
 
 // Routes
@@ -29,7 +29,24 @@ export async function createServer() {
   await server.register(corsPlugin);
   await server.register(helmetPlugin);
   await server.register(sensiblePlugin);
-  await server.register(dbPlugin);
+  // Whichever database the selected storage mode needs, and only that one:
+  // the SQLite plugin opens a file, the Postgres plugin opens a pool.
+  //
+  // The Postgres plugin is loaded lazily, and the asymmetry is deliberate.
+  // `kysely` cannot be snapshotted by pkg (its top-level-await modules fall
+  // back to source, and their relative imports then fail to resolve inside
+  // /snapshot), so a static import of plugins/pg.js crashes the packaged
+  // desktop binary at startup — even though `storage` is forced to 'sqlite'
+  // there and the pool is never opened. The reverse trick is not available:
+  // pkg's snapshot cannot execute `import()` at all
+  // (ERR_VM_DYNAMIC_IMPORT_CALLBACK_MISSING), so the branch the desktop build
+  // *does* take has to be a static import.
+  if (config.storage === 'postgres') {
+    const { default: pgPlugin } = await import('./plugins/pg.js');
+    await server.register(pgPlugin);
+  } else {
+    await server.register(sqlitePlugin);
+  }
   await server.register(staticFilesPlugin);
 
   if (config.rateLimitEnabled) {

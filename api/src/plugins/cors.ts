@@ -1,6 +1,6 @@
 import fp from 'fastify-plugin';
 import cors from '@fastify/cors';
-import { config } from '../config.js';
+import { config } from '../config/index.js';
 
 export default fp(async (fastify) => {
   await fastify.register(cors, {

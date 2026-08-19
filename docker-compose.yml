@@ -6,6 +6,11 @@ services:
     build:
       context: .
       dockerfile: docker/api/Dockerfile
+      # Explicit: the Dockerfile's last stage is `development`, so without this
+      # the deployment stack would build the dev image. The override file swaps
+      # this back to `development` for local work. Sharing the stage with the
+      # `migrate` service below also means both run the same compiled dist.
+      target: production
     ports:
       - "8080:3000"
     env_file: .env
@@ -15,12 +20,35 @@ services:
       # 127.0.0.1 is unreachable through the published port above.
       HOST: 0.0.0.0
       DATABASE_URL: postgres://sulo:${POSTGRES_PASSWORD:-sulo}@db:5432/sulo
+      # Multi-user web deployment. The 'sqlite' mode is the frozen desktop path.
+      SCHEMA_STORAGE: postgres
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    networks:
+      - sulo-net
+    restart: unless-stopped
+
+  # One-shot schema migration, run to completion before the API starts, so N
+  # API replicas never race each other applying the same migration. Runs the
+  # compiled entry point: the production image installs with --omit=dev, which
+  # leaves no tsx behind to execute a .ts file.
+  migrate:
+    build:
+      context: .
+      dockerfile: docker/api/Dockerfile
+      target: production
+    command: ["node", "api/dist/scripts/migrate.js"]
+    environment:
+      DATABASE_URL: postgres://sulo:${POSTGRES_PASSWORD:-sulo}@db:5432/sulo
     depends_on:
       db:
         condition: service_healthy
     networks:
       - sulo-net
-    restart: unless-stopped
+    restart: "no"
 
   db:
     image: postgres:16-alpine

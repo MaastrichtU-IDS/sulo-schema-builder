@@ -15,7 +15,7 @@ import { execFile } from 'node:child_process';
 import { mkdtemp, readFile, writeFile, rm, mkdir, copyFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { config } from '../config.js';
+import { config } from '../config/index.js';
 import { resolveJava } from './java.service.js';
 import { ensureRobotJar } from './robot.service.js';
 import { getSuloStatus, resolveSuloPath } from './sulo.service.js';

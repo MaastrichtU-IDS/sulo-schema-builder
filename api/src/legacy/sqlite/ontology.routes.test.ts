@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import Fastify, { type FastifyInstance } from 'fastify';
 import sensible from '@fastify/sensible';
-import { openDatabase } from '../../db/connection.js';
-import ontologyRoutes from './ontology.js';
+import { openDatabase } from './connection.js';
+import ontologyRoutes from './ontology.routes.js';
 
 async function buildTestApp(): Promise<FastifyInstance> {
   const app = Fastify();

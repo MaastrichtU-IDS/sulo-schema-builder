@@ -14,11 +14,27 @@ A web application that bridges domain **schema design** and formal **OWL ontolog
 
 ## Storage
 
-Schemas live in an embedded SQLite database behind the REST API. Desktop
-builds and local dev always use this mode. Schemas move between
-machines/users via the in-app **Share** button — a compressed link (URL
-fragment, never sent to the server) or a `.json` export file, which doubles
-as a backup.
+`SCHEMA_STORAGE` picks where schemas live. There are exactly two modes:
+
+| Mode | Used by | Store |
+|---|---|---|
+| `postgres` | web deployments (Docker default, multi-user) | Postgres, via `DATABASE_URL` |
+| `sqlite` | packaged desktop app and local dev (the default) | embedded SQLite file at `DB_PATH` |
+
+Both modes serve the identical REST API, so the frontend cannot tell them
+apart. Packaged desktop builds are always `sqlite`, whatever the environment
+says. The SQLite path is frozen — bug fixes only; new features land in the
+Postgres modules (`api/src/modules/`).
+
+In `postgres` mode the schema is created by explicit, versioned SQL migrations
+in `api/migrations/`, never by the server at startup: run
+`npm run migrate -w sulo-schema-builder-api` before the API (the compose stack
+does this in a one-shot `migrate` service). There is no automatic data
+migration between the two modes.
+
+Schemas also move between machines/users via the in-app **Share** button — a
+compressed link (URL fragment, never sent to the server) or a `.json` export
+file, which doubles as a backup.
 
 ## Quick start (Docker, web deployment)
 
@@ -28,28 +44,49 @@ cd sulo-schema-builder
 docker compose up --build
 ```
 
-App: **http://localhost:8080**.
+App: **http://localhost:8080**. The stack is three services: `db` (Postgres
+16), a one-shot `migrate` that applies `api/migrations/` and exits, and `api`,
+which starts once the migration has succeeded.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
+| `SCHEMA_STORAGE` | `sqlite` | `postgres` or `sqlite` — see [Storage](#storage). The Docker image sets `postgres`. |
+| `DATABASE_URL` | `postgres://sulo:sulo@localhost:5432/sulo` | Postgres connection string. Required in `postgres` mode, unused in `sqlite` mode. |
+| `DATABASE_POOL_MAX` | `10` | Maximum Postgres connections per API process |
+| `DB_PATH` | `api/data/sulo.db` | SQLite file, `sqlite` mode only |
 | `BASE_NAMESPACE` | `https://w3id.org/sulo/schema/` | RDF base namespace for schema IRIs |
 | `HOST` | `127.0.0.1` | Interface the API binds to. Loopback by default. **Set `HOST=0.0.0.0` for any deployment that must be reachable from another machine**; the Docker image and compose file already do. |
+| `RATE_LIMIT_ENABLED` | `true` | Per-IP rate limiting. Always off in packaged desktop builds (loopback, one user). |
 | `REASONER_MAX_CONCURRENT` | `1` | Simultaneous HermiT runs (each spawns a JVM) |
-| `REASONER_MAX_INPUT_BYTES` | `5000000` | Max size of the submitted Turtle |
+| `REASONER_MAX_INPUT_BYTES` | `1000000` in `postgres` mode, `5000000` in `sqlite` mode | Max size of the submitted Turtle. Shared web deployments cap lower than a single-user desktop. |
+| `POSTGRES_PASSWORD` | `sulo` | Password for the compose `db` service. **Change it for anything reachable off localhost.** |
 
 ## Local development
 
 ```bash
-cd api      && npm install && npm run dev    # API on :3000
-cd frontend && npm install && npm run dev    # Vite on :5173, proxies /api
+npm install                                       # one install for the whole workspace
+npm run dev -w sulo-schema-builder-api            # API on :3000 (sqlite by default)
+npm run dev -w sulo-schema-builder-frontend       # Vite on :5173, proxies /api
+```
+
+To develop against Postgres instead, start one (`docker compose up -d db`),
+then:
+
+```bash
+export SCHEMA_STORAGE=postgres
+export DATABASE_URL=postgres://sulo:sulo@localhost:5432/sulo
+npm run migrate -w sulo-schema-builder-api        # applies api/migrations/
+npm run dev -w sulo-schema-builder-api
 ```
 
 | Component | Stack |
 |-----------|-------|
 | Frontend | React 18, Vite, Tailwind CSS, React Flow |
-| API | Fastify 5, TypeScript, N3.js, better-sqlite3 |
+| API | Fastify 5, TypeScript, N3.js, Postgres + Kysely (web), better-sqlite3 (desktop) |
 
-Tests: `npm test` in `frontend/` and in `api/` (vitest).
+Tests: `npm test` at the repository root runs every workspace (vitest). The
+Postgres-backed API suites start a real `postgres:16-alpine` container through
+Testcontainers, so Docker must be running.
 
 ## Desktop builds
 

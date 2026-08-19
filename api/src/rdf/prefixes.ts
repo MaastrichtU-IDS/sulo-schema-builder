@@ -1,4 +1,4 @@
-import { config } from '../config.js';
+import { config } from '../config/index.js';
 
 const base = config.rdf.baseNamespace; // e.g. 'https://w3id.org/sulo/schema/'
 

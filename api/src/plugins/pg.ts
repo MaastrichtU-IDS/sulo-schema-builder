@@ -2,7 +2,7 @@ import fp from 'fastify-plugin';
 import type { Kysely } from 'kysely';
 import { createKysely } from '../db/pg.js';
 import type { DB } from '../db/types.js';
-import { config } from '../config.js';
+import { config } from '../config/index.js';
 
 declare module 'fastify' {
   interface FastifyInstance {

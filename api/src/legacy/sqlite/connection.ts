@@ -1,14 +1,14 @@
 import Database from 'better-sqlite3';
 import { mkdirSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
-import { config } from '../config.js';
+import { config } from '../../config/index.js';
 
 // Derived from config.resourcesDir rather than this file's own __dirname —
 // pkg's packaged runtime gives every ESM module the *entry file's*
 // directory as its ambient __dirname, not each file's own (see
 // pkgDirname.ts), so a nested file like this one can't reliably resolve
-// its own location; config.ts's resolution happens to be safe since
-// dist/config.js sits directly in dist/.
+// its own location; paths.ts's resolution happens to be safe since
+// dist/paths.js sits directly in dist/.
 const SCHEMA_SQL_PATH = resolve(config.resourcesDir, 'db-schema.sql');
 
 // `CREATE TABLE IF NOT EXISTS` in schema.sql only applies to brand-new

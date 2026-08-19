@@ -18,7 +18,7 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { readFile } from 'node:fs/promises';
 import { z } from 'zod';
-import { config } from '../../config.js';
+import { config } from '../../config/index.js';
 import { parseOntology } from '../../rdf/fetchOntology.js';
 import { safeFetchText, publicUrlProblem, ResponseTooLargeError } from '../../rdf/safeFetch.js';
 import { extractUpperConcepts, type UpperConcept } from '../../rdf/upperConcepts.js';

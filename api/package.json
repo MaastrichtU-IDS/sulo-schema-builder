@@ -13,7 +13,8 @@
     "test:coverage": "vitest run --coverage",
     "lint": "eslint src",
     "typecheck": "tsc --noEmit",
-    "migrate": "tsx scripts/migrate.ts"
+    "migrate": "tsx src/scripts/migrate.ts",
+    "migrate:dist": "node dist/scripts/migrate.js"
   },
   "dependencies": {
     "@fastify/cors": "^11.0.0",

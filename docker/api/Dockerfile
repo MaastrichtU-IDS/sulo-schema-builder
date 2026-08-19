@@ -69,6 +69,9 @@ ENV NODE_ENV=production
 # The API binds loopback by default; in a container that would be unreachable
 # from outside, so listen on all interfaces here.
 ENV HOST=0.0.0.0
+# Web deployments are multi-user: schemas live in Postgres (DATABASE_URL), not
+# in the embedded SQLite file the desktop build uses.
+ENV SCHEMA_STORAGE=postgres
 # JRE + ROBOT for server-side OWL DL reasoning
 RUN apk add --no-cache openjdk17-jre-headless python3 make g++
 COPY --from=robot /opt/robot /opt/robot
@@ -80,6 +83,9 @@ RUN npm ci -w sulo-schema-builder-api --omit=dev
 
 COPY --from=builder /app/api/dist ./api/dist
 COPY api/resources ./api/resources
+# Plain .sql files, applied by dist/scripts/migrate.js (the compose `migrate`
+# service) rather than by the server itself.
+COPY api/migrations ./api/migrations
 COPY --from=frontend-builder /app/frontend/dist ./api/public
 
 EXPOSE 3000
@@ -90,6 +96,7 @@ FROM node:22-alpine AS development
 WORKDIR /app
 ENV NODE_ENV=development
 ENV HOST=0.0.0.0
+ENV SCHEMA_STORAGE=postgres
 
 RUN apk add --no-cache openjdk17-jre-headless python3 make g++
 COPY --from=robot /opt/robot /opt/robot
@@ -102,6 +109,7 @@ RUN npm ci -w sulo-schema-builder-api
 COPY api/tsconfig.json ./api/
 COPY api/src ./api/src
 COPY api/resources ./api/resources
+COPY api/migrations ./api/migrations
 # Static build isn't hot-reloaded here — for frontend HMR, run
 # `npm run dev` in frontend/ directly against this container's exposed port.
 COPY --from=frontend-builder /app/frontend/dist ./api/public

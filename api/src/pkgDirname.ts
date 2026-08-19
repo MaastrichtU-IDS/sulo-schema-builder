@@ -9,11 +9,11 @@ import { dirname } from 'node:path';
 //
 // Known pkg bug (verified empirically): that ambient `__dirname` is the
 // *entry file's* directory for every ESM module in the snapshot, not each
-// file's own directory — e.g. dist/db/connection.js still gets dist/, not
-// dist/db/. Since dist/index.ts and dist/config.ts both live directly in
-// dist/, calling this from config.ts happens to be correct; anything nested
-// deeper (like db/connection.ts) must NOT call this itself — derive paths
-// from config.ts's already-correct base instead.
+// file's own directory — e.g. dist/legacy/sqlite/connection.js still gets
+// dist/, not dist/legacy/sqlite/. Since dist/index.js and dist/paths.js both
+// live directly in dist/, calling this from paths.ts happens to be correct;
+// anything nested deeper (like legacy/sqlite/connection.ts) must NOT call this
+// itself — derive paths from paths.ts's already-correct base instead.
 declare const __dirname: string | undefined;
 
 export function pkgSafeDirname(moduleUrl: string): string {

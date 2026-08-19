@@ -1,7 +1,7 @@
 import fp from 'fastify-plugin';
 import type { Database } from 'better-sqlite3';
-import { openDatabase } from '../db/connection.js';
-import { bindSettingsDb, unbindSettingsDb } from '../db/settings.js';
+import { openDatabase } from './connection.js';
+import { bindSettingsDb, unbindSettingsDb } from './settings.js';
 
 declare module 'fastify' {
   interface FastifyInstance {

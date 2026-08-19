@@ -1,11 +1,11 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { config } from '../../config.js';
+import { config } from '../../config/index.js';
 import { reasonOntologyDL, ReasonerBusyError, ReasonerUnavailableError } from '../../services/reasoner.service.js';
 import { invalidateJavaCache, probeJava, resolveJava } from '../../services/java.service.js';
 import { ensureRobotJar, getRobotStatus } from '../../services/robot.service.js';
 import { checkForSuloUpdate, getSuloStatus } from '../../services/sulo.service.js';
-import { setSetting, SETTING_JAVA_PATH } from '../../db/settings.js';
+import { setSetting, SETTING_JAVA_PATH } from '../../legacy/sqlite/settings.js';
 
 const ReasonBody = z.object({
   // The OWL Turtle to check (frontend sends generateExports().turtleOwl).

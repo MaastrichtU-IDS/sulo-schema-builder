@@ -1,3 +1,7 @@
+// FROZEN: the single-user SQLite path used by the packaged desktop app.
+// Bug fixes only — new features belong in api/src/modules/. See
+// docs/superpowers/specs/2026-08-19-multi-user-backend-design.md §9.
+
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { PREFIXES } from '../../rdf/prefixes.js';

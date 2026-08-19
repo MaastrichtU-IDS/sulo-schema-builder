@@ -1,9 +1,10 @@
 // Shared "GET an ontology IRI and parse it" step.
 //
-// Both the upper-concept autocomplete (routes/v1/ontology.ts) and the SULO
-// update check (services/sulo.service.ts) dereference the same kind of IRI in
-// the same way, so the fetch, content-type sniffing and N3 parse live here
-// rather than being written twice with slightly different failure handling.
+// Both the upper-concept autocomplete (modules/schemas/routes.ts, and the
+// frozen legacy/sqlite path) and the SULO update check
+// (services/sulo.service.ts) dereference the same kind of IRI in the same way,
+// so the fetch, content-type sniffing and N3 parse live here rather than being
+// written twice with slightly different failure handling.
 //
 // Every failure — unreachable host, non-2xx, unparseable body — collapses to
 // null. Callers treat a failed fetch as "no new information", never as an
