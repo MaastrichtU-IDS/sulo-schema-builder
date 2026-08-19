@@ -49,7 +49,7 @@ import {
   extractNamedGroups,
   generateExports,
   buildMermaid,
-} from '../lib/ontologyExport.js';
+} from '@sulo/schema-core';
 import {
   NewSchemaFormSchema,
   EditSchemaFormSchema,

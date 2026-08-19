@@ -20,6 +20,7 @@
     "@fastify/rate-limit": "^11.2.0",
     "@fastify/sensible": "^6.0.0",
     "@fastify/static": "^10.1.3",
+    "@sulo/schema-core": "*",
     "better-sqlite3": "^12.11.1",
     "dotenv": "^16.0.0",
     "fastify": "^5.0.0",

@@ -14,7 +14,7 @@ import type {
   OntologyProperty,
   OntologySchema,
   TripleTemplate,
-} from '../api/ontology.js';
+} from './types.js';
 
 // ─── Fixture builders ─────────────────────────────────────────────────────────
 

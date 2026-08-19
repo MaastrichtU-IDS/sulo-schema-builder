@@ -9,7 +9,7 @@ import type {
   OntologyProperty,
   OntologySchema,
   TripleTemplate,
-} from '../api/ontology.js';
+} from './types.js';
 
 // ─── Property characteristic metadata ────────────────────────────────────────
 

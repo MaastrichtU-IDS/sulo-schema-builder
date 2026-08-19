@@ -4,7 +4,12 @@ WORKDIR /app
 
 COPY package.json package-lock.json .npmrc ./
 COPY frontend/package.json ./frontend/
-RUN npm ci -w sulo-schema-builder-frontend
+COPY packages/schema-core/package.json ./packages/schema-core/
+RUN npm ci -w sulo-schema-builder-frontend -w @sulo/schema-core
+
+COPY packages/schema-core/tsconfig.json ./packages/schema-core/
+COPY packages/schema-core/src ./packages/schema-core/src
+RUN npm run build -w @sulo/schema-core
 
 COPY frontend/tsconfig.json frontend/vite.config.ts frontend/index.html \
      frontend/tailwind.config.js frontend/postcss.config.js ./frontend/
@@ -28,7 +33,12 @@ RUN apk add --no-cache python3 make g++
 
 COPY package.json package-lock.json .npmrc ./
 COPY api/package.json ./api/
-RUN npm ci -w sulo-schema-builder-api
+COPY packages/schema-core/package.json ./packages/schema-core/
+RUN npm ci -w sulo-schema-builder-api -w @sulo/schema-core
+
+COPY packages/schema-core/tsconfig.json ./packages/schema-core/
+COPY packages/schema-core/src ./packages/schema-core/src
+RUN npm run build -w @sulo/schema-core
 
 COPY api/tsconfig.json ./api/
 COPY api/src ./api/src

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { PROPERTY_FEATURE_OWL, PROPERTY_FEATURES_ALL } from '../lib/ontologyExport.js';
+import { PROPERTY_FEATURE_OWL, PROPERTY_FEATURES_ALL } from '@sulo/schema-core';
 
 // Editor for OWL property characteristics (functional, transitive, …), a single
 // inverse property, and a set of disjoint properties. Properties are referenced
