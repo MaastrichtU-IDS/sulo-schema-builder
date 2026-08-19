@@ -143,6 +143,31 @@ describe('schemas service', () => {
     expect(await service.deleteClass(t.db, a.id, cls.id)).toBe(true);
   });
 
+  // The 400 the routes answer for a cross-schema reference or a hostile
+  // upperOntologyIri is not set in a route: it comes from this class, which
+  // plugins/errorHandler.ts forwards verbatim because statusCode < 500. If that
+  // field ever regresses, every one of those checks silently becomes a 500 that
+  // logs a stack and tells the caller nothing.
+  it('raises a client error, not a server error, for a rejected write', async () => {
+    const schema = await service.createSchema(t.db, LOCAL_OWNER_ID, { title: 'Guarded' });
+    const other = await service.createSchema(t.db, LOCAL_OWNER_ID, { title: 'Other' });
+    const foreign = await service.addClass(t.db, other.id, { name: 'Outsider' });
+
+    for (const attempt of [
+      () => service.addClass(t.db, schema.id, { name: 'X', superClassId: foreign.id }),
+      () => service.addProperty(t.db, schema.id, { name: 'p', propertyType: 'datatype', domainClassId: foreign.id }),
+      () => service.createSchema(t.db, LOCAL_OWNER_ID, {
+        title: 'Y', upperOntologyIri: 'http://169.254.169.254/latest/meta-data/',
+      }),
+      () => service.updateSchema(t.db, schema.id, { upperOntologyIri: 'http://127.0.0.1/x' }),
+    ]) {
+      await expect(attempt()).rejects.toMatchObject({
+        name: 'SchemaWriteError',
+        statusCode: 400,
+      });
+    }
+  });
+
   it('reports a missing child as not found rather than silently succeeding', async () => {
     const schema = await service.createSchema(t.db, LOCAL_OWNER_ID, { title: 'Empty' });
     const ghost = '11111111-1111-1111-1111-111111111111';

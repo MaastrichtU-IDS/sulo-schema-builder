@@ -46,13 +46,19 @@ export async function insertClass(db: Kysely<DB>, values: NewClass): Promise<Cla
 }
 
 /**
- * Does this class belong to this schema? Only needed for the empty-patch case,
- * where there is nothing to SET and therefore no update row count to read.
+ * Does this class belong to this schema?
+ *
+ * Two callers, both about schema scoping: the empty-patch case below (nothing to
+ * SET, so there is no update row count to read), and service.ts's check that a
+ * superClassId/domainClassId names a class in the *same* schema. The
+ * classes.super_class_id and properties.domain_class_id foreign keys reference
+ * classes(id) with no schema predicate, so nothing in the database stops a
+ * cross-schema reference — this query is that constraint.
  */
-async function classInSchema(db: Kysely<DB>, schemaId: string, id: string): Promise<number> {
+export async function classInSchema(db: Kysely<DB>, schemaId: string, id: string): Promise<boolean> {
   const row = await db.selectFrom('classes').select('id')
     .where('id', '=', id).where('schema_id', '=', schemaId).executeTakeFirst();
-  return row ? 1 : 0;
+  return row !== undefined;
 }
 
 /**
@@ -65,7 +71,7 @@ async function classInSchema(db: Kysely<DB>, schemaId: string, id: string): Prom
 export async function patchClass(
   db: Kysely<DB>, schemaId: string, id: string, values: ClassUpdate,
 ): Promise<number> {
-  if (Object.keys(values).length === 0) return classInSchema(db, schemaId, id);
+  if (Object.keys(values).length === 0) return (await classInSchema(db, schemaId, id)) ? 1 : 0;
   const result = await db.updateTable('classes').set(values)
     .where('id', '=', id).where('schema_id', '=', schemaId).executeTakeFirst();
   return Number(result.numUpdatedRows);

@@ -1,6 +1,14 @@
 // Extracting the class/property list of an upper ontology from its quads.
-// Shared by the schema-scoped route (sqlite storage; ontology.ts) and the
-// stateless proxy route (browser storage; upperConcepts.ts).
+//
+// `extractUpperConcepts` is pure and shared by every caller: the guarded
+// dereference used by both web-facing routes (rdf/guardedUpperConcepts.ts) and
+// the frozen desktop path (legacy/sqlite/ontology.routes.ts).
+//
+// `fetchUpperConcepts` below is NOT shared: it is the unguarded fetch, and the
+// only caller allowed to use it is legacy/sqlite/ontology.routes.ts, which is
+// reachable only in the single-user desktop mode where the person supplying the
+// IRI is the person running the server. Anything reachable in the multi-user web
+// deployment must go through rdf/guardedUpperConcepts.ts instead.
 
 import type { Quad } from 'n3';
 import { fetchOntologyDocument } from './fetchOntology.js';
@@ -60,7 +68,13 @@ export function extractUpperConcepts(quads: Quad[]): UpperConcept[] {
     .sort((a, b) => (a.label ?? a.localName).localeCompare(b.label ?? b.localName));
 }
 
-/** Dereference an upper-ontology IRI and extract its concepts (unguarded — desktop/dev path). */
+/**
+ * Dereference an upper-ontology IRI and extract its concepts.
+ *
+ * UNGUARDED: bare fetch, redirects followed, no scheme/port allowlist, no DNS
+ * pinning and no size cap. Desktop-only (legacy/sqlite/) — see the module
+ * header. Do not call this from anything the web deployment registers.
+ */
 export async function fetchUpperConcepts(ontologyIri: string): Promise<UpperConcept[]> {
   const doc = await fetchOntologyDocument(ontologyIri);
   if (!doc) return [];

@@ -3,12 +3,19 @@
 //
 // No authorization yet — every schema belongs to LOCAL_OWNER_ID until plan 2
 // introduces authentication and the ACL guards. Child mutations are nonetheless
-// scoped to the schema in the path (not the child id alone), so the guard those
-// guards will attach to `:id` is the same key the write uses.
+// scoped to the schema in the path (not the child id alone), and so are
+// superClassId/domainClassId references (in service.ts), so the guard plan 2
+// attaches to `:id` is the same key every write already uses.
+//
+// These routes are the live surface of the multi-user web deployment, which
+// means every handler here is reachable anonymously. The one that leaves the
+// process — GET /:id/upper-concepts — therefore goes through the same guarded
+// helper and the same per-route rate limit as the standalone proxy, never
+// through the unguarded rdf/upperConcepts.ts#fetchUpperConcepts (desktop only).
 
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { fetchUpperConcepts } from '../../rdf/upperConcepts.js';
+import { guardedUpperConcepts, UPPER_CONCEPTS_RATE_LIMIT } from '../../rdf/guardedUpperConcepts.js';
 import { LOCAL_OWNER_ID } from '../../db/constants.js';
 import * as service from './service.js';
 import {
@@ -56,14 +63,24 @@ const schemasRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.code(204).send();
   });
 
-  fastify.get('/:id/upper-concepts', async (request, reply) => {
+  fastify.get('/:id/upper-concepts', {
+    // Same budget as the standalone proxy: both make this server fetch a
+    // caller-influenced URL, and this one is the route the frontend uses.
+    config: { rateLimit: UPPER_CONCEPTS_RATE_LIMIT },
+  }, async (request, reply) => {
     const parsed = UuidParam.safeParse(request.params);
     if (!parsed.success) return reply.badRequest('Malformed schema id');
 
     const schema = await service.getSchemaWithChildren(fastify.pg, parsed.data.id);
     if (!schema) return reply.notFound(`OntologySchema ${parsed.data.id} not found`);
     if (!schema.upperOntologyIri) return [];
-    return fetchUpperConcepts(schema.upperOntologyIri);
+
+    const result = await guardedUpperConcepts(schema.upperOntologyIri);
+    if (result.ok) return result.concepts;
+    // Rows written before the write-time check existed (or by a future path that
+    // skips it) can still hold a rejected IRI, so this stays a real branch.
+    if (result.reason === 'too_large') return reply.unprocessableEntity(result.message);
+    return reply.badRequest(result.message);
   });
 
   fastify.post('/:id/classes', async (request, reply) => {

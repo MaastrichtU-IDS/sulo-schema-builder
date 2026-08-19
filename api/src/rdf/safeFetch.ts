@@ -1,4 +1,6 @@
-// SSRF-hardened fetch for the public /upper-concepts proxy.
+// SSRF-hardened fetch for every caller-influenced dereference the web
+// deployment performs — both upper-concept routes, through
+// rdf/guardedUpperConcepts.ts.
 //
 // The web deployment lets an anonymous visitor make the server dereference an
 // arbitrary IRI, which is a textbook SSRF target: cloud metadata endpoints

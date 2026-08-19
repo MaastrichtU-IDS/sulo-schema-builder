@@ -6,8 +6,55 @@
 // repo.ts.
 import type { Kysely } from 'kysely';
 import type { DB } from '../../db/types.js';
+import { publicUrlProblem } from '../../rdf/safeFetch.js';
 import * as repo from './repo.js';
 import { classRowToApi, normalizeBaseUri, propertyRowToApi, schemaIri, schemaRowToSummary } from './mappers.js';
+
+/**
+ * A client mistake this layer detects that the routes cannot: it needs a
+ * database round-trip, or it is a policy rule rather than a shape rule.
+ *
+ * `statusCode` is what plugins/errorHandler.ts reads — anything below 500 is
+ * forwarded to the caller as-is, so this becomes a 400 with `message` intact
+ * without every route needing its own try/catch.
+ */
+export class SchemaWriteError extends Error {
+  readonly statusCode = 400;
+  constructor(message: string) {
+    super(message);
+    this.name = 'SchemaWriteError';
+  }
+}
+
+/**
+ * An upper-ontology IRI is not just metadata: GET /:id/upper-concepts makes the
+ * server dereference it. Rejecting it here means a hostile value (cloud
+ * metadata, loopback, a non-standard port) can never be *stored*, so the read
+ * side has nothing to defend against even if a future caller forgets the guard.
+ * The same policy runs again at fetch time — see rdf/guardedUpperConcepts.ts.
+ */
+function assertFetchableIri(iri: string | undefined): void {
+  if (iri === undefined || iri === '') return;
+  const problem = publicUrlProblem(iri);
+  if (problem) throw new SchemaWriteError(`upperOntologyIri: ${problem}`);
+}
+
+/**
+ * `superClassId` and `domainClassId` are foreign keys onto classes(id) with no
+ * schema predicate, so the database happily accepts a class from *another*
+ * schema and builds a cross-schema edge — an incoherent export today and, once
+ * plan 2 authorizes on `:id`, a write (and a read-back primitive) reaching into
+ * a schema the caller has no grant on. The scoping the FK cannot express is
+ * enforced here.
+ */
+async function assertClassInSchema(
+  db: Kysely<DB>, schemaId: string, field: string, classId: string | undefined,
+): Promise<void> {
+  if (classId === undefined || classId === '') return;
+  if (!(await repo.classInSchema(db, schemaId, classId))) {
+    throw new SchemaWriteError(`${field}: no class ${classId} in this schema`);
+  }
+}
 
 export interface SchemaInput {
   title: string;
@@ -81,17 +128,21 @@ export async function getSchemaWithChildren(db: Kysely<DB>, id: string) {
 }
 
 export async function createSchema(db: Kysely<DB>, ownerId: string, input: SchemaInput) {
+  assertFetchableIri(input.upperOntologyIri);
   const row = await repo.insertSchema(db, {
     owner_id: ownerId,
     title: input.title,
-    description: input.description ?? null,
-    upper_ontology_iri: input.upperOntologyIri ?? null,
+    // '' behaves the same on create as it does on PATCH: an absent value and a
+    // cleared one both land as NULL rather than an empty string.
+    description: nullable(input.description) ?? null,
+    upper_ontology_iri: nullable(input.upperOntologyIri) ?? null,
     base_uri: input.baseUri ? normalizeBaseUri(input.baseUri) : null,
   });
   return { ...schemaRowToSummary(row), classes: [], properties: [] };
 }
 
 export async function updateSchema(db: Kysely<DB>, id: string, patch: SchemaPatch): Promise<void> {
+  assertFetchableIri(patch.upperOntologyIri);
   await repo.patchSchema(db, id, {
     ...(patch.title !== undefined ? { title: patch.title } : {}),
     ...(patch.description !== undefined ? { description: nullable(patch.description) } : {}),
@@ -107,13 +158,14 @@ export async function deleteSchema(db: Kysely<DB>, id: string): Promise<void> {
 }
 
 export async function addClass(db: Kysely<DB>, schemaId: string, input: ClassInput) {
+  await assertClassInSchema(db, schemaId, 'superClassId', input.superClassId);
   const row = await repo.insertClass(db, {
     schema_id: schemaId,
     name: input.name,
     label: input.label ?? null,
     description: input.description ?? null,
     maps_to_concept_iri: input.mapsToConceptIri ?? null,
-    super_class_id: input.superClassId ?? null,
+    super_class_id: nullable(input.superClassId) ?? null,
   });
   return classRowToApi(row);
 }
@@ -125,6 +177,10 @@ export async function addClass(db: Kysely<DB>, schemaId: string, input: ClassInp
 export async function updateClass(
   db: Kysely<DB>, schemaId: string, classId: string, patch: ClassPatch,
 ): Promise<boolean> {
+  if (patch.superClassId === classId) {
+    throw new SchemaWriteError('superClassId: a class cannot be its own superclass');
+  }
+  await assertClassInSchema(db, schemaId, 'superClassId', patch.superClassId);
   const matched = await repo.patchClass(db, schemaId, classId, {
     ...(patch.name !== undefined ? { name: patch.name } : {}),
     ...(patch.label !== undefined ? { label: nullable(patch.label) } : {}),
@@ -140,13 +196,14 @@ export async function deleteClass(db: Kysely<DB>, schemaId: string, classId: str
 }
 
 export async function addProperty(db: Kysely<DB>, schemaId: string, input: PropertyInput) {
+  await assertClassInSchema(db, schemaId, 'domainClassId', input.domainClassId);
   const row = await repo.insertProperty(db, {
     schema_id: schemaId,
     name: input.name,
     label: input.label ?? null,
     description: input.description ?? null,
     property_type: input.propertyType,
-    domain_class_id: input.domainClassId ?? null,
+    domain_class_id: nullable(input.domainClassId) ?? null,
     range_class_iri: input.rangeClassIri ?? null,
     mapping_pattern: jsonOrNull(input.mappingPattern) ?? null,
     regex_pattern: input.regexPattern ?? null,
@@ -163,6 +220,7 @@ export async function addProperty(db: Kysely<DB>, schemaId: string, input: Prope
 export async function updateProperty(
   db: Kysely<DB>, schemaId: string, propId: string, patch: PropertyPatch,
 ): Promise<boolean> {
+  await assertClassInSchema(db, schemaId, 'domainClassId', patch.domainClassId);
   const matched = await repo.patchProperty(db, schemaId, propId, {
     ...(patch.name !== undefined ? { name: patch.name } : {}),
     ...(patch.label !== undefined ? { label: nullable(patch.label) } : {}),

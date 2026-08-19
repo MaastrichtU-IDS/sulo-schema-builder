@@ -1,21 +1,42 @@
+// Request validators for the Postgres schemas module.
+//
+// These started as a verbatim copy of the frozen SQLite route's validators so
+// the two storage modes could not drift. Two deliberate departures now exist,
+// both because the frozen copy contradicted its own PATCH contract:
+//
+//  1. `ClearableUrl` — service.ts implements '' as "clear this nullable
+//     column", but `z.string().url()` rejects '', so PATCH {"baseUri":""} used
+//     to 400 and the clear path was unreachable. Both IRI fields now accept ''
+//     explicitly (a non-empty non-URL is still rejected).
+//  2. `ClassRef` — superClassId/domainClassId address a row in this schema's
+//     `classes` table, whose ids are uuids in Postgres. Accepting a bare string
+//     turned a typo into an invalid-uuid database error, i.e. a bare 500.
+//     Non-uuid values are a client error and are named as such here.
+
 import { z } from 'zod';
+
+/** A URL, or '' meaning "clear this field" (see service.ts's `nullable`). */
+const ClearableUrl = z.union([z.literal(''), z.string().url()]);
+
+/** A uuid referencing a class in the *same* schema, or '' to clear it. */
+const ClassRef = z.union([z.literal(''), z.string().uuid()]);
 
 export const CreateOntologySchemaBody = z.object({
   title: z.string().min(1),
   description: z.string().optional(),
-  upperOntologyIri: z.string().url().optional(),
+  upperOntologyIri: ClearableUrl.optional(),
   // Overrides the auto-generated ontology-schema/{id} namespace: when set,
   // every class/property IRI this schema mints (:ClassName, :propertyName)
   // resolves under this prefix instead. Must end in '/' or '#' for exports
   // to concatenate a local name onto it correctly — normalized on write.
-  baseUri: z.string().url().optional(),
+  baseUri: ClearableUrl.optional(),
 });
 
 export const UpdateOntologySchemaBody = z.object({
   title: z.string().min(1).optional(),
   description: z.string().optional(),
-  upperOntologyIri: z.string().url().optional(),
-  baseUri: z.string().url().optional(),
+  upperOntologyIri: ClearableUrl.optional(),
+  baseUri: ClearableUrl.optional(),
 });
 
 export const AddClassBody = z.object({
@@ -23,7 +44,9 @@ export const AddClassBody = z.object({
   label: z.string().optional(),
   description: z.string().optional(),
   mapsToConceptIri: z.string().url().optional(),
-  superClassId: z.string().optional(),   // UUID of the parent class within this schema
+  // Verified to resolve inside this schema by service.addClass — an id from
+  // another schema is a 400, not a cross-schema hierarchy edge.
+  superClassId: ClassRef.optional(),
 });
 
 export const TripleTemplateBody = z.object({
@@ -43,7 +66,7 @@ export const AddPropertyBody = z.object({
   label: z.string().optional(),
   description: z.string().optional(),
   propertyType: z.enum(['object', 'datatype']).default('datatype'),
-  domainClassId: z.string().optional(),
+  domainClassId: ClassRef.optional(),   // same-schema check as superClassId
   rangeClassIri: z.string().optional(),
   mappingPattern: z.array(TripleTemplateBody).optional(),
   regexPattern: z.string().optional(),
@@ -59,7 +82,7 @@ export const UpdateClassBody = z.object({
   label: z.string().optional(),
   description: z.string().optional(),
   mapsToConceptIri: z.string().optional(),   // '' = remove mapping
-  superClassId: z.string().optional(),        // '' = remove superclass
+  superClassId: ClassRef.optional(),          // '' = remove superclass
 });
 
 export const UpdatePropertyBody = z.object({
@@ -67,7 +90,7 @@ export const UpdatePropertyBody = z.object({
   label: z.string().optional(),
   description: z.string().optional(),
   propertyType: z.enum(['object', 'datatype']).optional(),
-  domainClassId: z.string().optional(),
+  domainClassId: ClassRef.optional(),         // '' = remove domain
   rangeClassIri: z.string().optional(),
   mappingPattern: z.array(TripleTemplateBody).optional(),
   regexPattern: z.string().optional(),
