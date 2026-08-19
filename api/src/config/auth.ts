@@ -25,9 +25,28 @@ function required(env: Env, name: string): string {
   return value;
 }
 
+// parseInt(..., 10) alone silently accepts garbage: parseInt('60s', 10) is
+// 60, and parseInt('abc', 10) is NaN, which then flows into a cache
+// comparison (`Date.now() - cached.at < NaN`) that is always false — a cache
+// that never hits, with no error and no log line to explain it. Validate
+// fully instead: an unset value takes the fallback, anything else must be a
+// finite positive number, and anything else throws in the same style as
+// required() above.
+function positiveIntOrDefault(env: Env, name: string, fallback: number): number {
+  const raw = env[name]?.trim();
+  if (!raw) {
+    return fallback;
+  }
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value <= 0) {
+    throw new Error(`${name} must be a positive number of milliseconds (got ${JSON.stringify(raw)})`);
+  }
+  return value;
+}
+
 export function resolveAuthConfig(env: Env, storage: 'postgres' | 'sqlite'): AuthConfig {
   const clientId = env.AUTH_CLIENT_ID?.trim() || 'sulo-spa';
-  const userCacheTtlMs = parseInt(env.AUTH_USER_CACHE_TTL_MS?.trim() || '60000', 10);
+  const userCacheTtlMs = positiveIntOrDefault(env, 'AUTH_USER_CACHE_TTL_MS', 60_000);
 
   // The frozen desktop path is single-user and loopback-only: no issuer, no
   // token, no plugin (see server.ts). Nothing below is consulted there.

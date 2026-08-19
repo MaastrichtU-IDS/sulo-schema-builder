@@ -39,4 +39,29 @@ describe('resolveAuthConfig', () => {
     const cfg = resolveAuthConfig({ ...BASE, AUTH_JWKS_JSON: '{"keys":[]}' }, 'postgres');
     expect(cfg.jwksJson).toBe('{"keys":[]}');
   });
+
+  it('defaults the user cache TTL to 60000ms when unset', () => {
+    const cfg = resolveAuthConfig(BASE, 'postgres');
+    expect(cfg.userCacheTtlMs).toBe(60_000);
+  });
+
+  it('honours a valid numeric AUTH_USER_CACHE_TTL_MS', () => {
+    const cfg = resolveAuthConfig({ ...BASE, AUTH_USER_CACHE_TTL_MS: '120000' }, 'postgres');
+    expect(cfg.userCacheTtlMs).toBe(120_000);
+  });
+
+  it('throws when AUTH_USER_CACHE_TTL_MS is not numeric', () => {
+    expect(() => resolveAuthConfig({ ...BASE, AUTH_USER_CACHE_TTL_MS: '60s' }, 'postgres')).toThrow(
+      /AUTH_USER_CACHE_TTL_MS/,
+    );
+  });
+
+  it('throws when AUTH_USER_CACHE_TTL_MS is negative or zero', () => {
+    expect(() => resolveAuthConfig({ ...BASE, AUTH_USER_CACHE_TTL_MS: '-1' }, 'postgres')).toThrow(
+      /AUTH_USER_CACHE_TTL_MS/,
+    );
+    expect(() => resolveAuthConfig({ ...BASE, AUTH_USER_CACHE_TTL_MS: '0' }, 'postgres')).toThrow(
+      /AUTH_USER_CACHE_TTL_MS/,
+    );
+  });
 });
