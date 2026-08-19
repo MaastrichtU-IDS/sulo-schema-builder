@@ -14,6 +14,27 @@ services:
       # Required: the API defaults to loopback, and a container listening on
       # 127.0.0.1 is unreachable through the published port above.
       HOST: 0.0.0.0
+      DATABASE_URL: postgres://sulo:${POSTGRES_PASSWORD:-sulo}@db:5432/sulo
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - sulo-net
+    restart: unless-stopped
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: sulo
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sulo}
+      POSTGRES_DB: sulo
+    volumes:
+      - sulo-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sulo -d sulo"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
     networks:
       - sulo-net
     restart: unless-stopped
@@ -21,3 +42,6 @@ services:
 networks:
   sulo-net:
     driver: bridge
+
+volumes:
+  sulo-db:

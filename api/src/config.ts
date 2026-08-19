@@ -119,4 +119,10 @@ export const config = {
     maxExplanations: parseInt(optional('REASONER_MAX_EXPLANATIONS', '1'), 10),
   },
 
+  postgres: {
+    // Required when SCHEMA_STORAGE=postgres; unused by the desktop/SQLite path.
+    url: optional('DATABASE_URL', 'postgres://sulo:sulo@localhost:5432/sulo'),
+    poolMax: parseInt(optional('DATABASE_POOL_MAX', '10'), 10),
+  },
+
 } as const;
