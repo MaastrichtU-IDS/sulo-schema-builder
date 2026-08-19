@@ -2,10 +2,11 @@
 // per-concern modules beside it. Filesystem locations live in ../paths.ts —
 // see the comment there for why they cannot live in this directory.
 
-import { serverConfig } from './server.js';
+import { serverConfig, storage } from './server.js';
 import { dbConfig, postgresConfig } from './db.js';
 import { rdfConfig } from './rdf.js';
 import { reasonerConfig } from './reasoner.js';
+import { resolveAuthConfig } from './auth.js';
 
 export const config = {
   ...serverConfig,
@@ -13,4 +14,5 @@ export const config = {
   postgres: postgresConfig,
   rdf: rdfConfig,
   reasoner: reasonerConfig,
+  auth: resolveAuthConfig(process.env, storage),
 } as const;

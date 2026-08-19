@@ -73,6 +73,83 @@ it up if it exists and ignores it if it does not.
 | `REASONER_MAX_INPUT_BYTES` | `1000000` in `postgres` mode, `5000000` in `sqlite` mode | Max size of the submitted Turtle. Shared web deployments cap lower than a single-user desktop. |
 | `POSTGRES_PASSWORD` | `sulo` | Password for the compose `db` service. **Change it for anything reachable off localhost.** |
 
+A `.env.example` in the repo root lists every variable above plus the
+authentication ones documented below — copy it to `.env` and edit as needed.
+
+## Authentication
+
+Identity is delegated to [Keycloak](https://www.keycloak.org/), run as a
+`keycloak` service in `docker-compose.yml`. It has no authentication code path
+wired into the API yet (that lands in a later change); this section documents
+the identity provider itself and the config module that will consume it.
+
+The realm is imported from `docker/keycloak/realm-sulo.json` — configuration
+as code rather than console clicking — and defines:
+
+- **`sulo-spa`**: a public client (PKCE, `S256`) for the frontend. No client
+  secret, because it can't keep one.
+- **`sulo-api`**: a confidential, bearer-only client the API's future plugin
+  will verify tokens against. It never initiates a login itself.
+- **The `sulo-api-audience` protocol mapper**, attached to `sulo-spa`. This is
+  load-bearing and easy to silently break: Keycloak access tokens carry
+  `aud: ["account"]` by default, and without this mapper every real token
+  Keycloak issues is invalid for `sulo-api` even though `jose`-signed tokens
+  in offline tests sail through unaffected. If token verification ever starts
+  failing only against a live Keycloak and never in tests, check this mapper
+  first.
+- **`github` and `orcid` identity providers, both `enabled: false`** with
+  empty client secrets — OAuth secrets do not belong in git. Enable them with
+  `docker/keycloak/configure-idps.sh`, which reads four environment variables
+  and fills them in via `kcadm`:
+
+  ```bash
+  # requires KEYCLOAK_ADMIN / KEYCLOAK_ADMIN_PASSWORD (set below), plus
+  # GITHUB_CLIENT_ID/SECRET and/or ORCID_CLIENT_ID/SECRET in the environment —
+  # a provider whose pair is unset is skipped, not disabled outright
+  docker compose exec keycloak sh /opt/keycloak/bin/configure-idps.sh
+  ```
+
+**The stack runs Keycloak with `start-dev` and a bootstrap admin
+username/password — this is a development configuration, not a production
+one.** `start-dev` serves plain HTTP and skips Keycloak's hostname/TLS
+strictness checks; before any real deployment, switch to `start` with a
+reverse-proxied HTTPS hostname and rotate `KEYCLOAK_ADMIN_PASSWORD` out of its
+default.
+
+Keycloak needs its own database, separate from the app's `sulo` tables. It's
+created by `docker/postgres/init-keycloak.sql`, mounted into the `db`
+service's `/docker-entrypoint-initdb.d/`. **Postgres only runs those scripts
+the first time it initializes a data directory** — if you already had this
+stack's `sulo-db` volume from before this file existed, the `keycloak`
+database won't appear on its own. Either `docker compose down -v` (destroys
+all data in the volume) to reinitialize, or create it by hand:
+
+```bash
+docker compose exec db psql -U sulo -d sulo -c "CREATE DATABASE keycloak OWNER sulo;"
+```
+
+Keycloak signs tokens with whatever issuer hostname the caller (the SPA,
+running in the browser) actually used to reach it — not the Docker-internal
+`keycloak:8080` hostname the `api` container sees on the compose network. So
+`KC_HOSTNAME` on the `keycloak` service and `AUTH_ISSUER` on the `api` service
+are both set to the browser-facing `http://localhost:8088` (the published
+port), and a comment in `docker-compose.yml` records why that looks
+"wrong" for an in-container reference. Getting this wrong surfaces as
+"unexpected iss" on every request.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `AUTH_ISSUER` | *(required in `postgres` mode)* | The realm's issuer URL as reached by the browser, e.g. `http://localhost:8088/realms/sulo`. The JWKS URI used to verify tokens is derived from it. |
+| `AUTH_AUDIENCE` | *(required in `postgres` mode)* | Expected token audience — `sulo-api`. |
+| `AUTH_CLIENT_ID` | `sulo-spa` | Public client ID served to the SPA. |
+| `AUTH_USER_CACHE_TTL_MS` | `60000` | How long a verified user's identity is cached before re-checking. |
+| `KEYCLOAK_ADMIN` | `admin` | Bootstrap admin username. Development only — see above. |
+| `KEYCLOAK_ADMIN_PASSWORD` | `admin` | Bootstrap admin password. **Change it for anything reachable off localhost**, and treat it as development-only regardless. |
+
+`AUTH_ISSUER` and `AUTH_AUDIENCE` are only enforced in `postgres` mode; in
+`sqlite` mode (the frozen single-user desktop path) authentication is
+disabled entirely and neither variable is consulted.
+
 ## Local development
 
 ```bash
