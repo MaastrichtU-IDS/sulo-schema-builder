@@ -41,12 +41,24 @@ file, which doubles as a backup.
 ```bash
 git clone https://github.com/MaastrichtU-IDS/sulo-schema-builder.git
 cd sulo-schema-builder
-docker compose up --build
+docker compose -f docker-compose.yml up --build
 ```
 
 App: **http://localhost:8080**. The stack is three services: `db` (Postgres
 16), a one-shot `migrate` that applies `api/migrations/` and exits, and `api`,
 which starts once the migration has succeeded.
+
+The `-f docker-compose.yml` is not optional. Plain `docker compose up` also
+loads `docker-compose.override.yml`, which is the **development** topology, not
+this one: it builds the Dockerfile's `development` stage, mounts `./api/src`
+and runs it under `tsx watch`, sets `NODE_ENV=development` (which relaxes CORS
+to `origin: true`) and publishes an extra un-proxied port 3000. Use the bare
+command while working on the code; use `-f docker-compose.yml` for anything you
+would call a deployment.
+
+No `.env` is needed — every variable has a default. Create one to override any
+of the table below (`POSTGRES_PASSWORD` in particular); the `api` service picks
+it up if it exists and ignores it if it does not.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
@@ -78,6 +90,9 @@ export DATABASE_URL=postgres://sulo:sulo@localhost:5432/sulo
 npm run migrate -w sulo-schema-builder-api        # applies api/migrations/
 npm run dev -w sulo-schema-builder-api
 ```
+
+(Exporting `SCHEMA_STORAGE` is safe to leave in your shell: a packaged desktop
+build ignores it and logs a warning rather than refusing to start.)
 
 | Component | Stack |
 |-----------|-------|

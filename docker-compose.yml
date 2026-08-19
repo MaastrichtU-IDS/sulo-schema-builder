@@ -13,7 +13,13 @@ services:
       target: production
     ports:
       - "8080:3000"
-    env_file: .env
+    # Optional: this file is gitignored and a fresh clone does not have one, so
+    # a required `env_file` failed the documented quick start with "env file not
+    # found". Everything the stack needs has a default below or in the API's own
+    # config; `.env` is only for overrides (POSTGRES_PASSWORD above all).
+    env_file:
+      - path: .env
+        required: false
     environment:
       NODE_ENV: production
       # Required: the API defaults to loopback, and a container listening on

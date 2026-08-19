@@ -1,4 +1,5 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
+import { resolveStorage } from './server.js';
 
 // config/server.ts reads the environment once, at import time, so each case
 // needs a fresh module registry rather than a setter.
@@ -25,5 +26,39 @@ describe('SCHEMA_STORAGE', () => {
     for (const typo of ['postgress', 'Postgres', 'postgresql', 'browser', '']) {
       await expect(loadStorage(typo)).rejects.toThrow(/SCHEMA_STORAGE/);
     }
+  });
+
+  // `process.pkg` is not env-mockable, so the packaged branch is exercised
+  // through resolveStorage directly. It must never throw: a stray
+  // SCHEMA_STORAGE in the shell that launched the desktop app (README's own
+  // Postgres dev instructions export one) used to kill the sidecar at import
+  // time, before Fastify could listen and before any log existed to explain it.
+  describe('packaged desktop builds', () => {
+    it('forces sqlite and warns instead of throwing, whatever was requested', () => {
+      for (const requested of ['postgres', 'postgress', 'Postgres', 'browser', '']) {
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        try {
+          expect(resolveStorage(requested, true)).toBe('sqlite');
+          expect(warn).toHaveBeenCalledOnce();
+        } finally {
+          warn.mockRestore();
+        }
+      }
+    });
+
+    it('stays quiet when sqlite was what was asked for', () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      try {
+        expect(resolveStorage('sqlite', true)).toBe('sqlite');
+        expect(warn).not.toHaveBeenCalled();
+      } finally {
+        warn.mockRestore();
+      }
+    });
+
+    it('still rejects a typo when not packaged', () => {
+      expect(() => resolveStorage('postgress', false)).toThrow(/SCHEMA_STORAGE/);
+      expect(resolveStorage('postgres', false)).toBe('postgres');
+    });
   });
 });

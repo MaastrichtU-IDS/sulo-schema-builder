@@ -1,5 +1,11 @@
-# Development overrides — active automatically when running `docker compose up`
-# Publishes a second, un-proxied port for debugging and enables API hot reload.
+# Development overrides — active automatically when running `docker compose up`,
+# which is why the web *deployment* is documented as
+# `docker compose -f docker-compose.yml up --build`: this file is not a tweak to
+# that stack, it is a different topology. It swaps in the Dockerfile's
+# `development` stage, bind-mounts ./api/src and runs it under `tsx watch`,
+# publishes a second un-proxied port for curl/Postman, and sets
+# NODE_ENV=development — which flips plugins/cors.ts to `origin: true`, i.e. a
+# permissive CORS policy that has no business on a deployed instance.
 
 services:
   api:

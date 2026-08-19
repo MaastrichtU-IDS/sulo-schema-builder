@@ -1,4 +1,7 @@
-create extension if not exists pgcrypto;
+-- No `create extension pgcrypto` here: the only function these tables need is
+-- gen_random_uuid(), which is core PostgreSQL from 13 onwards (this project
+-- targets 16). On managed Postgres where CREATE EXTENSION is not granted, that
+-- statement failed on line 1 and no migration ran at all.
 
 create table users (
   id           uuid primary key default gen_random_uuid(),
