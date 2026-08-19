@@ -23,12 +23,13 @@ function appDataDir(): string {
 }
 
 // Where schema data lives. 'sqlite' is the embedded database used by the
-// desktop app and local dev. 'browser' is the web-deployment mode: schemas
-// live in each visitor's browser (IndexedDB), the server keeps no schema
-// state at all, and only the stateless endpoints (reasoning, upper-concept
-// proxy) are registered. Packaged desktop builds are always 'sqlite'.
-const storage: 'sqlite' | 'browser' =
-  !isPackaged && optional('SCHEMA_STORAGE', 'sqlite') === 'browser' ? 'browser' : 'sqlite';
+// desktop app and local dev. Packaged desktop builds are always 'sqlite'.
+// Plan 2 of the multi-user work adds 'postgres' here.
+const storage: 'sqlite' = 'sqlite';
+
+// Per-IP rate limiting. Pointless on the desktop app (loopback, one user) and
+// actively unhelpful there; on by default everywhere else.
+const rateLimitEnabled = !isPackaged && optional('RATE_LIMIT_ENABLED', 'true') !== 'false';
 
 const dataDir = isPackaged ? appDataDir() : resolve(moduleDir, '..', 'data');
 // dist/config.js lives directly in dist/, so moduleDir-relative resolution
@@ -51,6 +52,7 @@ export const config = {
   logLevel: optional('LOG_LEVEL', 'info'),
   isPackaged,
   storage,
+  rateLimitEnabled,
   appDataDir: dataDir,
   resourcesDir,
 
@@ -109,12 +111,10 @@ export const config = {
     // in a short queue (reasoner.service.ts) and overflow is rejected.
     maxConcurrent: parseInt(optional('REASONER_MAX_CONCURRENT', '1'), 10),
     maxQueue: parseInt(optional('REASONER_MAX_QUEUE', '8'), 10),
-    // Upper bound on the submitted Turtle. Web deployments accept far less
-    // than the desktop app: a hand-built schema is a few hundred KB at most.
-    maxInputBytes: parseInt(
-      optional('REASONER_MAX_INPUT_BYTES', storage === 'browser' ? '1000000' : '5000000'),
-      10,
-    ),
+    // Upper bound on the submitted Turtle. A hand-built schema is a few
+    // hundred KB at most; the Postgres multi-user web deployment (a later
+    // task) tightens this default further.
+    maxInputBytes: parseInt(optional('REASONER_MAX_INPUT_BYTES', '5000000'), 10),
     // Max explanations to fetch per clash.
     maxExplanations: parseInt(optional('REASONER_MAX_EXPLANATIONS', '1'), 10),
   },

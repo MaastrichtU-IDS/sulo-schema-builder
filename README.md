@@ -12,22 +12,13 @@ A web application that bridges domain **schema design** and formal **OWL ontolog
 - **Four exports** from one schema — RDF/Turtle, OWL + SULO, SHACL, and Mermaid UML.
 - **OWL DL error detection** — the SULO alignment lets a reasoner surface modelling errors (e.g. disjointness clashes) invisible to schema validators and SHACL.
 
-## Storage modes
+## Storage
 
-The same build runs in two modes; the server tells the SPA which one is active
-via `GET /api/v1/app-config` (`SCHEMA_STORAGE` env var; `sqlite` unless set):
-
-- **`sqlite`** (desktop app, local dev) — the single-user mode: schemas live in
-  an embedded SQLite database behind the REST API on loopback.
-- **`browser`** (web deployment; the Docker image defaults to this) — the
-  multi-visitor mode: schemas live in each visitor's own browser (IndexedDB),
-  so users cannot see or edit each other's work and the server stores **no
-  user data at all**. The server keeps only two stateless, rate-limited
-  endpoints: the HermiT consistency check and an SSRF-hardened upper-ontology
-  proxy (needed because most ontology IRIs don't send CORS headers). Schemas
-  move between machines/users via the in-app **Share** button — a compressed
-  link (URL fragment, never sent to the server) or a `.json` export file,
-  which doubles as a backup.
+Schemas live in an embedded SQLite database behind the REST API. Desktop
+builds and local dev always use this mode. Schemas move between
+machines/users via the in-app **Share** button — a compressed link (URL
+fragment, never sent to the server) or a `.json` export file, which doubles
+as a backup.
 
 ## Quick start (Docker, web deployment)
 
@@ -37,30 +28,26 @@ cd sulo-schema-builder
 docker compose up --build
 ```
 
-App: **http://localhost:8080**, in browser storage mode.
+App: **http://localhost:8080**.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `SCHEMA_STORAGE` | `sqlite` (`browser` in the Docker image) | Storage mode, see above |
 | `BASE_NAMESPACE` | `https://w3id.org/sulo/schema/` | RDF base namespace for schema IRIs |
 | `HOST` | `127.0.0.1` | Interface the API binds to. Loopback by default. **Set `HOST=0.0.0.0` for any deployment that must be reachable from another machine**; the Docker image and compose file already do. |
 | `REASONER_MAX_CONCURRENT` | `1` | Simultaneous HermiT runs (each spawns a JVM) |
-| `REASONER_MAX_INPUT_BYTES` | `1000000` in browser mode, `5000000` otherwise | Max size of the submitted Turtle |
+| `REASONER_MAX_INPUT_BYTES` | `5000000` | Max size of the submitted Turtle |
 
 ## Local development
 
 ```bash
-cd api      && npm install && npm run dev    # API on :3000 (sqlite mode)
+cd api      && npm install && npm run dev    # API on :3000
 cd frontend && npm install && npm run dev    # Vite on :5173, proxies /api
 ```
 
-`SCHEMA_STORAGE=browser npm run dev` in `api/` to develop against browser
-storage mode instead.
-
 | Component | Stack |
 |-----------|-------|
-| Frontend | React 18, Vite, Tailwind CSS, React Flow, Dexie (IndexedDB) |
-| API | Fastify 5, TypeScript, N3.js, better-sqlite3 (sqlite mode only) |
+| Frontend | React 18, Vite, Tailwind CSS, React Flow |
+| API | Fastify 5, TypeScript, N3.js, better-sqlite3 |
 
 Tests: `npm test` in `frontend/` and in `api/` (vitest).
 

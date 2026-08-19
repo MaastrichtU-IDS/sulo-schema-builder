@@ -1,7 +1,15 @@
-import 'fake-indexeddb/auto';
-import { describe, it, expect, beforeEach, afterAll } from 'vitest';
-import * as store from '../api/localStore.js';
-import { setStorageModeForTests } from '../api/appConfig.js';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { createFakeBackend } from '../test/fakeBackend.js';
+
+// The factory below must not close over an outer `store` binding: ES module
+// import evaluation runs schemaTransfer.js (which imports backend.js, so
+// triggers this factory) before any local `const` in this file initializes,
+// so a captured variable would throw a TDZ ReferenceError. Building the fake
+// inside the factory avoids that; `import * as store` below then gets a
+// handle on that same (module-cached) instance for the reset() helper.
+vi.mock('../api/backend.js', () => createFakeBackend());
+
+import * as store from '../api/backend.js';
 import {
   serializeSchema,
   parseSchemaExport,
@@ -10,11 +18,8 @@ import {
   decodeShareFragment,
 } from './schemaTransfer.js';
 
-setStorageModeForTests('browser');
-afterAll(() => setStorageModeForTests(null));
-
 async function reset() {
-  for (const s of await store.listSchemas()) await store.deleteSchema(s.id);
+  (store as unknown as ReturnType<typeof createFakeBackend>).reset();
 }
 
 /** A schema exercising every cross-reference kind: hierarchy, domain, range-by-IRI, mapping pattern, disjoint/inverse. */

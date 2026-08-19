@@ -29,17 +29,12 @@ export async function createServer() {
   await server.register(corsPlugin);
   await server.register(helmetPlugin);
   await server.register(sensiblePlugin);
-  if (config.storage === 'sqlite') {
-    // Browser storage mode keeps no schema state — no database at all. The
-    // settings helpers (java path, SULO check timestamp) no-op unbound, and
-    // the code paths that write them only run on packaged desktop builds.
-    await server.register(dbPlugin);
-  }
+  await server.register(dbPlugin);
   await server.register(staticFilesPlugin);
 
-  if (config.storage === 'browser') {
-    // Shared, unauthenticated deployment: per-IP limits, with stricter
-    // per-route settings on the expensive endpoints (reason, upper-concepts).
+  if (config.rateLimitEnabled) {
+    // Per-IP limits, with stricter per-route settings on the expensive
+    // endpoints (reason, upper-concepts).
     await server.register(rateLimit, { max: 300, timeWindow: '1 minute' });
   }
 

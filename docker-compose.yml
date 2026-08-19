@@ -1,9 +1,7 @@
 services:
 
-  # ─── Node.js / Fastify: serves the built React SPA and the stateless API
-  # (reasoning, upper-concept proxy) from one process. Schemas live in each
-  # visitor's browser (IndexedDB) — the server stores no user data, so there
-  # is no database and no volume to back up.
+  # ─── Node.js / Fastify: serves the built React SPA and the API from one
+  # process.
   api:
     build:
       context: .
@@ -13,9 +11,6 @@ services:
     env_file: .env
     environment:
       NODE_ENV: production
-      # Web deployment: per-visitor browser storage. 'sqlite' would revert to
-      # the single-user shared-database mode the desktop app uses.
-      SCHEMA_STORAGE: browser
       # Required: the API defaults to loopback, and a container listening on
       # 127.0.0.1 is unreachable through the published port above.
       HOST: 0.0.0.0

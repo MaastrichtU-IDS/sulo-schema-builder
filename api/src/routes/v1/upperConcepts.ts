@@ -42,7 +42,7 @@ async function bundledSuloConcepts(): Promise<UpperConcept[]> {
 const upperConceptsRoute: FastifyPluginAsync = async (fastify) => {
   fastify.get('/upper-concepts', {
     config: {
-      // Enforced only when the rate-limit plugin is registered (browser mode).
+      // Enforced whenever config.rateLimitEnabled registers the plugin.
       rateLimit: { max: 30, timeWindow: '1 minute' },
     },
   }, async (request, reply) => {

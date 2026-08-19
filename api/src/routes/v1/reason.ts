@@ -103,7 +103,7 @@ const reasonRoutes: FastifyPluginAsync = async (fastify) => {
   // POST /reason — run a full OWL DL consistency check (SULO + user OWL via HermiT).
   fastify.post('/', {
     config: {
-      // Enforced only when the rate-limit plugin is registered (browser mode).
+      // Enforced whenever config.rateLimitEnabled registers the plugin.
       rateLimit: { max: 10, timeWindow: '1 minute' },
     },
   }, async (request, reply) => {
