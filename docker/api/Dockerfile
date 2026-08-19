@@ -4,12 +4,16 @@ WORKDIR /app
 
 COPY package.json package-lock.json .npmrc ./
 COPY frontend/package.json ./frontend/
-COPY packages/schema-core/package.json ./packages/schema-core/
-RUN npm ci -w sulo-schema-builder-frontend -w @sulo/schema-core
-
-COPY packages/schema-core/tsconfig.json ./packages/schema-core/
+# schema-core's sources come in *before* the install: its package.json has a
+# `prepare` hook (`tsc`) so that a plain `npm ci` leaves dist/ — the only thing
+# its main/types/exports point at — present for every consumer. The hook runs
+# during install, so an install that could not see src/ would fail with
+# TS18003. That costs a layer-cache hit whenever schema-core changes, which is
+# rare, and buys one install path that behaves identically here, in CI, in
+# release.yml and on a developer's clean clone.
+COPY packages/schema-core/package.json packages/schema-core/tsconfig.json ./packages/schema-core/
 COPY packages/schema-core/src ./packages/schema-core/src
-RUN npm run build -w @sulo/schema-core
+RUN npm ci -w sulo-schema-builder-frontend -w @sulo/schema-core
 
 COPY frontend/tsconfig.json frontend/vite.config.ts frontend/index.html \
      frontend/tailwind.config.js frontend/postcss.config.js ./frontend/
@@ -33,12 +37,10 @@ RUN apk add --no-cache python3 make g++
 
 COPY package.json package-lock.json .npmrc ./
 COPY api/package.json ./api/
-COPY packages/schema-core/package.json ./packages/schema-core/
-RUN npm ci -w sulo-schema-builder-api -w @sulo/schema-core
-
-COPY packages/schema-core/tsconfig.json ./packages/schema-core/
+# Sources before the install — see the frontend-builder stage above for why.
+COPY packages/schema-core/package.json packages/schema-core/tsconfig.json ./packages/schema-core/
 COPY packages/schema-core/src ./packages/schema-core/src
-RUN npm run build -w @sulo/schema-core
+RUN npm ci -w sulo-schema-builder-api -w @sulo/schema-core
 
 COPY api/tsconfig.json ./api/
 COPY api/src ./api/src
@@ -104,6 +106,8 @@ COPY --from=robot /usr/local/bin/robot /usr/local/bin/robot
 
 COPY package.json package-lock.json .npmrc ./
 COPY api/package.json ./api/
+COPY packages/schema-core/package.json packages/schema-core/tsconfig.json ./packages/schema-core/
+COPY packages/schema-core/src ./packages/schema-core/src
 RUN npm ci -w sulo-schema-builder-api
 
 COPY api/tsconfig.json ./api/

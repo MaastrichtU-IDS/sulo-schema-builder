@@ -28,6 +28,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Redundant with schema-core's `prepare` hook (which makes `npm ci` above
+      # produce dist/ on its own, including in release.yml and on a clean
+      # clone). Kept as an explicit, named step so that a regression in that
+      # hook fails here with an obvious message rather than as a TS2307 in the
+      # typecheck below.
       - name: Build shared package
         run: npm run build -w @sulo/schema-core
 
