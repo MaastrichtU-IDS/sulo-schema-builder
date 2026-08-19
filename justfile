@@ -2,10 +2,9 @@
 # convention: a plain `docker compose up` server path, and per-OS desktop
 # packaging recipes (built once per target OS, not cross-compiled).
 
-# Install all workspace dependencies (api, frontend).
+# Install all workspace dependencies (api, frontend, packages/*).
 install:
-    cd api && npm install
-    cd frontend && npm install
+    npm install
 
 # Run the full stack via Docker (single container: API + built SPA).
 up:

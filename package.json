@@ -1,0 +1,16 @@
+{
+  "name": "sulo-schema-builder",
+  "version": "0.1.1",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "api",
+    "frontend",
+    "packages/*"
+  ],
+  "scripts": {
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present"
+  }
+}

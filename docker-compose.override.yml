@@ -6,7 +6,7 @@ services:
     build:
       target: development
     volumes:
-      - ./api/src:/app/src:ro
+      - ./api/src:/app/api/src:ro
       - ./sparql/files:/shex-files:ro
     environment:
       NODE_ENV: development

@@ -23,36 +23,18 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: |
-            api/package-lock.json
-            frontend/package-lock.json
+          cache-dependency-path: package-lock.json
 
-      - name: Install api dependencies
-        working-directory: api
+      - name: Install dependencies
         run: npm ci
 
-      - name: Typecheck api
-        working-directory: api
-        run: npx tsc --noEmit
+      - name: Typecheck
+        run: npm run typecheck
 
-      - name: Test api
-        working-directory: api
-        run: npm test
-
-      - name: Install frontend dependencies
-        working-directory: frontend
-        run: npm ci
-
-      - name: Typecheck frontend
-        working-directory: frontend
-        run: npx tsc --noEmit
-
-      - name: Test frontend
-        working-directory: frontend
+      - name: Test
         run: npm test
 
       # Catches build-only breakage (bad imports, Vite config) that tsc and
       # vitest both miss.
       - name: Build frontend
-        working-directory: frontend
-        run: npm run build
+        run: npm run build -w sulo-schema-builder-frontend
