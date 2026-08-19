@@ -1,9 +1,10 @@
 // GET /upper-concepts?iri=… — stateless upper-ontology proxy.
 //
 // Exists because the browser cannot dereference most ontology IRIs itself:
-// w3id.org redirects, OBO PURLs etc. rarely send CORS headers. In browser
-// storage mode the frontend keeps the schema locally, so it passes the IRI
-// explicitly instead of the server reading it from a schema row.
+// w3id.org redirects, OBO PURLs etc. rarely send CORS headers. The server
+// fetches the given IRI on the caller's behalf and returns its upper
+// concepts; the caller passes the IRI explicitly rather than the server
+// reading it from a schema row.
 //
 // This is the one endpoint where an anonymous visitor makes the server fetch
 // an arbitrary URL, so it is deliberately paranoid:
