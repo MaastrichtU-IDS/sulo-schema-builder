@@ -10,7 +10,7 @@ export interface UsersTable {
   orcid: string | null;
   global_role: Generated<'user' | 'moderator' | 'admin'>;
   quota_tier: Generated<'free' | 'verified' | 'staff'>;
-  created_at: Generated<Timestamp>;
+  created_at: Timestamp;
   last_seen_at: Timestamp | null;
 }
 
@@ -25,8 +25,8 @@ export interface SchemasTable {
   content_hash: string | null;
   latest_report_key: string | null;
   reason_state: Generated<'stale' | 'queued' | 'running' | 'fresh' | 'failed'>;
-  created_at: Generated<Timestamp>;
-  modified_at: Generated<Timestamp>;
+  created_at: Timestamp;
+  modified_at: Timestamp;
 }
 
 export interface ClassesTable {
@@ -68,7 +68,7 @@ export interface SchemaGrantsTable {
   grantee_id: string;
   role: 'viewer' | 'editor' | 'owner';
   granted_by: string | null;
-  created_at: Generated<Timestamp>;
+  created_at: Timestamp;
 }
 
 export interface ReasoningReportsTable {
@@ -77,7 +77,7 @@ export interface ReasoningReportsTable {
   reasoner: string;
   sulo_hash: string;
   duration_ms: number | null;
-  created_at: Generated<Timestamp>;
+  created_at: Timestamp;
 }
 
 export interface ReasonJobsTable {
@@ -87,7 +87,7 @@ export interface ReasonJobsTable {
   cache_key: string;
   state: 'queued' | 'running' | 'done' | 'failed';
   attempts: Generated<number>;
-  enqueued_at: Generated<Timestamp>;
+  enqueued_at: Timestamp;
   started_at: Timestamp | null;
   finished_at: Timestamp | null;
   error: string | null;
@@ -100,7 +100,7 @@ export interface UsageEventsTable {
   schema_id: string | null;
   cost_ms: number | null;
   cache_hit: Generated<boolean>;
-  created_at: Generated<Timestamp>;
+  created_at: Timestamp;
 }
 
 export interface DB {
