@@ -75,21 +75,36 @@ it up if it exists and ignores it if it does not.
 
 A `.env.example` in the repo root lists every variable above plus the
 authentication ones documented below — copy it to `.env` and edit as needed.
+Every one of these variables is passed through `docker-compose.yml`'s
+`environment:` blocks as `${VAR:-default}`, so a value you set in `.env` (or
+the shell) always wins over the file's own localhost-dev default — it does
+not silently override what you put in `.env`.
+
+**Deploying somewhere that isn't localhost:** editing `.env` is not enough by
+itself. `docker/keycloak/realm-sulo.json`'s `redirectUris`, `webOrigins` and
+`post.logout.redirect.uris` are hardcoded to `http://localhost:8080/*` and
+`http://localhost:5173/*` — Keycloak rejects a login redirect to any origin
+not in that list, regardless of what `AUTH_ISSUER`/`KC_HOSTNAME` say. Add your
+real origin(s) to all three before importing the realm against a non-localhost
+deployment.
 
 ## Authentication
 
 Identity is delegated to [Keycloak](https://www.keycloak.org/), run as a
-`keycloak` service in `docker-compose.yml`. It has no authentication code path
-wired into the API yet (that lands in a later change); this section documents
-the identity provider itself and the config module that will consume it.
+`keycloak` service in `docker-compose.yml`. `api/src/plugins/auth.ts` verifies
+every bearer token against it — issuer, audience and signature — on all 12
+schema routes in `postgres` mode; the `sqlite` (packaged desktop) mode never
+loads this plugin and has no authentication at all (see [Storage](#storage)).
+This section documents the identity provider and the config module the
+plugin consumes.
 
 The realm is imported from `docker/keycloak/realm-sulo.json` — configuration
 as code rather than console clicking — and defines:
 
 - **`sulo-spa`**: a public client (PKCE, `S256`) for the frontend. No client
   secret, because it can't keep one.
-- **`sulo-api`**: a confidential, bearer-only client the API's future plugin
-  will verify tokens against. It never initiates a login itself.
+- **`sulo-api`**: a confidential, bearer-only client `api/src/plugins/auth.ts`
+  verifies tokens against. It never initiates a login itself.
 - **The `sulo-api-audience` protocol mapper**, attached to `sulo-spa`. This is
   load-bearing and easy to silently break: Keycloak access tokens carry
   `aud: ["account"]` by default, and without this mapper every real token
@@ -108,6 +123,22 @@ as code rather than console clicking — and defines:
   # a provider whose pair is unset is skipped, not disabled outright
   docker compose exec keycloak sh /opt/keycloak/bin/configure-idps.sh
   ```
+- **`verifyEmail: false`.** The realm has no `smtpServer` configured and this
+  stack ships no SMTP service, so a self-registered account would otherwise
+  get stuck forever behind Keycloak's `VERIFY_EMAIL` required action with no
+  way to complete it. **Before any real deployment, configure an `smtpServer`
+  block in `realm-sulo.json` (or via the admin console) and turn
+  `verifyEmail` back on together with it** — shipping registration without
+  email verification on a public deployment lets anyone sign up with an
+  email address they do not own.
+
+**Creating the first account for local use, since there is no SMTP:** either
+sign up through the SPA's own registration form (works out of the box —
+`verifyEmail: false` means there is nothing to confirm), create a user by
+hand in the Keycloak admin console (http://localhost:8088, the bootstrap
+admin credentials below), or run `docker/keycloak/seed-test-user.sh` (local/CI
+only, sets `emailVerified=true` explicitly and is also what the e2e suite
+uses).
 
 **The stack runs Keycloak with `start-dev` and a bootstrap admin
 username/password — this is a development configuration, not a production
@@ -159,7 +190,8 @@ before, `${AUTH_ISSUER}/protocol/openid-connect/certs`.
 | `AUTH_JWKS_URI` | derived from `AUTH_ISSUER` | Where *this server* fetches the signing keys, e.g. `http://keycloak:8080/realms/sulo/protocol/openid-connect/certs`. Set this explicitly whenever the server can't reach Keycloak at the browser-facing `AUTH_ISSUER` address — true of the compose stack, and of any Kubernetes deployment (in-cluster service DNS vs. a public ingress hostname). |
 | `AUTH_AUDIENCE` | *(required in `postgres` mode)* | Expected token audience — `sulo-api`. |
 | `AUTH_CLIENT_ID` | `sulo-spa` | Public client ID served to the SPA. |
-| `AUTH_USER_CACHE_TTL_MS` | `60000` | How long a verified user's identity is cached before re-checking. |
+| `AUTH_USER_CACHE_TTL_MS` | `60000` | How long a verified user's identity is cached before re-checking — also how long a role change or a Keycloak-side account disable takes to become effective. |
+| `AUTH_REQUIRE_JWKS_AT_BOOT` | `true` | Whether the API refuses to start if it cannot fetch Keycloak's signing keys at boot. `true` preserves the loud, fail-fast default: an unreachable identity provider fails the boot instead of silently 401ing every request. Set to `false` on a deployment with its own readiness probe (e.g. Kubernetes, which has no equivalent of this compose file's keycloak healthcheck + `depends_on`) — otherwise a Keycloak blip during a rollout puts every replica into a restart loop that outlasts Keycloak's own recovery. When `false`, a failed pre-fetch is logged at `error` and the server starts anyway; the per-request JWKS resolution path still heals itself once Keycloak answers. |
 | `KEYCLOAK_ADMIN` | `admin` | Bootstrap admin username. Development only — see above. |
 | `KEYCLOAK_ADMIN_PASSWORD` | `admin` | Bootstrap admin password. **Change it for anything reachable off localhost**, and treat it as development-only regardless. |
 

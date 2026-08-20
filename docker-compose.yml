@@ -25,16 +25,26 @@ services:
       # Required: the API defaults to loopback, and a container listening on
       # 127.0.0.1 is unreachable through the published port above.
       HOST: 0.0.0.0
-      DATABASE_URL: postgres://sulo:${POSTGRES_PASSWORD:-sulo}@db:5432/sulo
+      # All of these are interpolated with the current (localhost dev) value
+      # as the *default*, not hardcoded, so a deployer's `.env` or shell
+      # environment wins per Docker Compose precedence (environment: beats
+      # env_file:). Hardcoding them here used to silently override a `.env`
+      # someone had edited for a real hostname — every token then failed
+      # "unexpected iss" against the localhost value baked in below. See the
+      # README's "Deploying somewhere that isn't localhost" note: a
+      # non-localhost deployment must also edit
+      # docker/keycloak/realm-sulo.json's redirectUris/webOrigins/
+      # post.logout.redirect.uris, which are hardcoded to :8080/:5173.
+      DATABASE_URL: ${DATABASE_URL:-postgres://sulo:${POSTGRES_PASSWORD:-sulo}@db:5432/sulo}
       # Multi-user web deployment. The 'sqlite' mode is the frozen desktop path.
-      SCHEMA_STORAGE: postgres
+      SCHEMA_STORAGE: ${SCHEMA_STORAGE:-postgres}
       # Deliberately the browser-facing URL (localhost:8088), NOT the
       # in-container "http://keycloak:8080/realms/sulo". Keycloak signs tokens
       # with the issuer the browser/SPA actually reached it on (KC_HOSTNAME
       # below), and the API must verify against that same issuer string or
       # every request fails token verification with "unexpected iss".
-      AUTH_ISSUER: http://localhost:8088/realms/sulo
-      AUTH_AUDIENCE: sulo-api
+      AUTH_ISSUER: ${AUTH_ISSUER:-http://localhost:8088/realms/sulo}
+      AUTH_AUDIENCE: ${AUTH_AUDIENCE:-sulo-api}
       # In-network address for the *server-side* JWKS fetch — deliberately
       # different from AUTH_ISSUER above. Deriving this from AUTH_ISSUER (the
       # browser-facing URL) broke this stack outright: inside the api
@@ -44,7 +54,14 @@ services:
       # api/src/config/auth.ts for the full argument — a Kubernetes deployment
       # needs the same split (public ingress issuer, in-cluster service DNS
       # here).
-      AUTH_JWKS_URI: http://keycloak:8080/realms/sulo/protocol/openid-connect/certs
+      AUTH_JWKS_URI: ${AUTH_JWKS_URI:-http://keycloak:8080/realms/sulo/protocol/openid-connect/certs}
+      # Preserves today's loud "refuse to start" behaviour by default. A
+      # deployment with its own readiness probe (e.g. Kubernetes, where this
+      # compose file's keycloak healthcheck/depends_on has no equivalent)
+      # should set this to false so a Keycloak blip during a rollout degrades
+      # to per-request JWKS resolution instead of CrashLoopBackOff. See
+      # api/src/plugins/auth.ts.
+      AUTH_REQUIRE_JWKS_AT_BOOT: ${AUTH_REQUIRE_JWKS_AT_BOOT:-true}
     depends_on:
       db:
         condition: service_healthy
@@ -67,7 +84,12 @@ services:
       target: production
     command: ["node", "api/dist/scripts/migrate.js"]
     environment:
-      DATABASE_URL: postgres://sulo:${POSTGRES_PASSWORD:-sulo}@db:5432/sulo
+      # Same default-with-override shape as the api service's DATABASE_URL
+      # above it in the file — a `.env` override must win here too, or a
+      # non-default DATABASE_URL migrates the wrong database while the api
+      # service (correctly picking up the override) talks to a different,
+      # unmigrated one.
+      DATABASE_URL: ${DATABASE_URL:-postgres://sulo:${POSTGRES_PASSWORD:-sulo}@db:5432/sulo}
     depends_on:
       db:
         condition: service_healthy
@@ -99,10 +121,10 @@ services:
       - sulo-net
     restart: unless-stopped
 
-  # Identity provider: issues and verifies the JWTs the API trusts (Task 2
-  # onward). The realm (clients, protocol mappers, disabled IdP stubs) is
-  # imported from docker/keycloak/realm-sulo.json rather than clicked together
-  # in the admin console, so it is versioned and reviewable.
+  # Identity provider: issues and verifies the JWTs the API trusts. The realm
+  # (clients, protocol mappers, disabled IdP stubs) is imported from
+  # docker/keycloak/realm-sulo.json rather than clicked together in the admin
+  # console, so it is versioned and reviewable.
   keycloak:
     image: quay.io/keycloak/keycloak:26.0
     command: ["start-dev", "--import-realm"]
@@ -122,7 +144,10 @@ services:
       # said "keycloak:8080" instead, tokens would carry an issuer the API's
       # AUTH_ISSUER (also localhost:8088, see the api service above) could
       # never match, and every request would fail with "unexpected iss".
-      KC_HOSTNAME: http://localhost:8088
+      # Interpolated with the localhost value as the default, same rationale
+      # as the api service's AUTH_ISSUER above — this and AUTH_ISSUER must
+      # always change together (see the README's deployment note).
+      KC_HOSTNAME: ${KC_HOSTNAME:-http://localhost:8088}
     volumes:
       - ./docker/keycloak/realm-sulo.json:/opt/keycloak/data/import/realm-sulo.json:ro
       - ./docker/keycloak/configure-idps.sh:/opt/keycloak/bin/configure-idps.sh:ro

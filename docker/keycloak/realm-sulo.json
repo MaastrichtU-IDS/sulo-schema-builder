@@ -4,7 +4,7 @@
   "displayName": "SULO Schema Builder",
   "registrationAllowed": true,
   "registrationEmailAsUsername": true,
-  "verifyEmail": true,
+  "verifyEmail": false,
   "resetPasswordAllowed": true,
   "loginWithEmailAllowed": true,
   "duplicateEmailsAllowed": false,

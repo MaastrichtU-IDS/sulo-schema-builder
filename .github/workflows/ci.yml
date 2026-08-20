@@ -68,7 +68,11 @@ jobs:
   e2e-auth:
     name: E2E — real Keycloak login
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # A cold build here has no layer cache (ROBOT jar download, JRE install,
+    # two `npm ci`, frontend build) on top of the Keycloak image pull and
+    # `playwright install --with-deps` — comfortably past the previous 15m
+    # budget on a slow runner.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
@@ -91,12 +95,27 @@ jobs:
       - name: Start the stack
         run: docker compose -f docker-compose.yml up -d --build
 
+      # `docker compose up -d` returns once the api container has *started*,
+      # not once Node is listening — api has no healthcheck of its own (only
+      # `depends_on: condition: service_healthy` on db/migrate/keycloak), so
+      # without this the Playwright step below would race api's own Node
+      # boot plus its boot-time JWKS pre-fetch. Waits on the same /health
+      # route that has always come up regardless of auth state.
+      - name: Wait for the api to be listening
+        run: |
+          curl --retry 30 --retry-delay 2 --retry-connrefused --retry-all-errors \
+            -sf http://localhost:8080/api/v1/health -o /dev/null
+
       # docker compose up above already blocked on api's `depends_on:
       # condition: service_healthy` for keycloak, so this seeds a realm
       # that has finished importing rather than racing it.
+      #
+      # -T: `docker compose exec` attaches stdin by default, which fails with
+      # "the input device is not a TTY" on a GitHub Actions runner (no TTY on
+      # stdin). -T disables that and is a no-op locally either way.
       - name: Seed the e2e test user
         run: |
-          docker compose -f docker-compose.yml exec \
+          docker compose -f docker-compose.yml exec -T \
             -e KEYCLOAK_ADMIN_PASSWORD=admin -e KEYCLOAK_ADMIN=admin \
             keycloak sh /opt/keycloak/bin/seed-test-user.sh
 
