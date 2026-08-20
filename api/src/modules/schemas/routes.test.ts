@@ -1,27 +1,29 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import Fastify, { type FastifyInstance } from 'fastify';
-import sensible from '@fastify/sensible';
 import { startTestDb, truncateAll, type TestDb } from '../../test/pg.js';
-import errorHandler from '../../plugins/errorHandler.js';
-import schemasRoutes from './routes.js';
+import { buildAuthedApp, type AuthedTestApp } from '../../test/authApp.js';
 
 let t: TestDb;
-let app: FastifyInstance;
+let harness: AuthedTestApp;
+
+/**
+ * Every request below is made by one fixed signed-in caller.
+ *
+ * These tests are about request/response behaviour — validation, status codes,
+ * PATCH semantics, SSRF policy — so a session is background noise the harness
+ * attaches for them (api/src/test/authApp.ts). Identity itself is the subject of
+ * routes.auth.test.ts: who owns a new schema, who can list it, what happens
+ * with no token at all.
+ */
+let inject: AuthedTestApp['inject'];
 
 beforeAll(async () => {
   t = await startTestDb();
-  app = Fastify();
-  await app.register(sensible);
-  // Same handler the real server registers: without it a ZodError or a
-  // database error would leave here as a 500 carrying internals.
-  await app.register(errorHandler);
-  app.decorate('pg', t.db);
-  await app.register(schemasRoutes, { prefix: '/ontology-schemas' });
-  await app.ready();
+  harness = await buildAuthedApp(t.db);
+  inject = harness.inject;
 });
 
 afterAll(async () => {
-  await app.close();
+  await harness.close();
   await t.stop();
 });
 
@@ -29,7 +31,7 @@ beforeEach(async () => { await truncateAll(t.db); });
 
 describe('ontology-schemas routes (postgres)', () => {
   it('creates a schema with empty classes/properties', async () => {
-    const res = await app.inject({
+    const res = await inject({
       method: 'POST', url: '/ontology-schemas', payload: { title: 'Test Schema', description: 'desc' },
     });
     expect(res.statusCode).toBe(201);
@@ -39,39 +41,39 @@ describe('ontology-schemas routes (postgres)', () => {
   });
 
   it('lists schemas ordered by title', async () => {
-    await app.inject({ method: 'POST', url: '/ontology-schemas', payload: { title: 'Zebra' } });
-    await app.inject({ method: 'POST', url: '/ontology-schemas', payload: { title: 'Alpha' } });
+    await inject({ method: 'POST', url: '/ontology-schemas', payload: { title: 'Zebra' } });
+    await inject({ method: 'POST', url: '/ontology-schemas', payload: { title: 'Alpha' } });
 
-    const body = (await app.inject({ method: 'GET', url: '/ontology-schemas' })).json();
+    const body = (await inject({ method: 'GET', url: '/ontology-schemas' })).json();
     expect(body.map((s: { title: string }) => s.title)).toEqual(['Alpha', 'Zebra']);
   });
 
   it('404s on a missing schema', async () => {
-    const res = await app.inject({
+    const res = await inject({
       method: 'GET', url: '/ontology-schemas/11111111-1111-1111-1111-111111111111',
     });
     expect(res.statusCode).toBe(404);
   });
 
   it('400s on a malformed id instead of leaking a database error', async () => {
-    const res = await app.inject({ method: 'GET', url: '/ontology-schemas/not-a-uuid' });
+    const res = await inject({ method: 'GET', url: '/ontology-schemas/not-a-uuid' });
     expect(res.statusCode).toBe(400);
   });
 
   it('supports the full class/property CRUD flow with a mapping pattern', async () => {
-    const schema = (await app.inject({
+    const schema = (await inject({
       method: 'POST', url: '/ontology-schemas', payload: { title: 'Family Ontology' },
     })).json();
 
-    const parent = (await app.inject({
+    const parent = (await inject({
       method: 'POST', url: `/ontology-schemas/${schema.id}/classes`, payload: { name: 'Person' },
     })).json();
-    const child = (await app.inject({
+    const child = (await inject({
       method: 'POST', url: `/ontology-schemas/${schema.id}/classes`,
       payload: { name: 'Parent', superClassId: parent.id },
     })).json();
 
-    const prop = (await app.inject({
+    const prop = (await inject({
       method: 'POST', url: `/ontology-schemas/${schema.id}/properties`,
       payload: {
         name: 'hasChild', propertyType: 'object', domainClassId: child.id, rangeClassIri: parent.url,
@@ -81,65 +83,65 @@ describe('ontology-schemas routes (postgres)', () => {
     })).json();
     expect(prop.mappingPattern).toHaveLength(1);
 
-    await app.inject({
+    await inject({
       method: 'PATCH', url: `/ontology-schemas/${schema.id}/properties/${prop.id}`,
       payload: { label: 'has child', isRequired: false },
     });
 
-    const full = (await app.inject({ method: 'GET', url: `/ontology-schemas/${schema.id}` })).json();
+    const full = (await inject({ method: 'GET', url: `/ontology-schemas/${schema.id}` })).json();
     expect(full.classes).toHaveLength(2);
     expect(full.properties[0]).toMatchObject({ label: 'has child', isRequired: false });
 
-    expect((await app.inject({
+    expect((await inject({
       method: 'DELETE', url: `/ontology-schemas/${schema.id}/properties/${prop.id}`,
     })).statusCode).toBe(204);
-    expect((await app.inject({
+    expect((await inject({
       method: 'DELETE', url: `/ontology-schemas/${schema.id}/classes/${child.id}`,
     })).statusCode).toBe(204);
 
-    const after = (await app.inject({ method: 'GET', url: `/ontology-schemas/${schema.id}` })).json();
+    const after = (await inject({ method: 'GET', url: `/ontology-schemas/${schema.id}` })).json();
     expect(after.properties).toHaveLength(0);
     expect(after.classes).toHaveLength(1);
   });
 
   it('updates schema metadata via PATCH', async () => {
-    const schema = (await app.inject({
+    const schema = (await inject({
       method: 'POST', url: '/ontology-schemas', payload: { title: 'Before' },
     })).json();
 
-    expect((await app.inject({
+    expect((await inject({
       method: 'PATCH', url: `/ontology-schemas/${schema.id}`,
       payload: { title: 'After', description: 'new' },
     })).statusCode).toBe(204);
 
-    const body = (await app.inject({ method: 'GET', url: `/ontology-schemas/${schema.id}` })).json();
+    const body = (await inject({ method: 'GET', url: `/ontology-schemas/${schema.id}` })).json();
     expect(body).toMatchObject({ title: 'After', description: 'new' });
   });
 
   it('normalizes baseUri on create and update, and returns it from list and single reads', async () => {
-    const schema = (await app.inject({
+    const schema = (await inject({
       method: 'POST', url: '/ontology-schemas',
       payload: { title: 'Based', baseUri: 'https://example.org/ns' },
     })).json();
     expect(schema.baseUri).toBe('https://example.org/ns/');
 
-    const list = (await app.inject({ method: 'GET', url: '/ontology-schemas' })).json();
+    const list = (await inject({ method: 'GET', url: '/ontology-schemas' })).json();
     expect(list[0].baseUri).toBe('https://example.org/ns/');
 
-    await app.inject({
+    await inject({
       method: 'PATCH', url: `/ontology-schemas/${schema.id}`,
       payload: { baseUri: 'https://example.org/other#' },
     });
-    const single = (await app.inject({ method: 'GET', url: `/ontology-schemas/${schema.id}` })).json();
+    const single = (await inject({ method: 'GET', url: `/ontology-schemas/${schema.id}` })).json();
     expect(single.baseUri).toBe('https://example.org/other#');
   });
 
   it('returns [] from upper-concepts when no upper ontology is set', async () => {
-    const schema = (await app.inject({
+    const schema = (await inject({
       method: 'POST', url: '/ontology-schemas', payload: { title: 'No upper' },
     })).json();
 
-    const res = await app.inject({ method: 'GET', url: `/ontology-schemas/${schema.id}/upper-concepts` });
+    const res = await inject({ method: 'GET', url: `/ontology-schemas/${schema.id}/upper-concepts` });
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual([]);
   });
@@ -151,7 +153,7 @@ describe('ontology-schemas routes (postgres)', () => {
       [`/ontology-schemas/${ghost}/classes`, { name: 'Person' }],
       [`/ontology-schemas/${ghost}/properties`, { name: 'p', propertyType: 'datatype' }],
     ] as const) {
-      const res = await app.inject({ method: 'POST', url, payload });
+      const res = await inject({ method: 'POST', url, payload });
       expect(res.statusCode).toBe(404);
       // A foreign-key violation must never reach the client verbatim.
       expect(res.body).not.toMatch(/constraint|foreign key|insert or update|fkey/i);
@@ -159,38 +161,38 @@ describe('ontology-schemas routes (postgres)', () => {
   });
 
   it('400s on a malformed body instead of 500ing with the raw validation dump', async () => {
-    const create = await app.inject({ method: 'POST', url: '/ontology-schemas', payload: { description: 'no title' } });
+    const create = await inject({ method: 'POST', url: '/ontology-schemas', payload: { description: 'no title' } });
     expect(create.statusCode).toBe(400);
 
-    const schema = (await app.inject({
+    const schema = (await inject({
       method: 'POST', url: '/ontology-schemas', payload: { title: 'Valid' },
     })).json();
 
-    const badClass = await app.inject({
+    const badClass = await inject({
       method: 'POST', url: `/ontology-schemas/${schema.id}/classes`, payload: { label: 'no name' },
     });
     expect(badClass.statusCode).toBe(400);
 
-    const badProp = await app.inject({
+    const badProp = await inject({
       method: 'POST', url: `/ontology-schemas/${schema.id}/properties`,
       payload: { name: 'p', propertyType: 'nonsense' },
     });
     expect(badProp.statusCode).toBe(400);
 
-    const badPatch = await app.inject({
+    const badPatch = await inject({
       method: 'PATCH', url: `/ontology-schemas/${schema.id}`, payload: { title: '' },
     });
     expect(badPatch.statusCode).toBe(400);
   });
 
   it('404s when mutating a class or property through a different schema id', async () => {
-    const a = (await app.inject({ method: 'POST', url: '/ontology-schemas', payload: { title: 'A' } })).json();
-    const b = (await app.inject({ method: 'POST', url: '/ontology-schemas', payload: { title: 'B' } })).json();
+    const a = (await inject({ method: 'POST', url: '/ontology-schemas', payload: { title: 'A' } })).json();
+    const b = (await inject({ method: 'POST', url: '/ontology-schemas', payload: { title: 'B' } })).json();
 
-    const cls = (await app.inject({
+    const cls = (await inject({
       method: 'POST', url: `/ontology-schemas/${a.id}/classes`, payload: { name: 'Person', label: 'person' },
     })).json();
-    const prop = (await app.inject({
+    const prop = (await inject({
       method: 'POST', url: `/ontology-schemas/${a.id}/properties`,
       payload: { name: 'hasName', propertyType: 'datatype', label: 'has name' },
     })).json();
@@ -201,11 +203,11 @@ describe('ontology-schemas routes (postgres)', () => {
       ['PATCH', `/ontology-schemas/${b.id}/properties/${prop.id}`],
       ['DELETE', `/ontology-schemas/${b.id}/properties/${prop.id}`],
     ] as const) {
-      const res = await app.inject({ method, url, payload: { label: 'hacked' } });
+      const res = await inject({ method, url, payload: { label: 'hacked' } });
       expect(res.statusCode).toBe(404);
     }
 
-    const untouched = (await app.inject({ method: 'GET', url: `/ontology-schemas/${a.id}` })).json();
+    const untouched = (await inject({ method: 'GET', url: `/ontology-schemas/${a.id}` })).json();
     expect(untouched.classes[0].label).toBe('person');
     expect(untouched.properties[0].label).toBe('has name');
   });
@@ -215,11 +217,11 @@ describe('ontology-schemas routes (postgres)', () => {
   // id tripped classes_super_class_id_fkey. Now pre-checked in the same schema,
   // which is also what stops a cross-schema hierarchy edge (see below).
   it('400s on a superClassId that names no class in this schema', async () => {
-    const schema = (await app.inject({
+    const schema = (await inject({
       method: 'POST', url: '/ontology-schemas', payload: { title: 'Constrained' },
     })).json();
 
-    const res = await app.inject({
+    const res = await inject({
       method: 'POST', url: `/ontology-schemas/${schema.id}/classes`,
       payload: { name: 'Orphan', superClassId: '11111111-1111-1111-1111-111111111111' },
     });
@@ -235,16 +237,16 @@ describe('ontology-schemas routes (postgres)', () => {
   // superClassId from schema B builds a cross-schema edge — an incoherent
   // export today, and a cross-tenant write once plan 2 authorizes on `:id`.
   it('refuses a superClassId or domainClassId belonging to another schema', async () => {
-    const a = (await app.inject({ method: 'POST', url: '/ontology-schemas', payload: { title: 'A' } })).json();
-    const b = (await app.inject({ method: 'POST', url: '/ontology-schemas', payload: { title: 'B' } })).json();
+    const a = (await inject({ method: 'POST', url: '/ontology-schemas', payload: { title: 'A' } })).json();
+    const b = (await inject({ method: 'POST', url: '/ontology-schemas', payload: { title: 'B' } })).json();
 
-    const foreign = (await app.inject({
+    const foreign = (await inject({
       method: 'POST', url: `/ontology-schemas/${b.id}/classes`, payload: { name: 'Outsider' },
     })).json();
-    const mine = (await app.inject({
+    const mine = (await inject({
       method: 'POST', url: `/ontology-schemas/${a.id}/classes`, payload: { name: 'Insider' },
     })).json();
-    const myProp = (await app.inject({
+    const myProp = (await inject({
       method: 'POST', url: `/ontology-schemas/${a.id}/properties`,
       payload: { name: 'hasThing', propertyType: 'datatype' },
     })).json();
@@ -255,32 +257,32 @@ describe('ontology-schemas routes (postgres)', () => {
       ['POST',  `/ontology-schemas/${a.id}/properties`, { name: 'p', propertyType: 'datatype', domainClassId: foreign.id }],
       ['PATCH', `/ontology-schemas/${a.id}/properties/${myProp.id}`, { domainClassId: foreign.id }],
     ] as const) {
-      const res = await app.inject({ method, url, payload });
+      const res = await inject({ method, url, payload });
       expect(res.statusCode).toBe(400);
       expect(res.json().message).toMatch(/superClassId|domainClassId/);
     }
 
     // Nothing crossed over, and the same ids still work inside their own schema.
-    const inA = (await app.inject({ method: 'GET', url: `/ontology-schemas/${a.id}` })).json();
+    const inA = (await inject({ method: 'GET', url: `/ontology-schemas/${a.id}` })).json();
     expect(inA.classes).toHaveLength(1);
     expect(inA.classes[0].superClassId).toBeUndefined();
     expect(inA.properties[0].domainClassId).toBeUndefined();
 
-    expect((await app.inject({
+    expect((await inject({
       method: 'PATCH', url: `/ontology-schemas/${a.id}/properties/${myProp.id}`,
       payload: { domainClassId: mine.id },
     })).statusCode).toBe(204);
   });
 
   it('refuses to make a class its own superclass', async () => {
-    const schema = (await app.inject({
+    const schema = (await inject({
       method: 'POST', url: '/ontology-schemas', payload: { title: 'Loop' },
     })).json();
-    const cls = (await app.inject({
+    const cls = (await inject({
       method: 'POST', url: `/ontology-schemas/${schema.id}/classes`, payload: { name: 'Ouroboros' },
     })).json();
 
-    const res = await app.inject({
+    const res = await inject({
       method: 'PATCH', url: `/ontology-schemas/${schema.id}/classes/${cls.id}`,
       payload: { superClassId: cls.id },
     });
@@ -292,7 +294,7 @@ describe('ontology-schemas routes (postgres)', () => {
   // but the validators rejected '' for both IRI fields, so the clear was
   // unreachable and only the frontend's test double modelled it.
   it("treats '' as a clear for description, upperOntologyIri and baseUri", async () => {
-    const schema = (await app.inject({
+    const schema = (await inject({
       method: 'POST', url: '/ontology-schemas',
       payload: {
         title: 'Clearable', description: 'a description',
@@ -305,12 +307,12 @@ describe('ontology-schemas routes (postgres)', () => {
       baseUri: 'https://example.org/ns/',
     });
 
-    expect((await app.inject({
+    expect((await inject({
       method: 'PATCH', url: `/ontology-schemas/${schema.id}`,
       payload: { description: '', upperOntologyIri: '', baseUri: '' },
     })).statusCode).toBe(204);
 
-    const cleared = (await app.inject({ method: 'GET', url: `/ontology-schemas/${schema.id}` })).json();
+    const cleared = (await inject({ method: 'GET', url: `/ontology-schemas/${schema.id}` })).json();
     expect(cleared.description).toBeUndefined();
     expect(cleared.upperOntologyIri).toBeUndefined();
     expect(cleared.baseUri).toBeUndefined();
@@ -319,15 +321,15 @@ describe('ontology-schemas routes (postgres)', () => {
 
   it("still rejects a non-empty non-URL in either IRI field, on create and on patch", async () => {
     for (const field of ['upperOntologyIri', 'baseUri'] as const) {
-      const create = await app.inject({
+      const create = await inject({
         method: 'POST', url: '/ontology-schemas', payload: { title: 'Bad', [field]: 'not a url' },
       });
       expect(create.statusCode).toBe(400);
 
-      const schema = (await app.inject({
+      const schema = (await inject({
         method: 'POST', url: '/ontology-schemas', payload: { title: `Good ${field}` },
       })).json();
-      const patch = await app.inject({
+      const patch = await inject({
         method: 'PATCH', url: `/ontology-schemas/${schema.id}`, payload: { [field]: 'not a url' },
       });
       expect(patch.statusCode).toBe(400);
@@ -344,16 +346,16 @@ describe('ontology-schemas routes (postgres)', () => {
       'http://metadata.google.internal/computeMetadata/v1/',
       'http://example.org:3000/api/v1/health',
     ]) {
-      const create = await app.inject({
+      const create = await inject({
         method: 'POST', url: '/ontology-schemas', payload: { title: 'SSRF', upperOntologyIri: iri },
       });
       expect(create.statusCode).toBe(400);
       expect(create.json().message).toMatch(/upperOntologyIri/);
 
-      const schema = (await app.inject({
+      const schema = (await inject({
         method: 'POST', url: '/ontology-schemas', payload: { title: 'SSRF patch' },
       })).json();
-      const patch = await app.inject({
+      const patch = await inject({
         method: 'PATCH', url: `/ontology-schemas/${schema.id}`, payload: { upperOntologyIri: iri },
       });
       expect(patch.statusCode).toBe(400);
@@ -371,7 +373,7 @@ describe('ontology-schemas routes (postgres)', () => {
   // become an outbound request, so the route re-applies the policy at fetch
   // time. Planted directly through the database to bypass validation entirely.
   it('refuses to dereference a hostile upperOntologyIri already in the database', async () => {
-    const schema = (await app.inject({
+    const schema = (await inject({
       method: 'POST', url: '/ontology-schemas', payload: { title: 'Legacy row' },
     })).json();
     await t.pool.query(
@@ -379,7 +381,7 @@ describe('ontology-schemas routes (postgres)', () => {
       ['http://169.254.169.254/latest/meta-data/', schema.id],
     );
 
-    const res = await app.inject({ method: 'GET', url: `/ontology-schemas/${schema.id}/upper-concepts` });
+    const res = await inject({ method: 'GET', url: `/ontology-schemas/${schema.id}/upper-concepts` });
     expect(res.statusCode).toBe(400);
     expect(res.json().message).toMatch(/private address|not allowed|Internal hostnames/i);
   });

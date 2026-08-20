@@ -7,6 +7,7 @@ import corsPlugin from './plugins/cors.js';
 import helmetPlugin from './plugins/helmet.js';
 import sensiblePlugin from './plugins/sensible.js';
 import errorHandlerPlugin from './plugins/errorHandler.js';
+import authDisabledPlugin from './plugins/authDisabled.js';
 import sqlitePlugin from './legacy/sqlite/plugin.js';
 import staticFilesPlugin from './plugins/staticFiles.js';
 
@@ -45,11 +46,25 @@ export async function createServer() {
   // pkg's snapshot cannot execute `import()` at all
   // (ERR_VM_DYNAMIC_IMPORT_CALLBACK_MISSING), so the branch the desktop build
   // *does* take has to be a static import.
+  //
+  // plugins/auth.js is loaded the same way and for the same reason: it imports
+  // `jose`, which must stay out of the packaged snapshot's static graph. It also
+  // has to come *after* the pg plugin (it declares `decorators: { fastify:
+  // ['pg'] }`) and after sensible, above.
+  //
+  // The else-branch's plugins/authDisabled.js is the counterpart: it re-declares
+  // `authRequired`/`requireRole` as no-ops so that route files can name the
+  // guards unconditionally in both modes. The desktop app is single-user and
+  // loopback-bound, so there is nobody to authenticate — the argument is written
+  // out in full at the top of that file.
   if (config.storage === 'postgres') {
     const { default: pgPlugin } = await import('./plugins/pg.js');
     await server.register(pgPlugin);
+    const { default: authPlugin } = await import('./plugins/auth.js');
+    await server.register(authPlugin, { auth: config.auth });
   } else {
     await server.register(sqlitePlugin);
+    await server.register(authDisabledPlugin);
   }
   await server.register(staticFilesPlugin);
 

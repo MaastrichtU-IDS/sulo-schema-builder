@@ -61,6 +61,11 @@ async function buildStatus() {
 const reasonRoutes: FastifyPluginAsync = async (fastify) => {
   // GET /reason/status — lets the UI decide what to offer: the check button, a
   // "install Java" prompt, download progress, or a retry.
+  //
+  // Deliberately unguarded: the SPA renders its setup/capability state before
+  // the user has signed in, and this answers with nothing caller-specific —
+  // whether the reasoner is enabled, which ROBOT version, whether a JVM was
+  // found. The two routes that actually *spend* reasoner time are guarded below.
   fastify.get('/status', async () => buildStatus());
 
   // POST /reason/java-path — point the app at an existing JVM.
@@ -95,13 +100,19 @@ const reasonRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // POST /reason/sulo/check — force a SULO update check, ignoring the interval.
-  fastify.post('/sulo/check', async () => {
+  // Guarded: it bypasses the interval and makes the server fetch the upstream
+  // ontology, so an anonymous caller could hammer it. (/java-path and
+  // /robot/download need no guard — both already 403 unless `managed`.)
+  fastify.post('/sulo/check', { preHandler: fastify.authRequired }, async () => {
     await checkForSuloUpdate(true);
     return buildStatus();
   });
 
   // POST /reason — run a full OWL DL consistency check (SULO + user OWL via HermiT).
+  // Guarded (design §5): a reasoning run is the most expensive thing this
+  // server does, and an anonymous caller can never trigger one.
   fastify.post('/', {
+    preHandler: fastify.authRequired,
     config: {
       // Enforced whenever config.rateLimitEnabled registers the plugin.
       rateLimit: { max: 10, timeWindow: '1 minute' },

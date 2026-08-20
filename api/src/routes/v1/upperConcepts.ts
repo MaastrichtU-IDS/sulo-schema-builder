@@ -12,6 +12,12 @@
 // SSRF, size-cap and caching rules are documented. This route only translates
 // its result into HTTP and adds a per-route rate limit; the schema-scoped route
 // carries the same limit.
+//
+// Authenticated in postgres mode (design §5): making this server dereference an
+// arbitrary remote IRI is a privilege, not a public utility, even behind
+// safeFetch — an anonymous visitor would otherwise get a free SSRF-shaped probe
+// and a share of the fetch budget. In the packaged desktop mode the guard is the
+// no-op from plugins/authDisabled.ts, which is what keeps this line unconditional.
 
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
@@ -21,6 +27,7 @@ const Query = z.object({ iri: z.string().min(1).max(2048) });
 
 const upperConceptsRoute: FastifyPluginAsync = async (fastify) => {
   fastify.get('/upper-concepts', {
+    preHandler: fastify.authRequired,
     config: { rateLimit: UPPER_CONCEPTS_RATE_LIMIT },
   }, async (request, reply) => {
     const { iri } = Query.parse(request.query);

@@ -1,27 +1,51 @@
 // HTTP surface for schemas. Identical paths, payloads and status codes to the
 // SQLite path this replaces; all persistence goes through service.ts.
 //
-// No authorization yet — every schema belongs to LOCAL_OWNER_ID until plan 2
-// introduces authentication and the ACL guards. Child mutations are nonetheless
-// scoped to the schema in the path (not the child id alone), and so are
-// superClassId/domainClassId references (in service.ts), so the guard plan 2
+// Every route here requires a verified session — `fastify.authRequired` on all
+// twelve — and ownership follows the token: GET / and POST / are keyed on
+// request.user.id, so a caller lists and creates only their own schemas.
+// LOCAL_OWNER_ID is no longer involved; the seeded row it names still exists and
+// still owns the pre-authentication schemas, it is simply nobody's session.
+//
+// The guard is read unconditionally, in both storage modes. `authRequired` is a
+// decorator plugins/auth.ts provides and that plugin is registered only in
+// postgres mode, so server.ts registers plugins/authDisabled.ts (a no-op guard)
+// in the sqlite branch. That keeps this file free of `config.auth.enabled`
+// branches — see the comment in plugins/authDisabled.ts for the full argument.
+//
+// What is NOT here yet is per-schema authorization: visibility, grants,
+// cross-user reads of a schema by id, `?scope=` filtering and the 404-not-403
+// rule (design §5) all arrive in plan 3. Until then an authenticated caller who
+// knows a uuid can still read and mutate another user's schema. Child mutations
+// are at least scoped to the schema in the path (not the child id alone), and so
+// are superClassId/domainClassId references (in service.ts), so the guard plan 3
 // attaches to `:id` is the same key every write already uses.
 //
-// These routes are the live surface of the multi-user web deployment, which
-// means every handler here is reachable anonymously. The one that leaves the
-// process — GET /:id/upper-concepts — therefore goes through the same guarded
-// helper and the same per-route rate limit as the standalone proxy, never
-// through the unguarded rdf/upperConcepts.ts#fetchUpperConcepts (desktop only).
+// The one handler that leaves the process — GET /:id/upper-concepts — goes
+// through the same guarded helper and the same per-route rate limit as the
+// standalone proxy, never through the unguarded
+// rdf/upperConcepts.ts#fetchUpperConcepts (desktop only).
 
-import type { FastifyPluginAsync } from 'fastify';
+import type { FastifyPluginAsync, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { guardedUpperConcepts, UPPER_CONCEPTS_RATE_LIMIT } from '../../rdf/guardedUpperConcepts.js';
-import { LOCAL_OWNER_ID } from '../../db/constants.js';
+import type { RequestUser } from '../users/service.js';
 import * as service from './service.js';
 import {
   AddClassBody, AddPropertyBody, CreateOntologySchemaBody,
   UpdateClassBody, UpdateOntologySchemaBody, UpdatePropertyBody,
 } from './schemas.js';
+
+/**
+ * `request.user` is non-null after authRequired, but asserting that with `!` at
+ * every call site means a route registered without the preHandler crashes
+ * somewhere far from the mistake. This turns the same wiring error into a loud,
+ * self-describing 500 during development.
+ */
+function requireUser(request: FastifyRequest): RequestUser {
+  if (!request.user) throw new Error('route is missing the authRequired preHandler');
+  return request.user;
+}
 
 /** Route params are uuids in Postgres; a non-uuid is a client error, not a 500. */
 const UuidParam = z.object({ id: z.string().uuid() });
@@ -29,9 +53,10 @@ const UuidClassParam = z.object({ id: z.string().uuid(), classId: z.string().uui
 const UuidPropParam = z.object({ id: z.string().uuid(), propId: z.string().uuid() });
 
 const schemasRoutes: FastifyPluginAsync = async (fastify) => {
-  fastify.get('/', async () => service.listSchemas(fastify.pg, LOCAL_OWNER_ID));
+  fastify.get('/', { preHandler: fastify.authRequired }, async (request) =>
+    service.listSchemas(fastify.pg, requireUser(request).id));
 
-  fastify.get('/:id', async (request, reply) => {
+  fastify.get('/:id', { preHandler: fastify.authRequired }, async (request, reply) => {
     const parsed = UuidParam.safeParse(request.params);
     if (!parsed.success) return reply.badRequest('Malformed schema id');
 
@@ -40,13 +65,13 @@ const schemasRoutes: FastifyPluginAsync = async (fastify) => {
     return schema;
   });
 
-  fastify.post('/', async (request, reply) => {
+  fastify.post('/', { preHandler: fastify.authRequired }, async (request, reply) => {
     const data = CreateOntologySchemaBody.parse(request.body);
-    const created = await service.createSchema(fastify.pg, LOCAL_OWNER_ID, data);
+    const created = await service.createSchema(fastify.pg, requireUser(request).id, data);
     return reply.code(201).send(created);
   });
 
-  fastify.patch('/:id', async (request, reply) => {
+  fastify.patch('/:id', { preHandler: fastify.authRequired }, async (request, reply) => {
     const parsed = UuidParam.safeParse(request.params);
     if (!parsed.success) return reply.badRequest('Malformed schema id');
 
@@ -55,7 +80,7 @@ const schemasRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.code(204).send();
   });
 
-  fastify.delete('/:id', async (request, reply) => {
+  fastify.delete('/:id', { preHandler: fastify.authRequired }, async (request, reply) => {
     const parsed = UuidParam.safeParse(request.params);
     if (!parsed.success) return reply.badRequest('Malformed schema id');
 
@@ -64,6 +89,7 @@ const schemasRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   fastify.get('/:id/upper-concepts', {
+    preHandler: fastify.authRequired,
     // Same budget as the standalone proxy: both make this server fetch a
     // caller-influenced URL, and this one is the route the frontend uses.
     config: { rateLimit: UPPER_CONCEPTS_RATE_LIMIT },
@@ -83,7 +109,7 @@ const schemasRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.badRequest(result.message);
   });
 
-  fastify.post('/:id/classes', async (request, reply) => {
+  fastify.post('/:id/classes', { preHandler: fastify.authRequired }, async (request, reply) => {
     const parsed = UuidParam.safeParse(request.params);
     if (!parsed.success) return reply.badRequest('Malformed schema id');
 
@@ -98,7 +124,7 @@ const schemasRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.code(201).send(created);
   });
 
-  fastify.patch('/:id/classes/:classId', async (request, reply) => {
+  fastify.patch('/:id/classes/:classId', { preHandler: fastify.authRequired }, async (request, reply) => {
     const parsed = UuidClassParam.safeParse(request.params);
     if (!parsed.success) return reply.badRequest('Malformed id');
 
@@ -108,7 +134,7 @@ const schemasRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.code(204).send();
   });
 
-  fastify.delete('/:id/classes/:classId', async (request, reply) => {
+  fastify.delete('/:id/classes/:classId', { preHandler: fastify.authRequired }, async (request, reply) => {
     const parsed = UuidClassParam.safeParse(request.params);
     if (!parsed.success) return reply.badRequest('Malformed id');
 
@@ -117,7 +143,7 @@ const schemasRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.code(204).send();
   });
 
-  fastify.post('/:id/properties', async (request, reply) => {
+  fastify.post('/:id/properties', { preHandler: fastify.authRequired }, async (request, reply) => {
     const parsed = UuidParam.safeParse(request.params);
     if (!parsed.success) return reply.badRequest('Malformed schema id');
 
@@ -130,7 +156,7 @@ const schemasRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.code(201).send(created);
   });
 
-  fastify.patch('/:id/properties/:propId', async (request, reply) => {
+  fastify.patch('/:id/properties/:propId', { preHandler: fastify.authRequired }, async (request, reply) => {
     const parsed = UuidPropParam.safeParse(request.params);
     if (!parsed.success) return reply.badRequest('Malformed id');
 
@@ -140,7 +166,7 @@ const schemasRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.code(204).send();
   });
 
-  fastify.delete('/:id/properties/:propId', async (request, reply) => {
+  fastify.delete('/:id/properties/:propId', { preHandler: fastify.authRequired }, async (request, reply) => {
     const parsed = UuidPropParam.safeParse(request.params);
     if (!parsed.success) return reply.badRequest('Malformed id');
 
