@@ -34,8 +34,20 @@ export type PropertyInput = {
 };
 export type PropertyPatch = Partial<PropertyInput>;
 
-export async function listSchemas(): Promise<OntologySchemaSummary[]> {
-  return apiClient.get('/ontology-schemas').then((r) => r.data);
+export type SchemaScope = 'mine' | 'shared' | 'public';
+
+/**
+ * `scope` is only meaningful against the Postgres (web) backend — see the
+ * module comment in api/src/modules/schemas/routes.ts. Omitting it (the
+ * desktop/SQLite path, which ignores the parameter entirely) preserves the
+ * exact call shape the existing test asserts: `get('/ontology-schemas')`
+ * with no second argument.
+ */
+export async function listSchemas(scope?: SchemaScope): Promise<OntologySchemaSummary[]> {
+  const request = scope
+    ? apiClient.get('/ontology-schemas', { params: { scope } })
+    : apiClient.get('/ontology-schemas');
+  return request.then((r) => r.data);
 }
 
 export async function getSchema(id: string): Promise<OntologySchema> {
@@ -50,6 +62,8 @@ export async function createSchema(data: {
 
 export async function updateSchema(id: string, data: {
   title?: string; description?: string; upperOntologyIri?: string; baseUri?: string;
+  /** Accepted by the server only from a caller at `own` — see ShareDialog. */
+  visibility?: 'private' | 'unlisted' | 'public';
 }): Promise<void> {
   await apiClient.patch(`/ontology-schemas/${id}`, data);
 }

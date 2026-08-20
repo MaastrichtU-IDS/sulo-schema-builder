@@ -62,6 +62,7 @@ import {
   type NewPropertyForm,
 } from '../lib/formSchemas.js';
 import PropertyFeaturesEditor from '../components/PropertyFeaturesEditor.js';
+import ShareDialog from '../components/ShareDialog.js';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   serializeSchema,
@@ -72,6 +73,20 @@ import {
   SHARE_FRAGMENT_PREFIX,
   type SchemaExport,
 } from '../lib/schemaTransfer.js';
+
+// ─── Scope tabs (mine / shared with me / public) ────────────────────────────
+//
+// Meaningful only against the Postgres (web) backend — the desktop/SQLite
+// path has no `users` table and so no notion of scope at all (see the module
+// comment in api/src/modules/schemas/routes.ts). An anonymous web visitor can
+// only ever ask for `public` (`mine`/`shared` describe a relationship to a
+// session-less caller and 401 server-side), so they get one, non-interactive
+// tab rather than three where two would only ever 401.
+const SCOPE_TABS: { value: 'mine' | 'shared' | 'public'; label: string }[] = [
+  { value: 'mine', label: 'Mine' },
+  { value: 'shared', label: 'Shared with me' },
+  { value: 'public', label: 'Public' },
+];
 
 // ─── Common XSD types for range dropdown ─────────────────────────────────────
 
@@ -1638,7 +1653,14 @@ function SchemaListPage() {
   const [pendingShare, setPendingShare] = useState<SchemaExport | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { status: authStatus } = useAuth();
-  const schemasQuery = useOntologySchemas();
+  const [scope, setScope] = useState<'mine' | 'shared' | 'public'>('mine');
+  // The desktop/SQLite build has no scope at all (undefined — the server
+  // ignores the param); a signed-in web caller gets whichever tab they
+  // picked; an anonymous one is pinned to `public`, the only scope that
+  // does not 401 without a session (see modules/schemas/routes.ts).
+  const effectiveScope: 'mine' | 'shared' | 'public' | undefined =
+    authStatus === 'disabled' ? undefined : authStatus === 'authenticated' ? scope : 'public';
+  const schemasQuery = useOntologySchemas(effectiveScope, authStatus !== 'loading');
   const createMutation = useCreateOntologySchema();
   const deleteMutation = useDeleteOntologySchema();
   const navigate = useNavigate();
@@ -3201,12 +3223,28 @@ function SchemaListPage() {
         </div>
       )}
 
-      {/* Schema list — an anonymous visitor gets a plain sign-in prompt rather
-          than the list query's 401 surfacing as a generic load error. */}
-      {authStatus === 'anonymous' ? (
-        <div className="text-center py-20 text-slate-400 text-sm">Sign in to see your schemas.</div>
-      ) : (
-        <>
+      {/* Scope tabs — hidden entirely on the desktop/SQLite build, which has
+          no notion of scope at all. An anonymous visitor gets one,
+          non-interactive "Public" tab rather than three where two would
+          only ever 401 (see the SCOPE_TABS comment above). */}
+      {authStatus !== 'disabled' && (
+        <div className="flex gap-1 border-b border-slate-200">
+          {SCOPE_TABS.filter((t) => authStatus === 'authenticated' || t.value === 'public').map((t) => (
+            <button
+              key={t.value}
+              onClick={() => authStatus === 'authenticated' && setScope(t.value)}
+              className={`px-5 py-2.5 text-sm font-medium rounded-t-lg transition-colors ${
+                effectiveScope === t.value
+                  ? 'bg-white border border-b-white border-slate-200 text-violet-700 -mb-px'
+                  : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+              } ${authStatus === 'authenticated' ? '' : 'cursor-default'}`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      )}
+
       {schemasQuery.isLoading && (
         <div className="flex items-center justify-center py-20 text-slate-400 text-sm">Loading…</div>
       )}
@@ -3242,15 +3280,20 @@ function SchemaListPage() {
                 </div>
               )}
             </Link>
-            <button
-              onClick={() => {
-                if (confirm(`Delete "${schema.title}"?`)) deleteMutation.mutate(schema.id);
-              }}
-              className="text-slate-400 hover:text-red-500 text-sm ml-4 shrink-0 transition-colors"
-              title="Delete schema"
-            >
-              ✕
-            </button>
+            {/* Only in scopes where every listed schema is guaranteed to be
+                one the caller owns — a delete attempt on a shared/public
+                entry would only 403/404 (see modules/schemas/routes.ts). */}
+            {(effectiveScope === undefined || effectiveScope === 'mine') && (
+              <button
+                onClick={() => {
+                  if (confirm(`Delete "${schema.title}"?`)) deleteMutation.mutate(schema.id);
+                }}
+                className="text-slate-400 hover:text-red-500 text-sm ml-4 shrink-0 transition-colors"
+                title="Delete schema"
+              >
+                ✕
+              </button>
+            )}
           </div>
         ))}
       </div>
@@ -3263,8 +3306,6 @@ function SchemaListPage() {
           </button>
         </div>
       )}
-        </>
-      )}
     </div>
   );
 }
@@ -3272,6 +3313,7 @@ function SchemaListPage() {
 // ─── Detail / Builder page ────────────────────────────────────────────────────
 
 function SchemaDetailPage({ id }: { id: string }) {
+  const { status: authStatus } = useAuth();
   const schemaQuery    = useOntologySchema(id);
   const updateSchema   = useUpdateOntologySchema(id);
   const addClass       = useAddOntologyClass(id);
@@ -3290,6 +3332,7 @@ function SchemaDetailPage({ id }: { id: string }) {
   const [showConsistency, setShowConsistency] = useState(false);
   const [showDiagram, setShowDiagram] = useState(false);
   const [showShare, setShowShare] = useState(false);
+  const [showAccess, setShowAccess] = useState(false);
   const [editingClassId, setEditingClassId] = useState<string | null>(null);
   const [editingPropId, setEditingPropId] = useState<string | null>(null);
 
@@ -3437,6 +3480,18 @@ function SchemaDetailPage({ id }: { id: string }) {
               >
                 Share
               </button>
+              {/* Sharing/ACL is a Postgres-only feature (see modules/acl) —
+                  hidden on the desktop build and for an anonymous visitor,
+                  who could never reach `own` to use it. */}
+              {authStatus === 'authenticated' && (
+                <button
+                  onClick={() => setShowAccess(true)}
+                  className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-medium px-4 py-1.5 rounded-lg transition-colors border border-slate-300"
+                  title="Manage who can view, edit or own this schema"
+                >
+                  Manage access
+                </button>
+              )}
               <button
                 onClick={() => setEditingMeta(true)}
                 className="text-sm text-slate-400 hover:text-violet-600 border border-slate-200 hover:border-violet-300 px-3 py-1.5 rounded-lg transition-colors"
@@ -3742,6 +3797,7 @@ function SchemaDetailPage({ id }: { id: string }) {
       {showExport  && <ExportModal    schema={schema} onClose={() => setShowExport(false)}  />}
       {showConsistency && <ConsistencyModal schema={schema} onClose={() => setShowConsistency(false)} />}
       {showShare   && <ShareModal     schema={schema} onClose={() => setShowShare(false)}   />}
+      {showAccess  && <ShareDialog    schema={schema} onClose={() => setShowAccess(false)}  />}
       {showDiagram && <UmlDiagramView schema={schema} onClose={() => setShowDiagram(false)} />}
 
       {activeTab === 'properties' && (

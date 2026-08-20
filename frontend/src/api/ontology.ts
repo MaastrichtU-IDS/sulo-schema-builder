@@ -94,10 +94,17 @@ export async function reasonOntologyServer(turtle: string): Promise<ConsistencyR
 
 // ─── Hooks ────────────────────────────────────────────────────────────────────
 
-export function useOntologySchemas() {
+/**
+ * `enabled` lets a caller hold off fetching until it knows which scope to
+ * ask for — e.g. the schema list page, which must not fire a `public`
+ * request while auth status is still `loading` only to immediately refetch
+ * once it resolves to `authenticated`.
+ */
+export function useOntologySchemas(scope?: backend.SchemaScope, enabled = true) {
   return useQuery<OntologySchemaSummary[]>({
-    queryKey: ['ontology-schemas'],
-    queryFn: () => backend.listSchemas(),
+    queryKey: ['ontology-schemas', scope ?? null],
+    queryFn: () => backend.listSchemas(scope),
+    enabled,
   });
 }
 
@@ -121,8 +128,10 @@ export function useCreateOntologySchema() {
 export function useUpdateOntologySchema(id: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: { title?: string; description?: string; upperOntologyIri?: string; baseUri?: string }) =>
-      backend.updateSchema(id, data),
+    mutationFn: (data: {
+      title?: string; description?: string; upperOntologyIri?: string; baseUri?: string;
+      visibility?: 'private' | 'unlisted' | 'public';
+    }) => backend.updateSchema(id, data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['ontology-schema', id] });
       qc.invalidateQueries({ queryKey: ['ontology-schemas'] });

@@ -39,6 +39,15 @@ export interface OntologyProperty {
   disjointPropertyIris: string[];
 }
 
+/**
+ * Absent on the SQLite (desktop) storage path, which has no `users` table and
+ * so no sharing at all — see api/src/routes/v1/index.ts. Present whenever the
+ * Postgres web deployment answers (api/src/modules/schemas/mappers.ts), which
+ * is what lets the frontend's ShareDialog treat "no visibility on this
+ * schema" as "there is nothing to share here" rather than defaulting silently.
+ */
+export type SchemaVisibility = 'private' | 'unlisted' | 'public';
+
 export interface OntologySchema {
   id: string;
   url: string;
@@ -47,6 +56,7 @@ export interface OntologySchema {
   upperOntologyIri?: string;
   /** Overrides `url` as the namespace all classes/properties are minted under, when set. */
   baseUri?: string;
+  visibility?: SchemaVisibility;
   classes: OntologyClass[];
   properties: OntologyProperty[];
 }
@@ -58,6 +68,7 @@ export interface OntologySchemaSummary {
   description?: string;
   upperOntologyIri?: string;
   baseUri?: string;
+  visibility?: SchemaVisibility;
 }
 
 // ─── Server-side full OWL DL reasoning ──────────────────────────────────────────
