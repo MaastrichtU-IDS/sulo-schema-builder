@@ -172,6 +172,56 @@ describe('POST /admin/schemas/:id/unpublish', () => {
     const GHOST = '99999999-9999-9999-9999-999999999999';
     expect((await unpublish('moderator', GHOST)).statusCode).toBe(404);
   });
+
+  // Fix round 1, CRITICAL. Same status is not enough: `reply.notFound()`
+  // (every other 404 on this API) and server.ts's `setNotFoundHandler` (what
+  // a genuinely unregistered /api/* path answers) serialize to two
+  // DIFFERENT JSON bodies for the same 404 — which would let a client tell
+  // "hidden by decision 2" apart from "never existed" by body even though it
+  // cannot by status. moderation.routes.ts's role-rejection branch now
+  // constructs server.ts's exact object literal instead of calling
+  // `reply.notFound()`, and this is the assertion that proves it: byte-equal
+  // to what the identical URL answers when the route is not registered at
+  // all — not a hand-written expected literal, so a future drift in either
+  // shape (this route's, or server.ts's) is caught here rather than
+  // re-encoded.
+  //
+  // "Byte-identical" only holds request-for-request against the same URL:
+  // the message legitimately echoes `request.url`, so a real id's response
+  // and a ghost id's differ by that embedded id — which leaks nothing new
+  // (the caller supplied the id themselves). What must not differ, and does
+  // not, is that EACH of them is indistinguishable from hitting that exact
+  // same URL against an app where the route was never registered.
+  it('answers the non-moderator rejection byte-identically to the same URL hitting an unregistered route', async () => {
+    const id = await newSchema('public');
+    const GHOST = '99999999-9999-9999-9999-999999999999';
+
+    // Ground truth: nothing registered but the same catch-all shape
+    // server.ts uses for /api/*. A live app, not a hardcoded string — so this
+    // is what "genuinely unregistered" actually answers, not what the test
+    // assumes it should.
+    const unregistered = Fastify();
+    await unregistered.register(sensible);
+    unregistered.setNotFoundHandler((request, reply) => {
+      reply.code(404).send({ error: 'not_found', message: `Route ${request.method}:${request.url} not found` });
+    });
+    await unregistered.ready();
+
+    try {
+      for (const probeId of [id, GHOST]) {
+        const url = `/admin/schemas/${probeId}/unpublish`;
+        const rejected = await unpublish('stranger', probeId);
+        const neverRegistered = await unregistered.inject({ method: 'POST', url });
+
+        expect(rejected.statusCode, probeId).toBe(404);
+        expect(neverRegistered.statusCode, probeId).toBe(404);
+        expect(rejected.body, probeId).toBe(neverRegistered.body);
+        expect(rejected.headers['content-type'], probeId).toBe(neverRegistered.headers['content-type']);
+      }
+    } finally {
+      await unregistered.close();
+    }
+  });
 });
 
 // Decision 1's braces: a helper that throws loudly if request.user is absent,

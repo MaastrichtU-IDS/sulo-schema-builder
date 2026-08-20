@@ -57,9 +57,30 @@
 // ordinary signed-in user asking THIS route about a schema they can see (even
 // one they own) has learned nothing about the schema either way — what a 403
 // would hand them is the existence of an admin surface at this path, at all.
-// The route itself is the secret, not the schema, so it is answered exactly
-// like a path that was never registered: 404. A future reader who "fixes" this
-// to match the schema routes' 403 would be closing the wrong hole.
+// The route itself is the secret, not the schema, so it must be answered
+// EXACTLY like a path that was never registered — not merely with the same
+// status code. server.ts's `setNotFoundHandler` is what a genuinely
+// unregistered /api/* path answers with:
+//
+//   { error: 'not_found', message: `Route ${request.method}:${request.url} not found` }
+//
+// — snake_case `error`, no `statusCode`/`code` key, and a message echoing the
+// route. `reply.notFound()` (the shape every other 404 on this API uses,
+// including the schema-not-found branch below) goes through
+// plugins/errorHandler.ts's pass-through and Fastify's own default handler
+// instead, which serializes as `{ error: 'Not Found', message: 'Not Found',
+// statusCode: 404 }` — a second, distinguishable JSON shape for the same
+// status. A client that cannot tell 404 apart from "never registered" by
+// status code alone could still tell them apart by body, which leaks exactly
+// the fact this decision exists to hide. So the role-rejection branch below
+// constructs the object literally, byte-for-byte the same as server.ts's, on
+// purpose — not through `reply.notFound()` — and moderation.test.ts asserts
+// the byte-equality against a real sibling path that is genuinely
+// unregistered, not against a hand-written expected literal. A future reader
+// who "fixes" this to `reply.notFound()` (matching every other 404 on this
+// API) would be reopening exactly this leak; a future reader who changes
+// server.ts's shape must update this branch too, or the two drift apart and
+// the leak returns from the other direction.
 //
 // DECISION 3 — an anonymous caller gets 401.
 //
@@ -105,10 +126,18 @@ function requireModerator(): preHandlerHookHandler {
   return async (request, reply) => {
     const user = requireUserOrThrow(request);
     if (user.role !== 'moderator' && user.role !== 'admin') {
-      // 404, not 403 — decision 2. No message: the shape must match a route
-      // that never existed, and every other 404 on this API answers this
-      // plainly (see modules/acl/guards.ts).
-      return reply.notFound();
+      // 404, not 403 — decision 2. NOT `reply.notFound()`: that answers with
+      // a different JSON shape than a route Fastify never matched at all
+      // (server.ts's `setNotFoundHandler`), which would let a client
+      // distinguish "hidden" from "never existed" by body even though both
+      // answer 404 — exactly the leak decision 2 exists to prevent. This is
+      // server.ts's shape, copied byte-for-byte on purpose; see the module
+      // header for the full argument and moderation.test.ts for the
+      // byte-equality assertion against a real unregistered sibling path.
+      return reply.code(404).send({
+        error: 'not_found',
+        message: `Route ${request.method}:${request.url} not found`,
+      });
     }
   };
 }
