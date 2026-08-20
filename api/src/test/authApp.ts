@@ -50,6 +50,15 @@ export interface AuthedAppOptions {
    * for a minute and the failure looks like a policy bug.
    */
   userCacheTtlMs?: number;
+  /**
+   * Register @fastify/rate-limit with this global budget before the routes, as
+   * server.ts does. Only the suites that assert a *per-route* limit need it —
+   * the route's own `config.rateLimit` is inert without the plugin, so without
+   * this a test could not tell a declared limit from a forgotten one. Left off
+   * by default: a shared counter across an entire suite turns an unrelated test
+   * into a 429.
+   */
+  rateLimit?: { max: number; timeWindow: string };
 }
 
 export interface AuthedTestApp {
@@ -89,6 +98,11 @@ export async function buildAuthedApp(
       requireJwksAtBoot: true,
     },
   });
+  // Before the routes, so their per-route `config.rateLimit` is picked up.
+  if (opts.rateLimit) {
+    const { default: rateLimit } = await import('@fastify/rate-limit');
+    await app.register(rateLimit, opts.rateLimit);
+  }
   await app.register(opts.routes ?? schemasRoutes, {
     prefix: opts.prefix ?? (opts.routes ? '' : '/ontology-schemas'),
   });

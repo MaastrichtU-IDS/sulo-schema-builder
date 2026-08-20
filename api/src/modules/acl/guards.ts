@@ -21,6 +21,7 @@ import type { FastifyReply, FastifyRequest, preHandlerHookHandler } from 'fastif
 import { z } from 'zod';
 import { atLeast, resolveAccess, type AccessLevel } from './resolve.js';
 import { loadSchemaAccess } from './repo.js';
+import type { RequestUser } from '../users/service.js';
 import type { SchemaRow } from '../../db/types.js';
 
 declare module 'fastify' {
@@ -120,6 +121,26 @@ export const requireSaneToken: preHandlerHookHandler = async (request, reply) =>
  */
 export function mayChangeVisibility(level: AccessLevel): boolean {
   return atLeast(level, 'own');
+}
+
+/**
+ * Whether this caller may hand the schema to someone else.
+ *
+ * The one act `own` does not buy. `own` is reachable through an explicit
+ * `owner` grant, and that is load-bearing: a transfer leaves the previous owner
+ * such a grant precisely so that handing a schema over is not a lockout
+ * (modules/acl/grants.repo.ts#transferOwnership). If transfer were merely
+ * `own`-level, that previous owner could transfer it straight back and "giving
+ * it away" would mean nothing. So transfer reads `owner_id` itself — the
+ * current holder, or an admin acting for them.
+ *
+ * Lives here rather than in grants.routes.ts for the same reason
+ * `mayChangeVisibility` does: this module is the single enforcement point for
+ * schema-level policy (spec §5), and the route holds only the call site and the
+ * 403 it answers with.
+ */
+export function mayTransferOwnership(user: RequestUser, schema: Pick<SchemaRow, 'owner_id'>): boolean {
+  return user.role === 'admin' || user.id === schema.owner_id;
 }
 
 export function requireAccess(required: 'view' | 'edit' | 'own'): preHandlerHookHandler {
