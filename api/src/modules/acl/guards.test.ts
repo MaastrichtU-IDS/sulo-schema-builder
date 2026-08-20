@@ -252,6 +252,37 @@ describe('requireAccess', () => {
     expect((await get('otherOwner', 'own', otherSchemaId)).statusCode).toBe(200);
   });
 
+  // Fix round 1, finding 1. A bearer token that did not verify is not the same
+  // thing as no token: this caller believes it has a session. Answering by the
+  // 404 rule would tell a signed-in user whose token expired that their own
+  // private schema does not exist, and the SPA would have nothing to act on.
+  // Decided from the token alone, before the row is loaded, so it leaks nothing
+  // about which uuids exist.
+  it('401s a token that does not verify, rather than applying the 404 rule to it', async () => {
+    const expired = await harness.issuer.sign({ sub: SUBJECTS.owner }, { expiresIn: '-2h' });
+
+    for (const [label, token] of [['garbage', 'not.a.real.jwt'], ['expired', expired]] as const) {
+      // The owner's own private schema: with the token honoured this is 200,
+      // and with the token treated as plain anonymity it would be 404.
+      const own = await harness.app.inject({
+        method: 'GET', url: `/guard/view/${schemaIds.private}`, headers: harness.bearer(token),
+      });
+      expect(own.statusCode, label).toBe(401);
+
+      // Same answer for a uuid that does not exist — the 401 is about the
+      // token, so it must not vary with the row.
+      const ghost = await harness.app.inject({
+        method: 'GET', url: `/guard/view/${GHOST}`, headers: harness.bearer(token),
+      });
+      expect(ghost.statusCode, label).toBe(401);
+      expect(ghost.body, label).toBe(own.body);
+    }
+
+    // And a caller with no token at all is still plain anonymity: 200 on the
+    // public schema, not 401. The distinction is the whole point.
+    expect((await get('anonymous', 'view', schemaIds.public)).statusCode).toBe(200);
+  });
+
   it('400s a malformed schema id instead of letting Postgres raise', async () => {
     const res = await harness.app.inject({
       method: 'GET', url: '/guard/view/not-a-uuid', headers: harness.bearer(tokens.owner),

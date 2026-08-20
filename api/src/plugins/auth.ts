@@ -63,15 +63,25 @@ declare module 'fastify' {
   interface FastifyRequest {
     user: RequestUser | null;
     /**
-     * Set only when a verified, non-anonymous token could not be resolved to
-     * a user because of a *server-side* failure (e.g. Postgres unreachable),
-     * as opposed to genuine anonymity (no token, expired token, or the
-     * reserved local subject). authRequired answers 503 for this case
-     * instead of 401 — an infrastructure outage is not a session problem,
-     * and telling the caller's SPA to re-authenticate would just have it
-     * retry against a Keycloak that is fine and get the same 401 forever.
+     * Why this request has no `user`, when the reason is not plain anonymity.
+     * Absent a token entirely, this stays null and `user` is null: that is
+     * anonymity, and a route may legitimately allow it.
+     *
+     * 'unavailable' — a verified, non-anonymous token could not be resolved to
+     * a user because of a *server-side* failure (e.g. Postgres unreachable).
+     * Guards answer 503, not 401: an infrastructure outage is not a session
+     * problem, and telling the caller's SPA to re-authenticate would just have
+     * it retry against a Keycloak that is fine and get the same 401 forever.
+     *
+     * 'invalid' — an `Authorization: Bearer` header was present and the token
+     * did not verify (expired, wrong audience/issuer, unknown key, garbage).
+     * Routine traffic, but *not* the same as anonymity: this caller believes it
+     * has a session. A route that permits anonymous access must still answer
+     * 401 here, or an expired token turns into `200 []` and a 404 on the
+     * caller's own private schema — the SPA is then told its data is gone
+     * instead of being told to sign in again. See modules/acl/guards.ts.
      */
-    authError: 'unavailable' | null;
+    authError: 'unavailable' | 'invalid' | null;
   }
 }
 
@@ -149,17 +159,22 @@ export default fp<AuthPluginOptions>(async (fastify, opts) => {
       });
       claims = payload as unknown as TokenClaims;
     } catch (err) {
-      // An unverifiable token is anonymity, not an error: the guards below
-      // decide whether that is fatal for this route. Most rejections (expired,
-      // wrong audience/issuer) are routine on a public deployment and logged at
-      // debug. A key-resolution or transport failure means every token is about
-      // to be rejected the same way, indistinguishable from an expired one at
-      // this log level — that is the failure mode this branch exists to end.
+      // An unverifiable token is not an error the server owns, but it is not
+      // anonymity either — see authError below. The guards decide what it costs
+      // on a given route. Most rejections (expired, wrong audience/issuer) are
+      // routine on a public deployment and logged at debug. A key-resolution or
+      // transport failure means every token is about to be rejected the same
+      // way, indistinguishable from an expired one at this log level — that is
+      // the failure mode this branch exists to end.
       if (isJwksResolutionFailure(err)) {
         request.log.error({ err, jwksUri: auth.jwksUri }, 'JWKS key resolution or fetch failed; every bearer token will be rejected until this is fixed');
       } else {
         request.log.debug({ err }, 'bearer token rejected');
       }
+      // Not anonymity: the caller presented a token and believes it is signed
+      // in. Guards that allow anonymous callers still have to answer 401 for
+      // this, so record *why* `user` is null rather than losing it here.
+      request.authError = 'invalid';
       return;
     }
 

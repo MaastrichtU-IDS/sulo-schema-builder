@@ -18,8 +18,9 @@
 //
 // The two routes that name no schema are guarded differently, because there is
 // no row to resolve against: POST / needs a session (`fastify.authRequired`),
-// and GET / needs nothing — an anonymous caller gets an empty list until Task 3
-// adds `?scope=`.
+// and GET / needs only `requireSaneToken` — an anonymous caller gets an empty
+// list until task 3 adds `?scope=`, but a caller whose token is expired or
+// unresolvable is told so rather than handed that empty list.
 //
 // `authRequired` is a decorator plugins/auth.ts provides and that plugin is
 // registered only in postgres mode, so server.ts registers
@@ -42,7 +43,7 @@
 import type { FastifyPluginAsync, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { guardedUpperConcepts, UPPER_CONCEPTS_RATE_LIMIT } from '../../rdf/guardedUpperConcepts.js';
-import { aclGuards, requireAccess } from '../acl/guards.js';
+import { aclGuards, requireAccess, requireSaneToken } from '../acl/guards.js';
 import type { RequestUser } from '../users/service.js';
 import * as service from './service.js';
 import {
@@ -77,11 +78,17 @@ const schemasRoutes: FastifyPluginAsync = async (fastify) => {
   // is why the two ship from one module.
   await fastify.register(aclGuards);
 
-  // Unguarded on purpose: reading the catalogue is open. A signed-in caller
-  // still sees only their own schemas — public listing arrives with `?scope=`
-  // in Task 3, and until then anonymous means an empty list rather than an
-  // accidental dump of every row.
-  fastify.get('/', async (request) => {
+  // Open to anonymous callers: reading the catalogue needs no session. A
+  // signed-in caller still sees only their own schemas — public listing arrives
+  // with `?scope=` in task 3, and until then anonymous means an empty list
+  // rather than an accidental dump of every row.
+  //
+  // `requireSaneToken` is not a session check, and this route is not guarded by
+  // one. It separates "no token" (fine, here is an empty list) from "a token
+  // that is expired, unverifiable, or that the server could not resolve" —
+  // which without it would answer `200 []`, i.e. tell a signed-in user whose
+  // token has just expired that all of their schemas are gone.
+  fastify.get('/', { preHandler: requireSaneToken }, async (request) => {
     if (!request.user) return [];
     return service.listSchemas(fastify.pg, request.user.id);
   });

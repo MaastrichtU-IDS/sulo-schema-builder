@@ -6,8 +6,11 @@
 // regression. This file used to assert 401 for all twelve routes without a
 // token. That is now wrong for the two read routes:
 //
-//   * GET /ontology-schemas answers 200 with a list. Reading the catalogue is
-//     open; an anonymous caller gets [] until `?scope=` arrives in task 3.
+//   * GET /ontology-schemas answers 200 with a list *for a caller with no
+//     token*. Reading the catalogue is open; an anonymous caller gets [] until
+//     `?scope=` arrives in task 3. A caller with a token that is expired or
+//     unverifiable still gets 401, and one the server cannot resolve gets 503 —
+//     anonymity is the absence of a session, not a broken one.
 //   * GET /ontology-schemas/:id answers 200 anonymously for a public or
 //     unlisted schema, and 404 — never 401, never 403 — for a private one,
 //     because a caller who may not see a schema must not learn it exists.
@@ -50,7 +53,8 @@ beforeEach(async () => { await truncateAll(t.db); });
 /**
  * A schema created through the API by `subject`, then published.
  *
- * Visibility is set with an UPDATE because no route exposes it yet (task 4).
+ * Visibility is set with an UPDATE because no route exposes it yet — that is
+ * task 3, as is `?scope=`; task 4 is grants and task 5 the moderator unpublish.
  * The owner still comes from the token path, so the `users` row is the one the
  * auth plugin minted and cached.
  */
@@ -111,15 +115,37 @@ describe('schema routes under authentication', () => {
     expect(hidden.body).toBe(missing.body);
   });
 
-  // Was GET /ontology-schemas, which is now anonymous-readable; moved to a
-  // route where anonymity is still refused, so the assertion keeps its point:
-  // an unverifiable token must not buy anything a missing one would not.
+  // Was asserted on GET /ontology-schemas, which is now anonymous-readable.
+  // Kept there anyway (next test) *and* extended to a write, because the point
+  // is that an unverifiable token buys nothing a missing one would not.
   it('401s a write whose token does not verify, rather than treating it as anonymous-but-allowed', async () => {
     const res = await harness.app.inject({
       method: 'POST', url: '/ontology-schemas',
       headers: harness.bearer('not.a.real.jwt'), payload: { title: 'x' },
     });
     expect(res.statusCode).toBe(401);
+  });
+
+  // Fix round 1, finding 1. Opening GET / to anonymous callers must not also
+  // open it to *broken* sessions: an expired token answering `200 []` tells a
+  // signed-in user every schema they own has disappeared, and gives their SPA
+  // nothing to re-authenticate on. Absent token → 200 []; present-but-invalid
+  // token → 401. (The outage case, 503, is covered without a database in
+  // src/modules/acl/guards.unavailable.test.ts.)
+  it('401s the open list route for an expired or unverifiable token, but not for no token at all', async () => {
+    await schemaOwnedBy('kc-alice', 'private', 'Alice only');
+    const expired = await harness.issuer.sign({ sub: 'kc-alice' }, { expiresIn: '-2h' });
+
+    for (const token of ['not.a.real.jwt', expired]) {
+      const res = await harness.app.inject({
+        method: 'GET', url: '/ontology-schemas', headers: harness.bearer(token),
+      });
+      expect(res.statusCode).toBe(401);
+    }
+
+    const anonymous = await harness.app.inject({ method: 'GET', url: '/ontology-schemas' });
+    expect(anonymous.statusCode).toBe(200);
+    expect(anonymous.json()).toEqual([]);
   });
 
   it('attributes a created schema to the caller', async () => {
@@ -154,6 +180,48 @@ describe('schema routes under authentication', () => {
     expect(mine).toHaveLength(2);
     const { rows } = await t.pool.query('select count(*)::int as n from users where subject = $1', ['kc-twice']);
     expect(rows[0].n).toBe(1);
+  });
+
+  // Fix round 1, finding 4. The only route in the table whose level cannot be
+  // weakened without the rest of the suite noticing: every mutation is covered
+  // by the anonymous-write list above (an anonymous caller has `view` on a
+  // public schema, so a mutation downgraded to `view` would answer 204/201
+  // instead of 401), but DELETE /:id going from `own` to `edit` is invisible
+  // there — an editor-grantee could then delete someone else's schema and
+  // nothing would fail. PATCH in the same test is the control: it proves the
+  // grant is real and that the difference is the level, not the grantee.
+  it('lets an editor-grantee patch a schema but not delete it', async () => {
+    const id = await schemaOwnedBy('kc-alice', 'private', 'Alice only');
+    const bob = await harness.issuer.sign({ sub: 'kc-bob' }, { expiresIn: '2h' });
+
+    // Make Bob known through the token path, then grant him `editor`.
+    await harness.app.inject({ method: 'GET', url: '/ontology-schemas', headers: harness.bearer(bob) });
+    await t.pool.query(
+      `insert into schema_grants (schema_id, grantee_id, role)
+       select $1, id, 'editor' from users where subject = $2`,
+      [id, 'kc-bob'],
+    );
+
+    const patch = await harness.app.inject({
+      method: 'PATCH', url: `/ontology-schemas/${id}`,
+      headers: harness.bearer(bob), payload: { title: 'Edited by Bob' },
+    });
+    expect(patch.statusCode).toBe(204);
+
+    const del = await harness.app.inject({
+      method: 'DELETE', url: `/ontology-schemas/${id}`, headers: harness.bearer(bob),
+    });
+    expect(del.statusCode).toBe(403);
+
+    // The row is still there, and its owner can delete it.
+    const alice = await harness.issuer.sign({ sub: 'kc-alice' }, { expiresIn: '2h' });
+    const owned = await harness.app.inject({
+      method: 'DELETE', url: `/ontology-schemas/${id}`, headers: harness.bearer(alice),
+    });
+    expect(owned.statusCode).toBe(204);
+
+    const { rows } = await t.pool.query('select count(*)::int as n from schemas where id = $1', [id]);
+    expect(rows[0].n).toBe(0);
   });
 
   // Plan 2 left this open on purpose and plan 3 closed it; the assertion lives
