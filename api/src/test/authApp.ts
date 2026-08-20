@@ -1,6 +1,7 @@
 // Builds the schema surface exactly as the multi-user web deployment wires it:
 // @fastify/sensible, the shared error handler, a `pg` handle, the auth plugin,
-// then the schema routes at /ontology-schemas.
+// then the schema routes at /ontology-schemas (or whatever AuthedAppOptions
+// overrides).
 //
 // Extracted rather than copied a third time because the order above is not
 // free-form. plugins/auth.ts declares
@@ -11,7 +12,7 @@
 // registration-time error or a uniform 401 that looks like a product bug.
 
 import Fastify, {
-  type FastifyInstance, type InjectOptions, type LightMyRequestResponse,
+  type FastifyInstance, type FastifyPluginAsync, type InjectOptions, type LightMyRequestResponse,
 } from 'fastify';
 import sensible from '@fastify/sensible';
 import type { Kysely } from 'kysely';
@@ -27,6 +28,30 @@ import { createTestIssuer, type TestIssuer } from './tokens.js';
  */
 export const FIXTURE_SUBJECT = 'kc-fixture-subject';
 
+/**
+ * Overrides for suites that need something other than the default wiring.
+ * Everything a caller does not set stays exactly as the web deployment has it,
+ * so an override is visible at the call site rather than hidden in a copy of
+ * this file.
+ */
+export interface AuthedAppOptions {
+  /**
+   * Register this route tree instead of the schema routes. The ACL guard suite
+   * mounts three trivial routes (one per guard level) so that the matrix it
+   * asserts is about the guard and nothing else; `prefix` is then mandatory,
+   * because '/ontology-schemas' would be a lie.
+   */
+  routes?: FastifyPluginAsync;
+  prefix?: string;
+  /**
+   * Subject -> user cache TTL. The default matches the deployment. A suite that
+   * promotes a fixture user's global_role *after* the token path created the row
+   * must pass 0, or the guard keeps answering from the pre-promotion snapshot
+   * for a minute and the failure looks like a policy bug.
+   */
+  userCacheTtlMs?: number;
+}
+
 export interface AuthedTestApp {
   app: FastifyInstance;
   issuer: TestIssuer;
@@ -37,7 +62,9 @@ export interface AuthedTestApp {
   close(): Promise<void>;
 }
 
-export async function buildAuthedApp(db: Kysely<DB>): Promise<AuthedTestApp> {
+export async function buildAuthedApp(
+  db: Kysely<DB>, opts: AuthedAppOptions = {},
+): Promise<AuthedTestApp> {
   const issuer = await createTestIssuer();
 
   const app = Fastify();
@@ -58,11 +85,13 @@ export async function buildAuthedApp(db: Kysely<DB>): Promise<AuthedTestApp> {
       jwksUri: `${issuer.issuer}/protocol/openid-connect/certs`,
       jwksJson: issuer.jwks,
       clientId: 'sulo-spa',
-      userCacheTtlMs: 60_000,
+      userCacheTtlMs: opts.userCacheTtlMs ?? 60_000,
       requireJwksAtBoot: true,
     },
   });
-  await app.register(schemasRoutes, { prefix: '/ontology-schemas' });
+  await app.register(opts.routes ?? schemasRoutes, {
+    prefix: opts.prefix ?? (opts.routes ? '' : '/ontology-schemas'),
+  });
   await app.ready();
 
   // One long-lived token for the whole file: a container start plus a few dozen

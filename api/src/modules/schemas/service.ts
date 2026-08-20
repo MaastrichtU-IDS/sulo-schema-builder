@@ -5,7 +5,7 @@
 // breaks the packaged desktop binary. The reason is spelled out at the top of
 // repo.ts.
 import type { Kysely } from 'kysely';
-import type { DB } from '../../db/types.js';
+import type { DB, SchemaRow } from '../../db/types.js';
 import { publicUrlProblem } from '../../rdf/safeFetch.js';
 import * as repo from './repo.js';
 import { classRowToApi, normalizeBaseUri, propertyRowToApi, schemaIri, schemaRowToSummary } from './mappers.js';
@@ -105,18 +105,19 @@ export async function listSchemas(db: Kysely<DB>, ownerId: string) {
   return (await repo.listSchemas(db, ownerId)).map(schemaRowToSummary);
 }
 
-/** Cheap existence probe, so a child insert can 404 instead of tripping an FK. */
-export async function schemaExists(db: Kysely<DB>, id: string): Promise<boolean> {
-  return (await repo.getSchemaRow(db, id)) !== undefined;
-}
-
-export async function getSchemaWithChildren(db: Kysely<DB>, id: string) {
-  const row = await repo.getSchemaRow(db, id);
-  if (!row) return undefined;
-
+/**
+ * The full API shape for a schema row the caller already holds.
+ *
+ * Split out from getSchemaWithChildren because the ACL guard has already loaded
+ * and authorized the row (modules/acl/guards.ts): re-fetching it by id would be
+ * a second query, and worse, a second answer — a handler that disagreed with
+ * the guard about which row `:id` names is exactly the seam authorization bugs
+ * live in.
+ */
+export async function schemaWithChildren(db: Kysely<DB>, row: SchemaRow) {
   const [classes, properties] = await Promise.all([
-    repo.listClasses(db, id),
-    repo.listProperties(db, id),
+    repo.listClasses(db, row.id),
+    repo.listProperties(db, row.id),
   ]);
 
   return {
@@ -125,6 +126,12 @@ export async function getSchemaWithChildren(db: Kysely<DB>, id: string) {
     classes: classes.map(classRowToApi),
     properties: properties.map(propertyRowToApi),
   };
+}
+
+export async function getSchemaWithChildren(db: Kysely<DB>, id: string) {
+  const row = await repo.getSchemaRow(db, id);
+  if (!row) return undefined;
+  return schemaWithChildren(db, row);
 }
 
 export async function createSchema(db: Kysely<DB>, ownerId: string, input: SchemaInput) {
