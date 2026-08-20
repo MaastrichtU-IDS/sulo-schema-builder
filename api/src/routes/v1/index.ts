@@ -6,6 +6,7 @@ import upperConceptsRoute from './upperConcepts.js';
 import reasonRoutes from './reason.js';
 import schemasRoutes from '../../modules/schemas/routes.js';
 import grantsRoutes, { userLookupRoutes } from '../../modules/acl/grants.routes.js';
+import moderationRoutes from '../../modules/acl/moderation.routes.js';
 import legacySqliteRoutes from '../../legacy/sqlite/ontology.routes.js';
 
 const v1Routes: FastifyPluginAsync = async (fastify) => {
@@ -32,6 +33,12 @@ const v1Routes: FastifyPluginAsync = async (fastify) => {
     // rather than by the ACL. Its privacy posture is argued in full at the top
     // of grants.routes.ts — read that before touching it.
     await fastify.register(userLookupRoutes, { prefix: '/users' });
+    // Belt for moderation.routes.ts's decision 1: registered only here, so it
+    // cannot be reached in sqlite mode at all, where plugins/authDisabled.ts's
+    // no-op requireRole/authRequired would otherwise let anyone through. The
+    // braces (a helper that throws loudly if request.user is still absent) are
+    // argued in full at the top of that file.
+    await fastify.register(moderationRoutes, { prefix: '/admin/schemas' });
   } else {
     await fastify.register(legacySqliteRoutes, { prefix: '/ontology-schemas' });
   }
