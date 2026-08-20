@@ -1,4 +1,5 @@
 import { Link, NavLink } from 'react-router-dom';
+import UserMenu from './UserMenu.js';
 
 const NAV_LINKS = [
   { to: '/ontology', label: 'Schema Builder' },
@@ -31,6 +32,8 @@ export default function NavBar() {
             </NavLink>
           ))}
         </div>
+
+        <UserMenu />
       </div>
     </nav>
   );

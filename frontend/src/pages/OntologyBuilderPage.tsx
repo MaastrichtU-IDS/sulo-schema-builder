@@ -45,6 +45,7 @@ import {
   type SuloStatus,
 } from '../api/ontology.js';
 import { apiClient } from '../api/client.js';
+import { useAuth } from '../auth/useAuth.js';
 import {
   extractNamedGroups,
   generateExports,
@@ -1636,6 +1637,7 @@ function SchemaListPage() {
   const [importError, setImportError] = useState<string | null>(null);
   const [pendingShare, setPendingShare] = useState<SchemaExport | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { status: authStatus } = useAuth();
   const schemasQuery = useOntologySchemas();
   const createMutation = useCreateOntologySchema();
   const deleteMutation = useDeleteOntologySchema();
@@ -3199,7 +3201,12 @@ function SchemaListPage() {
         </div>
       )}
 
-      {/* Schema list */}
+      {/* Schema list — an anonymous visitor gets a plain sign-in prompt rather
+          than the list query's 401 surfacing as a generic load error. */}
+      {authStatus === 'anonymous' ? (
+        <div className="text-center py-20 text-slate-400 text-sm">Sign in to see your schemas.</div>
+      ) : (
+        <>
       {schemasQuery.isLoading && (
         <div className="flex items-center justify-center py-20 text-slate-400 text-sm">Loading…</div>
       )}
@@ -3255,6 +3262,8 @@ function SchemaListPage() {
             Create one
           </button>
         </div>
+      )}
+        </>
       )}
     </div>
   );

@@ -20,10 +20,13 @@ COPY frontend/tsconfig.json frontend/vite.config.ts frontend/index.html \
 COPY frontend/src ./frontend/src
 COPY frontend/public ./frontend/public
 
+# Whether auth is required is discovered at runtime from GET /auth-config
+# (see frontend/src/auth/AuthProvider.tsx) rather than baked in here — one
+# SPA build then serves both the multi-user web deployment and the
+# single-user desktop sidecar, and there's no second source of truth to
+# drift from the server's own config.
 ARG VITE_API_BASE_URL=/api/v1
-ARG VITE_AUTH_ENABLED=false
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
-ENV VITE_AUTH_ENABLED=$VITE_AUTH_ENABLED
 
 RUN npm run build -w sulo-schema-builder-frontend
 
