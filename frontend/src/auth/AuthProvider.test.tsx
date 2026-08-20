@@ -149,13 +149,43 @@ describe('AuthProvider', () => {
     await expect(provider.getToken()).resolves.toBe('tok-abc');
   });
 
-  it('degrades to "disabled" rather than rendering nothing when /auth-config rejects', async () => {
+  // Previously named "degrades to disabled when /auth-config rejects", but
+  // getAuthConfig() used to swallow every failure into a resolved
+  // `{ enabled: false }` — it never actually rejected, so this test's
+  // `mockRejectedValue` exercised the ordinary `!config.enabled` branch, not
+  // the rejection-handling code its name claimed to cover. Renamed to match
+  // what it actually does, now that a rejection is a distinct, retried
+  // outcome (see the next test for the case that name used to promise).
+  it('degrades to "disabled" only after exhausting retries when /auth-config keeps rejecting', async () => {
     apiGet.mockRejectedValue(new Error('network down'));
 
     const { result } = renderAuth();
 
-    await waitFor(() => expect(result.current.status).toBe('disabled'));
+    expect(result.current.status).toBe('loading');
+    await waitFor(() => expect(result.current.status).toBe('disabled'), { timeout: 10_000 });
+    // Proves this went through the retry loop rather than latching on the
+    // very first failure.
+    expect(apiGet.mock.calls.length).toBeGreaterThan(1);
     expect(h.instances).toHaveLength(0);
+  });
+
+  // The behaviour the test above used to (mis)claim to cover: a transient
+  // failure to even reach /auth-config must not permanently latch this
+  // deployment as unauthenticated. AuthProvider retries with backoff, and a
+  // later success is used exactly as if it had succeeded the first time.
+  it('recovers from a transient /auth-config failure by retrying instead of latching "disabled"', async () => {
+    apiGet
+      .mockRejectedValueOnce(new Error('network down'))
+      .mockRejectedValueOnce(new Error('network down'))
+      .mockResolvedValueOnce({ data: { enabled: true, issuer: ISSUER, clientId: 'sulo-spa' } });
+    h.setNextAuthenticated(false);
+
+    const { result } = renderAuth();
+
+    expect(result.current.status).toBe('loading');
+    await waitFor(() => expect(result.current.status).toBe('anonymous'), { timeout: 10_000 });
+    expect(apiGet).toHaveBeenCalledTimes(3);
+    expect(h.instances).toHaveLength(1);
   });
 
   it('degrades to "disabled" when Keycloak init() throws', async () => {

@@ -68,9 +68,19 @@ test.describe('Auth — real Keycloak login flow', () => {
     await page.waitForLoadState('networkidle');
     await expect(page.getByText(title)).toBeVisible({ timeout: 15_000 });
 
-    // 5. Signing out returns to the anonymous state; the schema is no
-    // longer listed (it never disappears — the list is simply gated behind
-    // a session again).
+    // 5. Signing out returns to the anonymous state and the UI gates the
+    // list behind a session again. NOTE: this only proves the UI gate, not
+    // owner-scoped listing on the server — once signed out, the whole list
+    // subtree is replaced with "Sign in to see your schemas.", so
+    // `expect(page.getByText(title)).not.toBeVisible()` would pass
+    // regardless of what a GET /ontology-schemas without a token returned.
+    // Owner-scoped listing itself (one subject's GET never contains
+    // another's title) is exercised by the unit suite instead — see
+    // "lists only the caller own schemas" in
+    // api/src/modules/schemas/routes.auth.test.ts. Seeding a second Keycloak
+    // user to make this assertion load-bearing here was judged not worth the
+    // added e2e machinery (a second seeded account, a second sign-in) for
+    // coverage the unit suite already has.
     await page.getByRole('button', { name: 'Sign out' }).click();
     await expect(page.getByRole('button', { name: 'Sign in' })).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText('Sign in to see your schemas.')).toBeVisible();

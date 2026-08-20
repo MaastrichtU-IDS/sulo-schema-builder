@@ -6,9 +6,13 @@
 // the server, once, and memoises the answer — the same shape the deleted
 // appConfig.ts used for the (now-removed) storage-mode discovery.
 //
-// A builder that works without login beats a white screen: any failure to
-// reach the endpoint — a stale API, a network hiccup — degrades to
-// `{ enabled: false }` rather than surfacing an error.
+// Only a *successful* answer is memoised. A failure to even ask — a stale
+// API restarting, a proxy 502ing this one route — must not be cached: doing
+// so used to latch this deployment as permanently unauthenticated ("disabled")
+// after one transient hiccup, with no recovery short of a manual reload. This
+// rejects instead, so the caller (AuthProvider) can tell "couldn't ask" apart
+// from "asked, and it's genuinely off" and retry with backoff rather than
+// giving up on the first failure.
 
 import { apiClient } from './client.js';
 
@@ -25,7 +29,13 @@ export function getAuthConfig(): Promise<AuthConfig> {
     cached = apiClient
       .get('/auth-config')
       .then((r) => r.data as AuthConfig)
-      .catch((): AuthConfig => ({ enabled: false }));
+      .catch((err: unknown) => {
+        // Don't memoise a failure to ask — see the module comment. Clear the
+        // cache before rethrowing so the next call (AuthProvider's retry)
+        // gets a fresh attempt instead of replaying this same rejection.
+        cached = null;
+        throw err;
+      });
   }
   return cached;
 }

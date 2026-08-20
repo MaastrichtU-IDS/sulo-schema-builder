@@ -9,17 +9,31 @@
 //
 // Every failure mode here degrades to `'disabled'` rather than rendering
 // nothing: a builder that works without login beats a white screen. That
-// covers a `/auth-config` that 404s or rejects, and a Keycloak `init()` that
-// throws (e.g. the silent-check iframe being blocked).
+// covers a Keycloak `init()` that throws (e.g. the silent-check iframe being
+// blocked) — degraded to immediately, since retrying a browser-side init
+// failure would just repeat it — and a `/auth-config` that keeps rejecting
+// after retrying with backoff (below).
+//
+// `/auth-config` rejecting is deliberately NOT the same as it resolving with
+// `{ enabled: false }`: a reject means the question couldn't even be asked
+// (API restarting, a proxy 502) and is worth retrying; `enabled: false` is a
+// real, load-bearing answer from a server that IS up, and is not retried.
 //
 // Tokens live only in this component's state / the Keycloak instance's own
 // memory — nothing is written to localStorage or cookies by this code.
 
 import { createContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import type Keycloak from 'keycloak-js';
-import { getAuthConfig } from '../api/authConfig.js';
+import { getAuthConfig, type AuthConfig } from '../api/authConfig.js';
 import { createKeycloak } from './keycloak.js';
 import { setTokenProvider } from '../api/client.js';
+
+// Backoff before giving up on a rejecting /auth-config and finally degrading
+// to 'disabled'. Bounded and short: this delays first paint of the
+// sign-in/anonymous UI on a healthy deployment by nothing (the happy path
+// never enters this loop), and on an unhealthy one it is a few seconds of
+// "loading" rather than an instant, permanent "disabled".
+const AUTH_CONFIG_RETRY_DELAYS_MS = [300, 900, 2000];
 
 export type AuthStatus = 'loading' | 'disabled' | 'anonymous' | 'authenticated';
 
@@ -52,11 +66,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let cancelled = false;
 
+    // Deliberately does not check `cancelled` to cut its own execution
+    // short — only the `run()` below's setStatus calls are guarded by it.
+    // Bailing out here on a stale StrictMode double-invoke run would (like
+    // the ref-clobbering hazard the "keeps the live authenticated instance"
+    // test below guards) leave that run's Keycloak instance never
+    // constructed, silently changing which effect run "wins" from the one
+    // React's own semantics dictate.
+    async function fetchAuthConfigWithRetry(): Promise<AuthConfig | undefined> {
+      for (let attempt = 0; ; attempt++) {
+        try {
+          return await getAuthConfig();
+        } catch {
+          if (attempt >= AUTH_CONFIG_RETRY_DELAYS_MS.length) {
+            // Retries exhausted — this deployment may genuinely be
+            // unreachable, but a white screen (stuck on 'loading' forever)
+            // would be worse than degrading to the anonymous-capable UI.
+            return undefined;
+          }
+          await new Promise((resolve) => setTimeout(resolve, AUTH_CONFIG_RETRY_DELAYS_MS[attempt]));
+        }
+      }
+    }
+
     async function run() {
-      let config;
-      try {
-        config = await getAuthConfig();
-      } catch {
+      const config = await fetchAuthConfigWithRetry();
+      if (!config) {
         if (!cancelled) setStatus('disabled');
         return;
       }
