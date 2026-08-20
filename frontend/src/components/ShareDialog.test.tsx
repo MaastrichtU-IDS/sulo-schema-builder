@@ -159,4 +159,48 @@ describe('ShareDialog', () => {
     );
     await waitFor(() => expect(grantsCalls).toBeGreaterThan(callsBeforeAdd));
   });
+
+  it('transfers ownership to the resolved userId and invalidates the grants and schema queries', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    get.mockImplementation((url: string) => {
+      if (url.includes('/grants')) return Promise.resolve({ data: [] });
+      if (url.includes('/users/lookup')) {
+        return Promise.resolve({ data: { id: 'user-9', displayName: 'Alice' } });
+      }
+      return Promise.reject(new Error(`unexpected GET ${url}`));
+    });
+    post.mockResolvedValue({ data: undefined });
+
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+    const schema: OntologySchema = {
+      id: 'schema-1',
+      url: 'https://example/ontology-schema/schema-1',
+      title: 'Test Schema',
+      visibility: 'private',
+      classes: [],
+      properties: [],
+    };
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ShareDialog schema={schema} onClose={vi.fn()} />
+      </QueryClientProvider>,
+    );
+    const user = userEvent.setup();
+
+    await waitFor(() => expect(screen.getByLabelText(/new owner/i)).toBeInTheDocument());
+    await user.type(screen.getByLabelText(/new owner/i), 'alice@example.com');
+    await user.click(screen.getByRole('button', { name: /^transfer$/i }));
+
+    await waitFor(() =>
+      expect(post).toHaveBeenCalledWith('/ontology-schemas/schema-1/transfer', { userId: 'user-9' }),
+    );
+    expect(window.confirm).toHaveBeenCalled();
+    await waitFor(() =>
+      expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['schema-grants', 'schema-1'] }),
+    );
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['ontology-schema', 'schema-1'] });
+  });
 });
