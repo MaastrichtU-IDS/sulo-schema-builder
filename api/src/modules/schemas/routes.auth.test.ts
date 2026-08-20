@@ -7,8 +7,8 @@
 // token. That is now wrong for the two read routes:
 //
 //   * GET /ontology-schemas answers 200 with a list *for a caller with no
-//     token*. Reading the catalogue is open; an anonymous caller gets [] until
-//     `?scope=` arrives in task 3. A caller with a token that is expired or
+//     token*. Reading the catalogue is open; an anonymous caller defaults to
+//     `?scope=public` (task 3). A caller with a token that is expired or
 //     unverifiable still gets 401, and one the server cannot resolve gets 503 —
 //     anonymity is the absence of a session, not a broken one.
 //   * GET /ontology-schemas/:id answers 200 anonymously for a public or
@@ -96,13 +96,19 @@ describe('schema routes under authentication', () => {
 
   // The other side of the amendment above: the two read routes answer without a
   // session, and the private one is invisible rather than forbidden.
+  //
+  // Task 3 activated `?scope=`: an anonymous caller's default scope is now
+  // `public`, so the list carries the public schema and omits the private
+  // one — the full scope matrix (mine/shared/public, the 401 for mine/shared
+  // without a session, the 400 for an unknown scope) lives in
+  // modules/schemas/listing.test.ts. This file stays about sessions.
   it('serves the read routes without a token, and hides a private schema behind a 404', async () => {
     const open = await schemaOwnedBy('kc-publisher', 'public', 'Open');
     const secret = await schemaOwnedBy('kc-hoarder', 'private', 'Secret');
 
     const list = await harness.app.inject({ method: 'GET', url: '/ontology-schemas' });
     expect(list.statusCode).toBe(200);
-    expect(list.json()).toEqual([]);
+    expect(list.json().map((s: { title: string }) => s.title)).toEqual(['Open']);
 
     const read = await harness.app.inject({ method: 'GET', url: `/ontology-schemas/${open}` });
     expect(read.statusCode).toBe(200);

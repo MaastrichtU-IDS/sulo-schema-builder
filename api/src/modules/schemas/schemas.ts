@@ -21,6 +21,16 @@ const ClearableUrl = z.union([z.literal(''), z.string().url()]);
 /** A uuid referencing a class in the *same* schema, or '' to clear it. */
 const ClassRef = z.union([z.literal(''), z.string().uuid()]);
 
+/**
+ * Mirrors the CHECK constraint on schemas.visibility (migration 001). Absent
+ * on create means "leave it to the column default (private)"; absent on
+ * patch means "leave it alone" — same convention as every other optional
+ * field here. Whether the *caller* may set it is a separate question,
+ * answered at `own` level by routes.ts's assertMayChangeVisibility, not by
+ * this shape check.
+ */
+const Visibility = z.enum(['private', 'unlisted', 'public']);
+
 export const CreateOntologySchemaBody = z.object({
   title: z.string().min(1),
   description: z.string().optional(),
@@ -30,6 +40,7 @@ export const CreateOntologySchemaBody = z.object({
   // resolves under this prefix instead. Must end in '/' or '#' for exports
   // to concatenate a local name onto it correctly — normalized on write.
   baseUri: ClearableUrl.optional(),
+  visibility: Visibility.optional(),
 });
 
 export const UpdateOntologySchemaBody = z.object({
@@ -37,6 +48,16 @@ export const UpdateOntologySchemaBody = z.object({
   description: z.string().optional(),
   upperOntologyIri: ClearableUrl.optional(),
   baseUri: ClearableUrl.optional(),
+  visibility: Visibility.optional(),
+});
+
+/**
+ * `?scope=` on GET /. Absent is not a default *value* here — routes.ts picks
+ * the default from whether the caller is signed in, which this schema cannot
+ * see — so this only rejects a scope value that names nothing.
+ */
+export const ListSchemasQuery = z.object({
+  scope: z.enum(['mine', 'shared', 'public']).optional(),
 });
 
 export const AddClassBody = z.object({

@@ -15,6 +15,10 @@ export function normalizeBaseUri(uri: string): string {
   return /[/#]$/.test(uri) ? uri : `${uri}/`;
 }
 
+// row.owner_id is deliberately not exposed here: an anonymous reader of a
+// public schema has no business learning the owner's internal user id, and
+// nothing on the frontend needs it (the ACL guard already answers "can I
+// write this", which is what owner_id would otherwise be a proxy for).
 export function schemaRowToSummary(row: SchemaRow) {
   return {
     id: row.id,
@@ -23,6 +27,7 @@ export function schemaRowToSummary(row: SchemaRow) {
     description: row.description ?? undefined,
     upperOntologyIri: row.upper_ontology_iri ?? undefined,
     baseUri: row.base_uri ?? undefined,
+    visibility: row.visibility,
   };
 }
 

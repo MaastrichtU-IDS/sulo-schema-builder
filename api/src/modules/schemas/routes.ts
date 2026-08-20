@@ -18,9 +18,13 @@
 //
 // The two routes that name no schema are guarded differently, because there is
 // no row to resolve against: POST / needs a session (`fastify.authRequired`),
-// and GET / needs only `requireSaneToken` — an anonymous caller gets an empty
-// list until task 3 adds `?scope=`, but a caller whose token is expired or
-// unresolvable is told so rather than handed that empty list.
+// and GET / needs only `requireSaneToken` — a caller whose token is expired or
+// unresolvable is told so, rather than handed the list below.
+//
+// GET / takes `?scope=mine|shared|public` (ListSchemasQuery in schemas.ts),
+// defaulting to `mine` when signed in and `public` otherwise. `mine`/`shared`
+// name the caller's own relationship to a schema, so they are meaningless
+// without a session — requesting either anonymously is 401, not "".
 //
 // `authRequired` is a decorator plugins/auth.ts provides and that plugin is
 // registered only in postgres mode, so server.ts registers
@@ -44,10 +48,11 @@ import type { FastifyPluginAsync, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { guardedUpperConcepts, UPPER_CONCEPTS_RATE_LIMIT } from '../../rdf/guardedUpperConcepts.js';
 import { aclGuards, requireAccess, requireSaneToken } from '../acl/guards.js';
+import { atLeast, type AccessLevel } from '../acl/resolve.js';
 import type { RequestUser } from '../users/service.js';
 import * as service from './service.js';
 import {
-  AddClassBody, AddPropertyBody, CreateOntologySchemaBody,
+  AddClassBody, AddPropertyBody, CreateOntologySchemaBody, ListSchemasQuery,
   UpdateClassBody, UpdateOntologySchemaBody, UpdatePropertyBody,
 } from './schemas.js';
 
@@ -73,24 +78,58 @@ function schemaAccess(request: FastifyRequest): NonNullable<FastifyRequest['sche
 const ClassIdParam = z.object({ classId: z.string().uuid() });
 const PropIdParam = z.object({ propId: z.string().uuid() });
 
+/**
+ * Thrown by assertMayChangeVisibility. `statusCode < 500` is what
+ * plugins/errorHandler.ts forwards as-is, so this reaches the caller as a
+ * plain 403 with `message` intact — the same mechanism service.ts's
+ * SchemaWriteError uses for 400s.
+ */
+class VisibilityChangeForbidden extends Error {
+  readonly statusCode = 403;
+  constructor() {
+    super('Only the schema owner may change its visibility.');
+    this.name = 'VisibilityChangeForbidden';
+  }
+}
+
+/**
+ * The one place in this file a single guard level is not the whole story.
+ * PATCH /:id stays guarded at `edit` (see the module comment) so an editor
+ * can still retitle or redescribe a schema — that is the point of the editor
+ * role. But publication is an ownership decision, so changing `visibility`
+ * itself needs `own`. Named and isolated here, rather than an inline `if` in
+ * the handler, precisely because "no permission logic in handlers" is this
+ * file's own rule and this is the one route that bends it.
+ */
+function assertMayChangeVisibility(level: AccessLevel): void {
+  if (!atLeast(level, 'own')) throw new VisibilityChangeForbidden();
+}
+
 const schemasRoutes: FastifyPluginAsync = async (fastify) => {
   // Creates request.schemaAccess. requireAccess is unusable without it, which
   // is why the two ship from one module.
   await fastify.register(aclGuards);
 
-  // Open to anonymous callers: reading the catalogue needs no session. A
-  // signed-in caller still sees only their own schemas — public listing arrives
-  // with `?scope=` in task 3, and until then anonymous means an empty list
-  // rather than an accidental dump of every row.
+  // Open to anonymous callers: reading the catalogue needs no session. See the
+  // module comment for what `?scope=` means and who may ask for it.
   //
   // `requireSaneToken` is not a session check, and this route is not guarded by
-  // one. It separates "no token" (fine, here is an empty list) from "a token
-  // that is expired, unverifiable, or that the server could not resolve" —
-  // which without it would answer `200 []`, i.e. tell a signed-in user whose
-  // token has just expired that all of their schemas are gone.
-  fastify.get('/', { preHandler: requireSaneToken }, async (request) => {
-    if (!request.user) return [];
-    return service.listSchemas(fastify.pg, request.user.id);
+  // one. It separates "no token" (fine, `public` is a legitimate scope for
+  // that) from "a token that is expired, unverifiable, or that the server
+  // could not resolve" — which without it would answer as anonymous, i.e. tell
+  // a signed-in user whose token has just expired that their schemas are gone
+  // rather than that their session broke.
+  fastify.get('/', { preHandler: requireSaneToken }, async (request, reply) => {
+    const { scope: requested } = ListSchemasQuery.parse(request.query);
+    const scope = requested ?? (request.user ? 'mine' : 'public');
+
+    // Not a schema-level ACL decision (there is no row yet to resolve one
+    // against) — just what a scope name means without a session. `mine`/
+    // `shared` describe the caller's own relationship to a schema, which an
+    // anonymous caller does not have, so this is 401 rather than [].
+    if (scope !== 'public' && !request.user) return reply.unauthorized('Sign in to continue.');
+
+    return service.listSchemasByScope(fastify.pg, scope, request.user?.id ?? null);
   });
 
   fastify.post('/', { preHandler: fastify.authRequired }, async (request, reply) => {
@@ -104,6 +143,7 @@ const schemasRoutes: FastifyPluginAsync = async (fastify) => {
 
   fastify.patch('/:id', { preHandler: requireAccess('edit') }, async (request, reply) => {
     const data = UpdateOntologySchemaBody.parse(request.body);
+    if (data.visibility !== undefined) assertMayChangeVisibility(schemaAccess(request).level);
     await service.updateSchema(fastify.pg, schemaAccess(request).schema.id, data);
     return reply.code(204).send();
   });

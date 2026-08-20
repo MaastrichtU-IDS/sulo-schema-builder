@@ -21,6 +21,63 @@ export async function listSchemas(db: Kysely<DB>, ownerId: string): Promise<Sche
   return db.selectFrom('schemas').selectAll().where('owner_id', '=', ownerId).orderBy('title').execute();
 }
 
+export type ListScope = 'mine' | 'shared' | 'public';
+
+/**
+ * Three shapes of one query, chosen by `scope` rather than combined into one
+ * WHERE with ORs: `mine` is owner_id = :me, `shared` is an inner join on
+ * schema_grants for :me (and never the caller's own row), `public` is
+ * visibility = 'public' from every owner. Keeping them as separate branches
+ * means a schema can never surface via two predicates in the same response —
+ * there is nothing to de-duplicate, because at most one branch ever runs.
+ *
+ * `unlisted` is deliberately absent from the `public` branch: that omission
+ * is the entire difference between the two published visibilities. A schema
+ * is still reachable at `GET /:id` by anyone who has the id (modules/acl);
+ * this is only what a caller with no id yet can discover by browsing.
+ *
+ * Authorization — whether `mine`/`shared` may run at all for this caller —
+ * is routes.ts's job, decided from the token before this runs. A null
+ * `userId` here just means "no caller to match against", so `mine`/`shared`
+ * answer an empty list rather than throwing; the 401 for that combination is
+ * a route-level answer, not a story this query needs to tell.
+ */
+export async function listSchemasByScope(
+  db: Kysely<DB>,
+  params: { scope: ListScope; userId: string | null },
+): Promise<SchemaRow[]> {
+  const { scope, userId } = params;
+
+  if (scope === 'public') {
+    return db.selectFrom('schemas').selectAll()
+      .where('visibility', '=', 'public')
+      .orderBy('title')
+      .execute();
+  }
+
+  if (userId === null) return [];
+
+  if (scope === 'mine') {
+    return db.selectFrom('schemas').selectAll()
+      .where('owner_id', '=', userId)
+      .orderBy('title')
+      .execute();
+  }
+
+  // shared: schema_grants.(schema_id, grantee_id) is the primary key, so this
+  // join matches at most one grant row per schema for this caller — no
+  // DISTINCT needed to keep a schema from appearing twice. `owner_id != :me`
+  // excludes a schema this caller owns even if a grant row also names them
+  // (e.g. a stray self-grant): `shared` never includes the caller's own.
+  return db.selectFrom('schemas')
+    .innerJoin('schema_grants', 'schema_grants.schema_id', 'schemas.id')
+    .where('schema_grants.grantee_id', '=', userId)
+    .where('schemas.owner_id', '!=', userId)
+    .selectAll('schemas')
+    .orderBy('schemas.title')
+    .execute();
+}
+
 export async function getSchemaRow(db: Kysely<DB>, id: string): Promise<SchemaRow | undefined> {
   return db.selectFrom('schemas').selectAll().where('id', '=', id).executeTakeFirst();
 }

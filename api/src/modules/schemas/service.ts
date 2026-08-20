@@ -61,6 +61,7 @@ export interface SchemaInput {
   description?: string;
   upperOntologyIri?: string;
   baseUri?: string;
+  visibility?: 'private' | 'unlisted' | 'public';
 }
 export type SchemaPatch = Partial<SchemaInput>;
 
@@ -105,6 +106,13 @@ export async function listSchemas(db: Kysely<DB>, ownerId: string) {
   return (await repo.listSchemas(db, ownerId)).map(schemaRowToSummary);
 }
 
+/** Thin pass-through: repo.listSchemasByScope already returns rows sorted and scoped. */
+export async function listSchemasByScope(
+  db: Kysely<DB>, scope: repo.ListScope, userId: string | null,
+) {
+  return (await repo.listSchemasByScope(db, { scope, userId })).map(schemaRowToSummary);
+}
+
 /**
  * The full API shape for a schema row the caller already holds.
  *
@@ -144,6 +152,10 @@ export async function createSchema(db: Kysely<DB>, ownerId: string, input: Schem
     description: nullable(input.description) ?? null,
     upper_ontology_iri: nullable(input.upperOntologyIri) ?? null,
     base_uri: input.baseUri ? normalizeBaseUri(input.baseUri) : null,
+    // Omitted (rather than set to a literal 'private') when absent, so the
+    // column's own default is what actually applies — one definition of
+    // "private" instead of two that could drift.
+    ...(input.visibility !== undefined ? { visibility: input.visibility } : {}),
   });
   return { ...schemaRowToSummary(row), classes: [], properties: [] };
 }
@@ -157,6 +169,10 @@ export async function updateSchema(db: Kysely<DB>, id: string, patch: SchemaPatc
     ...(patch.baseUri !== undefined
       ? { base_uri: patch.baseUri === '' ? null : normalizeBaseUri(patch.baseUri) }
       : {}),
+    // Whether the caller is *allowed* to set this is decided in routes.ts
+    // (assertMayChangeVisibility) before this function is ever called — this
+    // layer only knows how to write the column, not who may ask it to.
+    ...(patch.visibility !== undefined ? { visibility: patch.visibility } : {}),
   });
 }
 
