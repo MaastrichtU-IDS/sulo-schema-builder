@@ -7,7 +7,7 @@
 import fp from 'fastify-plugin';
 import { createLocalJWKSet, createRemoteJWKSet, jwtVerify, type JWTVerifyGetKey } from 'jose';
 import type { FastifyBaseLogger, FastifyReply, FastifyRequest, preHandlerHookHandler } from 'fastify';
-import { resolveUser, type RequestUser, type TokenClaims } from '../modules/users/service.js';
+import { resolveUser, InvalidSubjectError, type RequestUser, type TokenClaims } from '../modules/users/service.js';
 import type { AuthConfig } from '../config/auth.js';
 
 // A JWKS fetch failure, an unknown `kid`, and an expired token used to funnel
@@ -62,6 +62,16 @@ declare module 'fastify' {
   }
   interface FastifyRequest {
     user: RequestUser | null;
+    /**
+     * Set only when a verified, non-anonymous token could not be resolved to
+     * a user because of a *server-side* failure (e.g. Postgres unreachable),
+     * as opposed to genuine anonymity (no token, expired token, or the
+     * reserved local subject). authRequired answers 503 for this case
+     * instead of 401 — an infrastructure outage is not a session problem,
+     * and telling the caller's SPA to re-authenticate would just have it
+     * retry against a Keycloak that is fine and get the same 401 forever.
+     */
+    authError: 'unavailable' | null;
   }
 }
 
@@ -93,17 +103,38 @@ export default fp<AuthPluginOptions>(async (fastify, opts) => {
 
   // Fetch once at registration instead of lazily on the first request: a
   // misconfigured or unreachable identity provider then fails the boot,
-  // rather than silently 401ing every user until someone notices.
+  // rather than silently 401ing every user until someone notices. That is
+  // the right default, but it is also a liveness/readiness problem in any
+  // deployment without this repo's docker-compose keycloak healthcheck +
+  // depends_on (Kubernetes, principally): a Keycloak blip during a rollout
+  // then puts every replica into CrashLoopBackOff for longer than the
+  // outage itself.
+  // AUTH_REQUIRE_JWKS_AT_BOOT lets such a deployment opt out — the failure is
+  // still logged loudly, but the server starts anyway, and the per-request
+  // JWKS resolution path (createRemoteJWKSet re-fetching on an unknown `kid`)
+  // heals itself once Keycloak answers.
   if (remoteSet) {
-    await prefetchJwks(remoteSet, auth.jwksUri, fastify.log);
+    if (auth.requireJwksAtBoot) {
+      await prefetchJwks(remoteSet, auth.jwksUri, fastify.log);
+    } else {
+      try {
+        await prefetchJwks(remoteSet, auth.jwksUri, fastify.log);
+      } catch (err) {
+        fastify.log.error(
+          { err, jwksUri: auth.jwksUri },
+          'JWKS pre-fetch failed at startup; continuing to boot because AUTH_REQUIRE_JWKS_AT_BOOT=false — every request will 401 until Keycloak is reachable',
+        );
+      }
+    }
   }
 
   // Subject → user, so a burst of requests from one client is one database
-  // round-trip. Short TTL: an administrator's role change must take effect
-  // without a restart.
+  // round-trip. Short TTL: an administrator's role change *or a Keycloak-side
+  // disable* stays effective for up to this long before the guard re-checks.
   const cache = new Map<string, { at: number; user: RequestUser }>();
 
   fastify.decorateRequest('user', null);
+  fastify.decorateRequest('authError', null);
 
   fastify.addHook('onRequest', async (request) => {
     const token = bearer(request);
@@ -143,11 +174,26 @@ export default fp<AuthPluginOptions>(async (fastify, opts) => {
       cache.set(claims.sub, { at: Date.now(), user });
       request.user = user;
     } catch (err) {
-      request.log.warn({ err, sub: claims.sub }, 'could not resolve a verified token to a user');
+      if (err instanceof InvalidSubjectError) {
+        // Intended anonymity — no subject, or the reserved LOCAL_SUBJECT.
+        // The token verified, but it was never a valid identity to begin
+        // with; the guards below answer this the same as no token at all.
+        request.log.debug({ err, sub: claims.sub }, 'token subject is not a valid authenticated identity');
+      } else {
+        // The token was genuinely valid and the *server* failed to resolve
+        // it (e.g. Postgres unreachable or exhausted) — not anonymity. Left
+        // as a 401 here, a signed-in user would see "sign in to continue",
+        // refresh a token that is already fine, and get the identical 401
+        // forever: an infrastructure outage rendered as a session problem.
+        // authRequired below turns this into a 503 instead.
+        request.log.error({ err, sub: claims.sub }, 'could not resolve a verified token to a user; treating as a resolution failure, not anonymity');
+        request.authError = 'unavailable';
+      }
     }
   });
 
   fastify.decorate('authRequired', async (request: FastifyRequest, reply: FastifyReply) => {
+    if (request.authError === 'unavailable') return reply.serviceUnavailable();
     if (!request.user) return reply.unauthorized('Sign in to continue.');
   });
 
@@ -158,5 +204,5 @@ export default fp<AuthPluginOptions>(async (fastify, opts) => {
     });
 }, {
   name: 'auth',
-  decorators: { fastify: ['pg'], reply: ['unauthorized', 'forbidden'] },
+  decorators: { fastify: ['pg'], reply: ['unauthorized', 'forbidden', 'serviceUnavailable'] },
 });

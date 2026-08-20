@@ -60,9 +60,23 @@ describe('resolveAuthConfig', () => {
     expect(() => resolveAuthConfig({ AUTH_ISSUER: BASE.AUTH_ISSUER }, 'postgres')).toThrow(/AUTH_AUDIENCE/);
   });
 
-  it('accepts a local JWKS override for tests', () => {
-    const cfg = resolveAuthConfig({ ...BASE, AUTH_JWKS_JSON: '{"keys":[]}' }, 'postgres');
+  it('accepts a local JWKS override when NODE_ENV is test', () => {
+    const cfg = resolveAuthConfig({ ...BASE, AUTH_JWKS_JSON: '{"keys":[]}', NODE_ENV: 'test' }, 'postgres');
     expect(cfg.jwksJson).toBe('{"keys":[]}');
+  });
+
+  // Fix for: AUTH_JWKS_JSON is documented as test-only but nothing enforced
+  // that, and it's one of the few auth variables compose doesn't pin — so a
+  // `.env` copied from a test stanza could silently replace the trust anchor
+  // in a real deployment (any sub/iss/aud its holder chose to sign, no log
+  // line). Enforced here rather than just documented.
+  it('rejects AUTH_JWKS_JSON when NODE_ENV is not test', () => {
+    expect(() =>
+      resolveAuthConfig({ ...BASE, AUTH_JWKS_JSON: '{"keys":[]}' }, 'postgres'),
+    ).toThrow(/AUTH_JWKS_JSON/);
+    expect(() =>
+      resolveAuthConfig({ ...BASE, AUTH_JWKS_JSON: '{"keys":[]}', NODE_ENV: 'production' }, 'postgres'),
+    ).toThrow(/AUTH_JWKS_JSON/);
   });
 
   it('defaults the user cache TTL to 60000ms when unset', () => {
@@ -88,5 +102,36 @@ describe('resolveAuthConfig', () => {
     expect(() => resolveAuthConfig({ ...BASE, AUTH_USER_CACHE_TTL_MS: '0' }, 'postgres')).toThrow(
       /AUTH_USER_CACHE_TTL_MS/,
     );
+  });
+
+  // Fix for: the boot-time JWKS pre-fetch (plugins/auth.ts) turning any
+  // Keycloak outage into a total API outage, with no way for a Kubernetes
+  // deployment (no docker-compose depends_on equivalent) to opt out.
+  describe('AUTH_REQUIRE_JWKS_AT_BOOT', () => {
+    it('defaults to true, preserving the loud fail-fast boot behaviour', () => {
+      const cfg = resolveAuthConfig(BASE, 'postgres');
+      expect(cfg.requireJwksAtBoot).toBe(true);
+    });
+
+    it('is true in sqlite mode too, though nothing consults it there', () => {
+      const cfg = resolveAuthConfig({}, 'sqlite');
+      expect(cfg.requireJwksAtBoot).toBe(true);
+    });
+
+    it('honours an explicit "false"', () => {
+      const cfg = resolveAuthConfig({ ...BASE, AUTH_REQUIRE_JWKS_AT_BOOT: 'false' }, 'postgres');
+      expect(cfg.requireJwksAtBoot).toBe(false);
+    });
+
+    it('honours an explicit "true"', () => {
+      const cfg = resolveAuthConfig({ ...BASE, AUTH_REQUIRE_JWKS_AT_BOOT: 'true' }, 'postgres');
+      expect(cfg.requireJwksAtBoot).toBe(true);
+    });
+
+    it('rejects anything other than "true"/"false"', () => {
+      expect(() =>
+        resolveAuthConfig({ ...BASE, AUTH_REQUIRE_JWKS_AT_BOOT: 'yes' }, 'postgres'),
+      ).toThrow(/AUTH_REQUIRE_JWKS_AT_BOOT/);
+    });
   });
 });

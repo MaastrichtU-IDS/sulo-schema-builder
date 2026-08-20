@@ -19,6 +19,17 @@ export interface AuthConfig {
   jwksJson: string | null;
   clientId: string;
   userCacheTtlMs: number;
+  /**
+   * Whether plugins/auth.ts's boot-time JWKS pre-fetch is allowed to fail the
+   * server's startup. `true` (the default) preserves the original loud
+   * behaviour: an unreachable identity provider must not silently start an
+   * API that will 401 every request. A deployment with its own readiness
+   * probe (Kubernetes, notably — this is the reason AUTH_JWKS_URI's
+   * in-cluster-vs-ingress split exists at all) should set this `false`, so a
+   * Keycloak blip during a rollout degrades to per-request JWKS resolution
+   * instead of CrashLoopBackOff.
+   */
+  requireJwksAtBoot: boolean;
 }
 
 type Env = Record<string, string | undefined>;
@@ -31,13 +42,6 @@ function required(env: Env, name: string): string {
   return value;
 }
 
-// parseInt(..., 10) alone silently accepts garbage: parseInt('60s', 10) is
-// 60, and parseInt('abc', 10) is NaN, which then flows into a cache
-// comparison (`Date.now() - cached.at < NaN`) that is always false — a cache
-// that never hits, with no error and no log line to explain it. Validate
-// fully instead: an unset value takes the fallback, anything else must be a
-// finite positive number, and anything else throws in the same style as
-// required() above.
 /**
  * Same fail-fast treatment as required(), for the values that must be URLs: a
  * URL-shaped setting that is not a URL is a misconfiguration, and left
@@ -51,6 +55,13 @@ function absoluteUrl(name: string, raw: string): URL {
   }
 }
 
+// parseInt(..., 10) alone silently accepts garbage: parseInt('60s', 10) is
+// 60, and parseInt('abc', 10) is NaN, which then flows into a cache
+// comparison (`Date.now() - cached.at < NaN`) that is always false — a cache
+// that never hits, with no error and no log line to explain it. Validate
+// fully instead: an unset value takes the fallback, anything else must be a
+// finite positive number, and anything else throws in the same style as
+// required() above.
 function positiveIntOrDefault(env: Env, name: string, fallback: number): number {
   const raw = env[name]?.trim();
   if (!raw) {
@@ -63,6 +74,14 @@ function positiveIntOrDefault(env: Env, name: string, fallback: number): number 
   return value;
 }
 
+function booleanOrDefault(env: Env, name: string, fallback: boolean): boolean {
+  const raw = env[name]?.trim();
+  if (!raw) return fallback;
+  if (raw === 'true') return true;
+  if (raw === 'false') return false;
+  throw new Error(`${name} must be "true" or "false" (got ${JSON.stringify(raw)})`);
+}
+
 export function resolveAuthConfig(env: Env, storage: 'postgres' | 'sqlite'): AuthConfig {
   const clientId = env.AUTH_CLIENT_ID?.trim() || 'sulo-spa';
   const userCacheTtlMs = positiveIntOrDefault(env, 'AUTH_USER_CACHE_TTL_MS', 60_000);
@@ -73,7 +92,7 @@ export function resolveAuthConfig(env: Env, storage: 'postgres' | 'sqlite'): Aut
     return {
       enabled: false,
       issuer: '', audience: '', jwksUri: '', jwksJson: null,
-      clientId, userCacheTtlMs,
+      clientId, userCacheTtlMs, requireJwksAtBoot: true,
     };
   }
 
@@ -102,15 +121,30 @@ export function resolveAuthConfig(env: Env, storage: 'postgres' | 'sqlite'): Aut
     ? absoluteUrl('AUTH_JWKS_URI', rawJwksUri).toString()
     : `${issuer}/protocol/openid-connect/certs`;
 
+  // Test-only, and enforced here rather than just documented: a literal JWKS
+  // replaces the trust anchor entirely — createLocalJWKSet skips both the
+  // remote fetch and the boot pre-fetch below, verifying offline against
+  // whatever keys this string contains. Outside a test run that is an API
+  // that accepts a token for any sub/iss/aud its holder chose to sign,
+  // silently, with no log line — the exact shape of a `.env` mistake made by
+  // copying a test env stanza into a real deployment. `env.NODE_ENV` (the
+  // env object *this function* was called with, not necessarily
+  // process.env) must be 'test'.
+  const jwksJson = env.AUTH_JWKS_JSON?.trim() || null;
+  if (jwksJson && env.NODE_ENV !== 'test') {
+    throw new Error(
+      'AUTH_JWKS_JSON is test-only (see the comment above resolveAuthConfig) and must not be set outside NODE_ENV=test. Unset it, or use AUTH_JWKS_URI to point at a real Keycloak instead.',
+    );
+  }
+
   return {
     enabled: true,
     issuer,
     audience: required(env, 'AUTH_AUDIENCE'),
     jwksUri,
-    // Set only by tests: a literal JWKS avoids any network fetch. Never set in
-    // a deployment — see the plan's global constraints.
-    jwksJson: env.AUTH_JWKS_JSON?.trim() || null,
+    jwksJson,
     clientId,
     userCacheTtlMs,
+    requireJwksAtBoot: booleanOrDefault(env, 'AUTH_REQUIRE_JWKS_AT_BOOT', true),
   };
 }

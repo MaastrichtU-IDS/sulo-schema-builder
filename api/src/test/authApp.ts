@@ -59,6 +59,7 @@ export async function buildAuthedApp(db: Kysely<DB>): Promise<AuthedTestApp> {
       jwksJson: issuer.jwks,
       clientId: 'sulo-spa',
       userCacheTtlMs: 60_000,
+      requireJwksAtBoot: true,
     },
   });
   await app.register(schemasRoutes, { prefix: '/ontology-schemas' });

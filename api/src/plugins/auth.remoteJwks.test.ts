@@ -81,6 +81,7 @@ async function buildApp(): Promise<FastifyInstance> {
       jwksJson: null,
       clientId: 'sulo-spa',
       userCacheTtlMs: 60_000,
+      requireJwksAtBoot: true,
     },
   });
 
@@ -128,6 +129,53 @@ describe('auth plugin: remote JWKS fetch is independent of the issuer', () => {
 
     expect(good.statusCode).toBe(200);
     expect(bad.statusCode).toBe(401);
+    await app.close();
+  });
+});
+
+// Fix for: the boot-time JWKS pre-fetch turning any Keycloak outage into a
+// total API outage, with no opt-out for a deployment (Kubernetes) that has
+// no equivalent of the docker-compose keycloak healthcheck + depends_on.
+describe('AUTH_REQUIRE_JWKS_AT_BOOT', () => {
+  // Port 1 is a privileged port nothing listens on in a test sandbox — the
+  // connection is refused immediately (ECONNREFUSED), unlike an unrouted
+  // address, which would instead wait out jose's fetch timeout.
+  const UNREACHABLE_JWKS_URI = 'http://127.0.0.1:1/protocol/openid-connect/certs';
+
+  async function buildAppWithUnreachableJwks(requireJwksAtBoot: boolean): Promise<FastifyInstance> {
+    const app = Fastify();
+    await app.register(sensible);
+    app.decorate('pg', t.db);
+
+    const { default: authPlugin } = await import('./auth.js');
+    await app.register(authPlugin, {
+      auth: {
+        enabled: true,
+        issuer: UNREACHABLE_ISSUER,
+        audience: AUDIENCE,
+        jwksUri: UNREACHABLE_JWKS_URI,
+        jwksJson: null,
+        clientId: 'sulo-spa',
+        userCacheTtlMs: 60_000,
+        requireJwksAtBoot,
+      },
+    });
+    app.get('/closed', { preHandler: app.authRequired }, async (request) => ({ id: request.user!.id }));
+
+    await app.ready();
+    return app;
+  }
+
+  it('refuses to boot when true (the default) and the JWKS is unreachable', async () => {
+    await expect(buildAppWithUnreachableJwks(true)).rejects.toThrow(/AUTH_JWKS_URI/);
+  });
+
+  it('boots anyway when false, logging the failure instead of crash-looping', async () => {
+    const app = await buildAppWithUnreachableJwks(false);
+    // The server exists and serves normal traffic — an anonymous request is
+    // rejected the ordinary way (no token), not by the process being down.
+    const res = await app.inject({ method: 'GET', url: '/closed' });
+    expect(res.statusCode).toBe(401);
     await app.close();
   });
 });

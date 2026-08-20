@@ -29,6 +29,7 @@ async function buildApp(): Promise<FastifyInstance> {
       jwksJson: issuer.jwks,
       clientId: 'sulo-spa',
       userCacheTtlMs: 60_000,
+      requireJwksAtBoot: true,
     },
   });
 
@@ -125,6 +126,46 @@ describe('auth plugin', () => {
     const token = await issuer.sign({ sub: 'local' });
     const res = await app.inject({ method: 'GET', url: '/closed', headers: { authorization: `Bearer ${token}` } });
     expect(res.statusCode).toBe(401);
+    await app.close();
+  });
+
+  // Fix for: a Postgres failure on an otherwise-valid, verified token
+  // answering 401 ("sign in to continue") instead of 503. A 401 here would
+  // have a signed-in user's SPA refresh an already-fine Keycloak token and
+  // retry into the identical 401 forever — an infrastructure outage
+  // rendered as a session problem. Distinguished from genuine anonymity
+  // (the previous test, and the "no subject" case) by InvalidSubjectError:
+  // resolveUser throws a plain Error for a database failure, which is
+  // exactly what a broken `pg` decorator below simulates.
+  it('answers 503, not 401, when a verified token cannot be resolved because of a server-side failure', async () => {
+    const app = Fastify();
+    await app.register(sensible);
+    app.decorate('pg', {
+      insertInto() {
+        throw new Error('connection terminated unexpectedly');
+      },
+    } as unknown as typeof t.db);
+
+    const { default: authPlugin } = await import('./auth.js');
+    await app.register(authPlugin, {
+      auth: {
+        enabled: true,
+        issuer: issuer.issuer,
+        audience: issuer.audience,
+        jwksUri: `${issuer.issuer}/protocol/openid-connect/certs`,
+        jwksJson: issuer.jwks,
+        clientId: 'sulo-spa',
+        userCacheTtlMs: 60_000,
+        requireJwksAtBoot: true,
+      },
+    });
+    app.get('/closed', { preHandler: app.authRequired }, async (request) => ({ id: request.user!.id }));
+    await app.ready();
+
+    const token = await issuer.sign({ sub: 'kc-503' });
+    const res = await app.inject({ method: 'GET', url: '/closed', headers: { authorization: `Bearer ${token}` } });
+    expect(res.statusCode).toBe(503);
+
     await app.close();
   });
 });
