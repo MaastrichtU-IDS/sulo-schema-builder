@@ -167,6 +167,79 @@ before, `${AUTH_ISSUER}/protocol/openid-connect/certs`.
 `sqlite` mode (the frozen single-user desktop path) authentication is
 disabled entirely and neither variable (nor `AUTH_JWKS_URI`) is consulted.
 
+### End-to-end auth test
+
+Every other test in this repo signs its tokens with `jose` in-process — real
+enough to check claim handling, but incapable of exercising the audience
+mapper, issuer matching, PKCE or the redirect URIs, all of which only exist
+because a real Keycloak enforces them.
+`frontend/e2e/auth-flow.spec.ts` is the one test that does: it drives a real
+browser through Keycloak's own hosted login page against the compose stack.
+It is *not* part of `npm test` — it needs Docker and takes tens of seconds,
+so it runs as the separate `e2e-auth` CI job (below) and is meant to be run
+by hand locally when touching anything in the auth path.
+
+Run it locally:
+
+```bash
+# Start from a clean realm import — a stale realm from earlier experiments
+# can survive `docker compose down` because it lives in Keycloak's own
+# Postgres-backed volume, which `--import-realm` does not refresh.
+docker compose -f docker-compose.yml down -v
+docker compose -f docker-compose.yml up -d --build
+
+# Seed the deterministic test account (idempotent, local/CI only — see the
+# script's own header). docker compose exec does not forward host
+# environment variables into the container, hence the explicit -e flags.
+docker compose exec \
+  -e KEYCLOAK_ADMIN_PASSWORD=admin -e KEYCLOAK_ADMIN=admin \
+  keycloak sh /opt/keycloak/bin/seed-test-user.sh
+
+# Install Playwright's browser once per machine. --prefix (not a plain
+# `cd frontend`) so the working directory — and therefore the paths below —
+# stays the repo root.
+npx --prefix frontend playwright install chromium
+
+npx --prefix frontend playwright test -c frontend/playwright.config.ts frontend/e2e/auth-flow.spec.ts
+
+docker compose -f docker-compose.yml down
+```
+
+The seeded account is `e2e@example.org` / `E2ePassw0rd!` (override with
+`E2E_USER_EMAIL` / `E2E_USER_PASSWORD`, passed to both the seed script and
+the spec). If ports 8080/8088/5173 are already taken by something else on
+your machine, point the spec at whatever port you published the `api`
+service on instead, e.g. `E2E_BASE_URL=http://localhost:5173 npx --prefix frontend playwright test ...`
+— `realm-sulo.json` already permits both `:8080` and `:5173` as redirect
+URIs / web origins, so no realm change is needed either way.
+
+**What to check when login breaks against a real Keycloak** (all invisible
+to the `jose`-signed unit tests):
+
+- **Issuer mismatch ("unexpected iss")** — `AUTH_ISSUER` on `api` and
+  `KC_HOSTNAME` on `keycloak` must be the exact same browser-facing URL.
+  Keycloak stamps every token's `iss` with whatever hostname the browser
+  used to reach it, not the in-container one.
+- **Missing audience mapper** — a real access token carries `aud:
+  ["account"]` by default. Without the `sulo-api-audience` protocol mapper
+  on the `sulo-spa` client (in `realm-sulo.json`), every genuine token fails
+  the audience check while offline tests, which mint their own claims,
+  sail through unaffected.
+- **Redirect URI rejected** — Keycloak's login page refuses to redirect back
+  anywhere not listed in the client's `redirectUris`/`webOrigins`. Whatever
+  origin the browser loads the SPA from must be in that list.
+- **`check-sso` silently fails** — `AuthProvider` uses `onLoad: 'check-sso'`
+  with a hidden iframe at `/silent-check-sso.html`. Third-party-cookie
+  blocking (common in headless/incognito contexts) or a missing/broken
+  silent-check page makes `check-sso` fail closed to `'disabled'` rather
+  than error loudly — check the browser console and confirm
+  `frontend/public/silent-check-sso.html` made it into the build.
+- **`VERIFY_PROFILE` required action blocking a seeded user** — the realm
+  requires email verification and email-as-username. A user created without
+  `emailVerified`, `firstName` and `lastName` gets stuck behind Keycloak's
+  own profile-completion step instead of ever reaching the app; this is
+  exactly what `seed-test-user.sh` sets explicitly.
+
 ## Local development
 
 ```bash

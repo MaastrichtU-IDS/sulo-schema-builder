@@ -1,8 +1,14 @@
 name: CI
 
-# Fast gate on every change: typecheck and unit tests for both packages.
-# Deliberately no Rust, Tauri or native packaging here — that lives in
-# release.yml and takes minutes rather than seconds.
+# `test`: the fast gate on every change — typecheck and unit tests for both
+# packages. Deliberately no Rust, Tauri or native packaging here — that
+# lives in release.yml and takes minutes rather than seconds.
+#
+# `e2e-auth`: a slower, separate job that boots the real docker-compose
+# stack (Postgres + Keycloak + the API) and drives a browser through an
+# actual Keycloak login. Kept out of `test` so a Keycloak/Docker hiccup
+# can't block every PR on unrelated changes — see its own comment for why
+# it exists at all.
 
 on:
   push:
@@ -46,3 +52,68 @@ jobs:
       # vitest both miss.
       - name: Build frontend
         run: npm run build -w sulo-schema-builder-frontend
+
+  # This is the only automated proof that real Keycloak tokens are accepted:
+  # everywhere else in the repo, auth is exercised with jose-signed test
+  # tokens. Those tokens cannot exercise the audience mapper, issuer
+  # matching, PKCE or the redirect URIs — a token that Keycloak actually
+  # issues carries `aud: ["account"]` without the `sulo-api-audience`
+  # mapper, and Keycloak stamps `iss` with whatever hostname the browser
+  # reached it on, not the in-container one. Both have broken this stack
+  # silently before, with every offline test green.
+  #
+  # A separate job, not a step in `test` above: a Keycloak/Testcontainers
+  # hiccup (slow image pull, cold realm import) must not block the fast
+  # unit-test gate that every unrelated PR needs to pass.
+  e2e-auth:
+    name: E2E — real Keycloak login
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx --prefix frontend playwright install --with-deps chromium
+
+      # Ports 3000/8080/8088 are the compose file's own published ports and
+      # are free on a fresh Actions runner, so no port overlay is needed
+      # here (contrast the "may be occupied locally" note in
+      # frontend/e2e/auth-flow.spec.ts).
+      - name: Start the stack
+        run: docker compose -f docker-compose.yml up -d --build
+
+      # docker compose up above already blocked on api's `depends_on:
+      # condition: service_healthy` for keycloak, so this seeds a realm
+      # that has finished importing rather than racing it.
+      - name: Seed the e2e test user
+        run: |
+          docker compose -f docker-compose.yml exec \
+            -e KEYCLOAK_ADMIN_PASSWORD=admin -e KEYCLOAK_ADMIN=admin \
+            keycloak sh /opt/keycloak/bin/seed-test-user.sh
+
+      - name: Run the auth e2e spec
+        run: npx --prefix frontend playwright test -c frontend/playwright.config.ts frontend/e2e/auth-flow.spec.ts
+
+      - name: Dump container logs on failure
+        if: failure()
+        run: docker compose -f docker-compose.yml logs
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: frontend/playwright-report/
+          retention-days: 7
+
+      - name: Stop the stack
+        if: always()
+        run: docker compose -f docker-compose.yml down -v

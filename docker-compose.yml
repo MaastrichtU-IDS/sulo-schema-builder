@@ -126,6 +126,9 @@ services:
     volumes:
       - ./docker/keycloak/realm-sulo.json:/opt/keycloak/data/import/realm-sulo.json:ro
       - ./docker/keycloak/configure-idps.sh:/opt/keycloak/bin/configure-idps.sh:ro
+      # Local/CI only — see the script's own header. Not run automatically;
+      # invoked by hand or by the e2e CI job once Keycloak is healthy.
+      - ./docker/keycloak/seed-test-user.sh:/opt/keycloak/bin/seed-test-user.sh:ro
     ports:
       - "8088:8080"
     depends_on:
