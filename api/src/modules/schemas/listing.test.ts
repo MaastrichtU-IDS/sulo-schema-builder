@@ -49,7 +49,7 @@ async function tokenFor(subject: string): Promise<string> {
 /** Creates a schema through the API as `subject`, optionally publishing it in the same call. */
 async function createSchema(
   subject: string, title: string, visibility?: 'private' | 'unlisted' | 'public',
-): Promise<{ id: string; title: string }> {
+): Promise<{ id: string; title: string; visibility: 'private' | 'unlisted' | 'public' }> {
   const token = await tokenFor(subject);
   const res = await harness.app.inject({
     method: 'POST', url: '/ontology-schemas', headers: harness.bearer(token),
@@ -151,6 +151,22 @@ describe('GET /ontology-schemas scopes', () => {
 
     const pub = await list('public');
     expect(pub.json().map((s: { title: string }) => s.title)).toEqual(['Alpha', 'Mid', 'Zebra']);
+
+    // shared: three schemas owned by someone else, all granted to Bob, created
+    // out of title order.
+    await tokenFor('kc-bob'); // must be known to the auth plugin before grant() can find him
+    await list('mine', 'kc-bob');
+    const z = await createSchema('kc-carol', 'Shared Zebra', 'private');
+    const a = await createSchema('kc-carol', 'Shared Alpha', 'private');
+    const m = await createSchema('kc-carol', 'Shared Mid', 'private');
+    await grant(z.id, 'kc-bob', 'viewer');
+    await grant(a.id, 'kc-bob', 'viewer');
+    await grant(m.id, 'kc-bob', 'viewer');
+
+    const shared = await list('shared', 'kc-bob');
+    expect(shared.json().map((s: { title: string }) => s.title)).toEqual([
+      'Shared Alpha', 'Shared Mid', 'Shared Zebra',
+    ]);
   });
 
   it('never lists a schema twice when the caller both owns it and holds an explicit grant on it', async () => {
@@ -188,6 +204,34 @@ describe('GET /ontology-schemas scopes', () => {
       method: 'GET', url: '/ontology-schemas?scope=mine', headers: harness.bearer(token),
     })).json();
     expect(list.find((s: { id: string }) => s.id === created.id).visibility).toBe('public');
+  });
+
+  it('defaults to private when visibility is omitted on create', async () => {
+    const created = await createSchema('kc-alice', 'No visibility given');
+    expect(created.visibility).toBe('private');
+
+    // and stays out of the public scope, at the API-observable level.
+    const pub = await list('public');
+    expect(pub.json().map((s: { title: string }) => s.title)).not.toContain('No visibility given');
+  });
+
+  it('400s an invalid visibility value on create and on patch, not a database error', async () => {
+    const token = await tokenFor('kc-alice');
+
+    const create = await harness.app.inject({
+      method: 'POST', url: '/ontology-schemas', headers: harness.bearer(token),
+      payload: { title: 'Bad visibility', visibility: 'bogus' },
+    });
+    expect(create.statusCode).toBe(400);
+    expect(create.body).not.toMatch(/constraint|check|internal server error/i);
+
+    const schema = await createSchema('kc-alice', 'Fine on create');
+    const patch = await harness.app.inject({
+      method: 'PATCH', url: `/ontology-schemas/${schema.id}`,
+      headers: harness.bearer(token), payload: { visibility: 'bogus' },
+    });
+    expect(patch.statusCode).toBe(400);
+    expect(patch.body).not.toMatch(/constraint|check|internal server error/i);
   });
 
   it('never exposes owner_id on any read', async () => {

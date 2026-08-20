@@ -106,6 +106,22 @@ export const requireSaneToken: preHandlerHookHandler = async (request, reply) =>
   if (rejectBrokenToken(request, reply)) return reply;
 };
 
+/**
+ * Whether `level` may change a schema's `visibility`.
+ *
+ * Publication is an ownership decision, not an editing one: PATCH /:id
+ * (modules/schemas/routes.ts) stays guarded at `edit` overall — so an editor
+ * can still retitle or redescribe a schema, which is the point of the editor
+ * role — but changing `visibility` itself needs `own`. The comparison lives
+ * here, next to `atLeast` and `requireAccess`, because this module is the
+ * single enforcement point for schema-level policy (spec §5); routes.ts
+ * holds only the field-conditional call site and the 403 it answers with,
+ * not the decision of who may.
+ */
+export function mayChangeVisibility(level: AccessLevel): boolean {
+  return atLeast(level, 'own');
+}
+
 export function requireAccess(required: 'view' | 'edit' | 'own'): preHandlerHookHandler {
   return async function accessGuard(request: FastifyRequest, reply: FastifyReply) {
     if (rejectBrokenToken(request, reply)) return reply;

@@ -6,8 +6,11 @@
 // row and the caller's grant in one query, resolves the level with the pure
 // policy in modules/acl/resolve.ts, and either answers 404/403/401 or hands the
 // handler `request.schemaAccess`. No handler below re-fetches the schema, and
-// none of them contains a permission check — if you find yourself adding one,
-// the level on the route is wrong.
+// none of them decides *who may* — the one named exception is PATCH /:id's
+// `assertMayChangeVisibility` call, and even that only calls out to
+// `mayChangeVisibility` in modules/acl/guards.ts, which is where the actual
+// comparison lives. If you find yourself adding a permission check anywhere
+// else in this file, the level on the route is wrong.
 //
 // The three answers are not interchangeable:
 //   * 404 — the caller may not know this schema exists. Byte-identical to the
@@ -47,8 +50,8 @@
 import type { FastifyPluginAsync, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { guardedUpperConcepts, UPPER_CONCEPTS_RATE_LIMIT } from '../../rdf/guardedUpperConcepts.js';
-import { aclGuards, requireAccess, requireSaneToken } from '../acl/guards.js';
-import { atLeast, type AccessLevel } from '../acl/resolve.js';
+import { aclGuards, mayChangeVisibility, requireAccess, requireSaneToken } from '../acl/guards.js';
+import type { AccessLevel } from '../acl/resolve.js';
 import type { RequestUser } from '../users/service.js';
 import * as service from './service.js';
 import {
@@ -97,12 +100,13 @@ class VisibilityChangeForbidden extends Error {
  * PATCH /:id stays guarded at `edit` (see the module comment) so an editor
  * can still retitle or redescribe a schema — that is the point of the editor
  * role. But publication is an ownership decision, so changing `visibility`
- * itself needs `own`. Named and isolated here, rather than an inline `if` in
- * the handler, precisely because "no permission logic in handlers" is this
- * file's own rule and this is the one route that bends it.
+ * itself needs `own`. The comparison (`mayChangeVisibility`) lives in
+ * modules/acl/guards.ts, the single enforcement point for schema-level
+ * policy — this is only the field-conditional call site and the 403 shape,
+ * named and isolated here rather than an inline `if` in the handler.
  */
 function assertMayChangeVisibility(level: AccessLevel): void {
-  if (!atLeast(level, 'own')) throw new VisibilityChangeForbidden();
+  if (!mayChangeVisibility(level)) throw new VisibilityChangeForbidden();
 }
 
 const schemasRoutes: FastifyPluginAsync = async (fastify) => {
