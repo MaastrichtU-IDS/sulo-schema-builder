@@ -35,6 +35,16 @@ services:
       # every request fails token verification with "unexpected iss".
       AUTH_ISSUER: http://localhost:8088/realms/sulo
       AUTH_AUDIENCE: sulo-api
+      # In-network address for the *server-side* JWKS fetch — deliberately
+      # different from AUTH_ISSUER above. Deriving this from AUTH_ISSUER (the
+      # browser-facing URL) broke this stack outright: inside the api
+      # container, "localhost:8088" is the container's own loopback, not
+      # Keycloak, so the fetch failed and every token was rejected with a 401.
+      # See the comment above resolveAuthConfig's AUTH_JWKS_URI handling in
+      # api/src/config/auth.ts for the full argument — a Kubernetes deployment
+      # needs the same split (public ingress issuer, in-cluster service DNS
+      # here).
+      AUTH_JWKS_URI: http://keycloak:8080/realms/sulo/protocol/openid-connect/certs
     depends_on:
       db:
         condition: service_healthy

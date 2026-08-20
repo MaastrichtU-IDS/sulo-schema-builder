@@ -7,8 +7,14 @@
 
 export interface AuthConfig {
   enabled: boolean;
+  /** Expected `iss` claim. The URL the *browser* reached Keycloak on. */
   issuer: string;
   audience: string;
+  /**
+   * Where *this server* fetches the signing keys. Defaults to the standard path
+   * under `issuer`, but is separately settable because the two are not the same
+   * address in a container deployment — see the comment at its assignment below.
+   */
   jwksUri: string;
   jwksJson: string | null;
   clientId: string;
@@ -32,6 +38,19 @@ function required(env: Env, name: string): string {
 // fully instead: an unset value takes the fallback, anything else must be a
 // finite positive number, and anything else throws in the same style as
 // required() above.
+/**
+ * Same fail-fast treatment as required(), for the values that must be URLs: a
+ * URL-shaped setting that is not a URL is a misconfiguration, and left
+ * unchecked it surfaces much later as "every request is a 401".
+ */
+function absoluteUrl(name: string, raw: string): URL {
+  try {
+    return new URL(raw);
+  } catch {
+    throw new Error(`${name} must be an absolute URL (got ${JSON.stringify(raw)})`);
+  }
+}
+
 function positiveIntOrDefault(env: Env, name: string, fallback: number): number {
   const raw = env[name]?.trim();
   if (!raw) {
@@ -58,20 +77,36 @@ export function resolveAuthConfig(env: Env, storage: 'postgres' | 'sqlite'): Aut
     };
   }
 
-  const rawIssuer = required(env, 'AUTH_ISSUER');
-  let issuerUrl: URL;
-  try {
-    issuerUrl = new URL(rawIssuer);
-  } catch {
-    throw new Error(`AUTH_ISSUER must be an absolute URL (got ${JSON.stringify(rawIssuer)})`);
-  }
-  const issuer = issuerUrl.toString().replace(/\/+$/, '');
+  const issuer = absoluteUrl('AUTH_ISSUER', required(env, 'AUTH_ISSUER'))
+    .toString().replace(/\/+$/, '');
+
+  // The `iss` claim and the JWKS fetch are two different addresses, and deriving
+  // the second from the first broke the Docker deployment outright.
+  //
+  // Keycloak stamps every token's `iss` with the hostname the *browser* used
+  // (KC_HOSTNAME; with Keycloak 26's hostname-backchannel-dynamic defaulting to
+  // false it does so unconditionally), so AUTH_ISSUER has to be the public,
+  // browser-facing URL — `http://localhost:8088/realms/sulo` in compose, an
+  // ingress hostname in a cluster. Fetching the signing keys, on the other hand,
+  // is a server-to-server call from inside the network, where that public URL is
+  // wrong or unroutable: in compose, `localhost:8088` inside the api container is
+  // that container's own loopback, so the fetch simply fails and *every* token is
+  // rejected with a 401. The fetch must use in-network addressing —
+  // `http://keycloak:8080/...` in compose, `http://keycloak.sulo.svc:8080/...`
+  // in Kubernetes — which is what this override is for.
+  //
+  // Defaults to the derivation, so single-host deployments (and every test that
+  // predates this) need not set it.
+  const rawJwksUri = env.AUTH_JWKS_URI?.trim();
+  const jwksUri = rawJwksUri
+    ? absoluteUrl('AUTH_JWKS_URI', rawJwksUri).toString()
+    : `${issuer}/protocol/openid-connect/certs`;
 
   return {
     enabled: true,
     issuer,
     audience: required(env, 'AUTH_AUDIENCE'),
-    jwksUri: `${issuer}/protocol/openid-connect/certs`,
+    jwksUri,
     // Set only by tests: a literal JWKS avoids any network fetch. Never set in
     // a deployment — see the plan's global constraints.
     jwksJson: env.AUTH_JWKS_JSON?.trim() || null,

@@ -137,9 +137,26 @@ port), and a comment in `docker-compose.yml` records why that looks
 "wrong" for an in-container reference. Getting this wrong surfaces as
 "unexpected iss" on every request.
 
+The address the API *fetches its signing keys from* is a separate setting,
+`AUTH_JWKS_URI`, and it is not the same address as `AUTH_ISSUER` — this is the
+other half of the same asymmetry. Verifying a token is a server-to-server
+call from inside the network, where the browser-facing URL is wrong or
+unroutable (again, `localhost:8088` inside the `api` container is that
+container's own loopback). Deriving one from the other broke this stack
+outright: the fetch failed and every token was rejected with a 401. So
+`docker-compose.yml` sets `AUTH_JWKS_URI` to the in-network
+`http://keycloak:8080/realms/sulo/protocol/openid-connect/certs`, while
+`AUTH_ISSUER` stays the published `http://localhost:8088/...`. A Kubernetes
+deployment needs the identical split: a public ingress hostname for
+`AUTH_ISSUER`, and the in-cluster service DNS name (e.g.
+`http://keycloak.sulo.svc:8080/...`) for `AUTH_JWKS_URI`. Single-host setups
+can leave `AUTH_JWKS_URI` unset — it then defaults to the same derivation as
+before, `${AUTH_ISSUER}/protocol/openid-connect/certs`.
+
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `AUTH_ISSUER` | *(required in `postgres` mode)* | The realm's issuer URL as reached by the browser, e.g. `http://localhost:8088/realms/sulo`. The JWKS URI used to verify tokens is derived from it. |
+| `AUTH_ISSUER` | *(required in `postgres` mode)* | The realm's issuer URL as reached by the browser, e.g. `http://localhost:8088/realms/sulo`. Checked against every token's `iss` claim. |
+| `AUTH_JWKS_URI` | derived from `AUTH_ISSUER` | Where *this server* fetches the signing keys, e.g. `http://keycloak:8080/realms/sulo/protocol/openid-connect/certs`. Set this explicitly whenever the server can't reach Keycloak at the browser-facing `AUTH_ISSUER` address — true of the compose stack, and of any Kubernetes deployment (in-cluster service DNS vs. a public ingress hostname). |
 | `AUTH_AUDIENCE` | *(required in `postgres` mode)* | Expected token audience — `sulo-api`. |
 | `AUTH_CLIENT_ID` | `sulo-spa` | Public client ID served to the SPA. |
 | `AUTH_USER_CACHE_TTL_MS` | `60000` | How long a verified user's identity is cached before re-checking. |
@@ -148,7 +165,7 @@ port), and a comment in `docker-compose.yml` records why that looks
 
 `AUTH_ISSUER` and `AUTH_AUDIENCE` are only enforced in `postgres` mode; in
 `sqlite` mode (the frozen single-user desktop path) authentication is
-disabled entirely and neither variable is consulted.
+disabled entirely and neither variable (nor `AUTH_JWKS_URI`) is consulted.
 
 ## Local development
 

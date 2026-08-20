@@ -23,6 +23,31 @@ describe('resolveAuthConfig', () => {
     expect(cfg.jwksUri).toBe('https://kc.example.org/realms/sulo/protocol/openid-connect/certs');
   });
 
+  // The issuer (`iss`, checked against the browser-facing URL) and the JWKS
+  // fetch address (a server-to-server call) are not the same thing in a
+  // container deployment — see the comment above resolveAuthConfig's
+  // AUTH_JWKS_URI handling. These three cases are what would have caught that
+  // coupling before it shipped.
+  it('honours an explicit AUTH_JWKS_URI override instead of deriving one from the issuer', () => {
+    const cfg = resolveAuthConfig(
+      { ...BASE, AUTH_JWKS_URI: 'http://keycloak:8080/realms/sulo/protocol/openid-connect/certs' },
+      'postgres',
+    );
+    expect(cfg.jwksUri).toBe('http://keycloak:8080/realms/sulo/protocol/openid-connect/certs');
+    // Independent of the issuer: the override does not have to share a host,
+    // port, or even scheme with AUTH_ISSUER.
+    expect(cfg.issuer).toBe('https://kc.example.org/realms/sulo');
+  });
+
+  it('derives the JWKS URI from the issuer when AUTH_JWKS_URI is unset', () => {
+    const cfg = resolveAuthConfig(BASE, 'postgres');
+    expect(cfg.jwksUri).toBe('https://kc.example.org/realms/sulo/protocol/openid-connect/certs');
+  });
+
+  it('rejects a malformed AUTH_JWKS_URI, naming the variable', () => {
+    expect(() => resolveAuthConfig({ ...BASE, AUTH_JWKS_URI: 'not-a-url' }, 'postgres')).toThrow(/AUTH_JWKS_URI/);
+  });
+
   it('throws in postgres mode when the issuer is missing', () => {
     expect(() => resolveAuthConfig({ AUTH_AUDIENCE: 'sulo-api' }, 'postgres')).toThrow(/AUTH_ISSUER/);
   });

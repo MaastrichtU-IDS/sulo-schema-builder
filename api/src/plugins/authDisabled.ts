@@ -28,10 +28,24 @@
 // import of ./auth.js, whose `declare module 'fastify'` augmentation is global
 // to the program and so needs no import here. It is in the packaged binary's
 // static graph, which is the entire reason it exists.
+//
+// config/index.js is safe to import here: its transitive imports (server.ts,
+// db.ts, rdf.ts, reasoner.ts, config/auth.ts) never reach plugins/auth.ts or
+// `jose` — only test/tokens.ts and plugins/auth.ts do, and neither is in this
+// file's import graph.
 
 import fp from 'fastify-plugin';
+import { config } from '../config/index.js';
 
 export default fp(async (fastify) => {
+  // Registering both plugins throws FST_ERR_DEC_ALREADY_PRESENT today (they
+  // both decorate `authRequired`/`requireRole`), so this branch is not
+  // currently reachable — but it is one edit away, and the failure mode is
+  // silently disabling authentication on a web deployment. Assert it can
+  // never happen instead of relying on that accident of registration order.
+  if (config.auth.enabled) {
+    throw new Error('authDisabled registered while auth is enabled — use plugins/auth.ts');
+  }
   fastify.decorateRequest('user', null);
   fastify.decorate('authRequired', async () => { /* single-user mode: nobody to authenticate */ });
   fastify.decorate('requireRole', () => async () => { /* single-user mode: no roles to check */ });
