@@ -150,6 +150,33 @@ async function ownerOf(schemaId: string): Promise<string> {
   return rows[0].owner_id;
 }
 
+/**
+ * Blocks until some backend is waiting on a row lock — i.e. until the request
+ * under test has actually reached `transferOwnership`'s `select … for update`.
+ * Polling the server's own lock state (rather than sleeping) is what makes the
+ * 409 test deterministic instead of a race: by the time this returns, the
+ * request's guard has already read the pre-change owner_id, so committing the
+ * competing change now is guaranteed to land *between* that read and the
+ * transaction's.
+ *
+ * Throwing rather than timing out silently matters: if the `forUpdate()` re-read
+ * is ever removed, nothing blocks, and this message says why.
+ */
+async function waitUntilBlockedOnRowLock(): Promise<void> {
+  for (let attempt = 0; attempt < 300; attempt += 1) {
+    const { rows } = await t.pool.query(
+      `select count(*)::int as n from pg_stat_activity
+        where wait_event_type = 'Lock' and query ilike '%for update%'`,
+    );
+    if (rows[0].n > 0) return;
+    await new Promise((resolve) => { setTimeout(resolve, 20); });
+  }
+  throw new Error(
+    'the transfer never blocked on the schema row lock — transferOwnership is no longer '
+    + 're-reading owner_id with FOR UPDATE, so it cannot detect a concurrent transfer',
+  );
+}
+
 describe('grants', () => {
   it('lets a viewer-grantee read but not write, and records who granted it', async () => {
     const id = await newSchema();
@@ -291,6 +318,21 @@ describe('grants', () => {
     expect((await put('heir', id, userIds.grantee, 'viewer')).statusCode).toBe(200);
     expect((await del('heir', id, userIds.grantee)).statusCode).toBe(204);
   });
+
+  // Migration 002's seed row owns every pre-authentication schema and
+  // resolveUser refuses to authenticate its subject, so it can never sign in —
+  // but its id is guessable. Naming it as a grantee or an heir must fail like
+  // any other non-person, or a transfer would park ownership out of reach.
+  it('404s a grant or a transfer to the reserved pre-auth seed row', async () => {
+    const { rows } = await t.pool.query('select id from users where subject = $1', ['local']);
+    const seedRow: string = rows[0].id;
+    const id = await newSchema();
+
+    expect((await put('owner', id, seedRow, 'editor')).statusCode).toBe(404);
+    expect((await transfer('owner', id, seedRow)).statusCode).toBe(404);
+    expect(await grantRows(id)).toEqual([]);
+    expect(await ownerOf(id)).toBe(userIds.owner);
+  });
 });
 
 describe('ownership transfer', () => {
@@ -348,6 +390,33 @@ describe('ownership transfer', () => {
     const id = await newSchema();
     expect((await transfer('owner', id, userIds.owner)).statusCode).toBe(400);
     expect(await grantRows(id)).toEqual([]);
+  });
+
+  // The `forUpdate()` re-read exists because the guard's owner_id read and the
+  // write are not atomic. Deterministic without concurrency flakiness: a second
+  // pool client takes the row lock first, so the request under test blocks
+  // *after* its guard has resolved and *before* it can write; the competing
+  // change then commits into that gap.
+  it('409s a transfer whose schema changed owner between the guard and the write', async () => {
+    const id = await newSchema();
+    const client = await t.pool.connect();
+    try {
+      await client.query('begin');
+      await client.query('select owner_id from schemas where id = $1 for update', [id]);
+
+      const pending = transfer('owner', id, userIds.heir);
+      await waitUntilBlockedOnRowLock();
+
+      await client.query('update schemas set owner_id = $1 where id = $2', [userIds.third, id]);
+      await client.query('commit');
+
+      expect((await pending).statusCode).toBe(409);
+      // The competing change stands; the losing transfer wrote nothing at all.
+      expect(await ownerOf(id)).toBe(userIds.third);
+      expect(await grantRows(id)).toEqual([]);
+    } finally {
+      client.release();
+    }
   });
 });
 
@@ -438,28 +507,41 @@ describe('the email lookup', () => {
     expect(res.body).not.toContain(shared);
   });
 
-  // The rate limit is one of the four mitigations that make an authenticated
-  // existence oracle acceptable, so it is asserted rather than assumed. A fresh
-  // app, because the counter is per-instance and this test exhausts it.
-  it('enforces its own budget, tighter than the global one', async () => {
+  // The rate limit is one of the five mitigations that make an authenticated
+  // existence oracle acceptable, so it is asserted rather than assumed — and
+  // what it is keyed on is asserted too, because @fastify/rate-limit's default
+  // (request.ip) would meter the wrong thing: an attacker rotating source
+  // addresses would get a fresh budget per address while staying one account,
+  // and everyone behind a shared egress IP would share one bucket. A fresh app,
+  // because the counter is per-instance and this test exhausts it.
+  it('enforces its own budget, keyed on the identity rather than the address', async () => {
     expect(USER_LOOKUP_RATE_LIMIT.max).toBeLessThan(GLOBAL_RATE_LIMIT_MAX);
 
     const limited = await buildAuthedApp(t.db, {
       routes: apiRoutes, prefix: '', rateLimit: { max: GLOBAL_RATE_LIMIT_MAX, timeWindow: '1 minute' },
     });
     try {
-      const token = await limited.issuer.sign({ sub: PEOPLE.owner.subject }, { expiresIn: '2h' });
+      const mine = await limited.issuer.sign({ sub: PEOPLE.owner.subject }, { expiresIn: '2h' });
+      const theirs = await limited.issuer.sign({ sub: PEOPLE.editor.subject }, { expiresIn: '2h' });
       const url = `/users/lookup?email=${encodeURIComponent(PEOPLE.grantee.email)}`;
-      const hit = () => limited.app.inject({ method: 'GET', url, headers: limited.bearer(token) });
+      const hit = (token: string, remoteAddress?: string) => limited.app.inject({
+        method: 'GET', url, headers: limited.bearer(token), remoteAddress,
+      });
 
       for (let i = 0; i < USER_LOOKUP_RATE_LIMIT.max; i += 1) {
-        expect((await hit()).statusCode, `request ${i + 1}`).toBe(200);
+        expect((await hit(mine)).statusCode, `request ${i + 1}`).toBe(200);
       }
-      expect((await hit()).statusCode).toBe(429);
+      expect((await hit(mine)).statusCode).toBe(429);
+      // Rotating the source address buys nothing: the meter follows the account
+      // the audit trail would name.
+      expect((await hit(mine, '10.0.0.7')).statusCode).toBe(429);
+      // And one account's exhausted budget is not everyone's — which it would
+      // be if this were keyed on an IP that both of them share.
+      expect((await hit(theirs)).statusCode).toBe(200);
 
       // The global budget is untouched, so this is the route's own limit.
       const elsewhere = await limited.app.inject({
-        method: 'GET', url: '/ontology-schemas', headers: limited.bearer(token),
+        method: 'GET', url: '/ontology-schemas', headers: limited.bearer(mine),
       });
       expect(elsewhere.statusCode).toBe(200);
     } finally {

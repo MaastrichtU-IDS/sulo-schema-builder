@@ -3,13 +3,16 @@
 // Every function here is a privilege write, so two properties are structural
 // rather than incidental:
 //
-//  1. Nothing is created for a grantee that does not exist. The existence check
-//     and the insert run in ONE transaction, so "granting to a nonexistent user
-//     creates nothing" holds even if that user is deleted between the two
-//     statements — the foreign key then aborts the transaction and no row
-//     survives. A bare insert relying on the FK to fail would be a 500 with the
-//     constraint name in the log and nothing in the response; a bare check
-//     followed by a separate insert would be a race.
+//  1. Nothing is created for a grantee that does not exist, and the 404 that
+//     says so is the truth rather than a guess. The existence check and the
+//     insert run in ONE transaction and the check takes a SHARE lock on the
+//     user row (`forShare`), so that row cannot be deleted between the two
+//     statements: the check is authoritative for the whole transaction. Without
+//     the lock the foreign key would still stop a bad row from surviving, but
+//     the caller would get a bare 500 from a constraint violation where the
+//     surrounding prose promises a 404 — a right answer for the database and a
+//     wrong one for the API. A bare insert relying on the FK has that problem
+//     always; a check in its own transaction would simply be a race.
 //  2. A transfer re-reads and LOCKS the owner row (`forUpdate`) instead of
 //     trusting the owner_id the guard loaded a moment earlier. Two owners
 //     transferring the same schema at once would otherwise interleave into a
@@ -22,8 +25,9 @@
 // and pkg cannot snapshot kysely's top-level-await modules — a value import
 // (including `sql`) crashes the packaged desktop binary at startup while
 // typecheck, every test and the Docker image stay green.
-import type { Kysely } from 'kysely';
+import type { Kysely, Transaction } from 'kysely';
 import type { DB } from '../../db/types.js';
+import { LOCAL_SUBJECT } from '../users/service.js';
 import type { GrantRow } from './resolve.js';
 
 export type GrantRole = GrantRow['role'];
@@ -35,6 +39,31 @@ export interface GrantWithGrantee {
   displayName: string | null;
   role: GrantRole;
   grantedAt: Date;
+}
+
+/**
+ * The users a schema may be shared with or handed to, locked for the duration of
+ * the caller's transaction.
+ *
+ * `forShare` is what makes the existence check authoritative rather than
+ * advisory — see point 1 of the header. It is a *share* lock, so two concurrent
+ * grants to the same person do not serialise against each other; only a delete
+ * of that user waits, which is precisely the race the check is defending.
+ *
+ * LOCAL_SUBJECT is excluded because it is not a person. Migration 002's seed row
+ * owns every schema created before authentication existed, and resolveUser
+ * refuses to authenticate it, so it can never sign in — but its id is guessable
+ * (…0001) and nothing else stops it being named as a grantee. Transferring a
+ * schema to it would park ownership somewhere unreachable: the previous owner
+ * keeps their consolation `owner` grant and so is not locked out, but the
+ * transfer is gone until an administrator moves it back. "Not a person" is a
+ * property of the row, so it belongs in the query both callers share.
+ */
+function grantableUser(trx: Transaction<DB>) {
+  return trx
+    .selectFrom('users')
+    .forShare()
+    .where('subject', '!=', LOCAL_SUBJECT);
 }
 
 /**
@@ -94,8 +123,7 @@ export async function upsertGrant(
   db: Kysely<DB>, values: UpsertGrant,
 ): Promise<GrantWithGrantee | undefined> {
   return db.transaction().execute(async (trx) => {
-    const grantee = await trx
-      .selectFrom('users')
+    const grantee = await grantableUser(trx)
       .select(['id', 'display_name'])
       .where('id', '=', values.granteeId)
       .executeTakeFirst();
@@ -192,8 +220,7 @@ export async function transferOwnership(
     if (!current) return 'owner_changed';
     if (current.owner_id !== values.expectedOwnerId) return 'owner_changed';
 
-    const newOwner = await trx
-      .selectFrom('users')
+    const newOwner = await grantableUser(trx)
       .select('id')
       .where('id', '=', values.newOwnerId)
       .executeTakeFirst();

@@ -43,19 +43,28 @@
 //   * the response is `{ id, displayName }` and NEVER the address, the subject,
 //     the role or the tier. It confirms only what the caller already typed.
 //   * its own per-route budget (USER_LOOKUP_RATE_LIMIT), an order of magnitude
-//     tighter than the global per-IP limit in server.ts, because guessing is a
-//     volume game.
+//     tighter than the global per-IP limit in server.ts, and keyed on the
+//     *authenticated identity* rather than on the source address, because
+//     guessing is a volume game and addresses are cheap to rotate.
 //   * 404 when absent, in the same shape as every other 404 on this API, so the
 //     answer carries no side channel beyond its status.
 //
 // RESIDUAL RISK, stated rather than hidden: a signed-in user CAN confirm
 // whether any address they can already write down has an account here, one
 // address at a time, at the rate limit. Display names are real names, so a
-// confirmed hit also links an address to a person. This is accepted — it is the
-// minimum an interpersonal sharing feature can leak, it is attributable, and it
-// is rate-limited — and it is not accepted quietly: if this endpoint ever grows
-// a pattern match, a bulk form, an unauthenticated caller or a looser limit,
-// the accepted risk no longer describes what is deployed.
+// confirmed hit also links an address to a person. A 409 additionally reveals
+// that *two* accounts share an address — slightly more than "this one exists",
+// and the price of refusing to guess which of them the caller meant. And the
+// rate limit is a deployment setting, not an invariant: RATE_LIMIT_ENABLED=false
+// (config/server.ts) removes @fastify/rate-limit entirely, and with it this
+// route's budget — a deployment that sets it has accepted an unmetered oracle,
+// which is a materially different bargain from the one described above.
+//
+// This is accepted — it is the minimum an interpersonal sharing feature can
+// leak, it is attributable, and it is metered by default — and it is not
+// accepted quietly: if this endpoint ever grows a pattern match, a bulk form,
+// an unauthenticated caller, an IP-keyed limit or a looser one, the accepted
+// risk no longer describes what is deployed.
 // ---------------------------------------------------------------------------
 
 import type { FastifyPluginAsync, FastifyRequest } from 'fastify';
@@ -66,13 +75,33 @@ import { findByEmailExact } from '../users/repo.js';
 import type { RequestUser } from '../users/service.js';
 
 /**
- * The lookup's own budget. Deliberately far below server.ts's global per-IP
- * limit (300/minute): confirming one address is a legitimate act a few times a
+ * The lookup's own budget. Deliberately far below server.ts's global limit
+ * (300/minute): confirming one address is a legitimate act a few times a
  * minute, and a lever worth pulling thousands of times. Enforced whenever
  * config.rateLimitEnabled registers @fastify/rate-limit — same mechanism as
  * UPPER_CONCEPTS_RATE_LIMIT.
+ *
+ * `keyGenerator` is the load-bearing part, not the number. @fastify/rate-limit
+ * defaults to `request.ip`, which would meter the wrong thing twice over: an
+ * attacker rotating source addresses would get a fresh 20/minute per address
+ * while remaining one attributable account (exactly the volume game the header
+ * says this prevents), and — since nothing in this API sets `trustProxy` —
+ * every caller behind an ingress or a shared egress would share one bucket, so
+ * an anonymous flood could exhaust the budget for an entire institution.
+ * Keying on the resolved user id fixes both: the meter follows the identity
+ * that the audit trail would name. The IP remains the fallback for requests
+ * with no identity, which is every request this route then answers 401 —
+ * @fastify/rate-limit's hook runs on onRequest, i.e. *before* `authRequired`
+ * rejects them, so an anonymous flood still has to be metered as something.
+ * `request.user` is already populated by then: plugins/auth.ts sets it in its
+ * own onRequest hook, and it is registered before the rate limiter in both
+ * server.ts and the test harness.
  */
-export const USER_LOOKUP_RATE_LIMIT = { max: 20, timeWindow: '1 minute' } as const;
+export const USER_LOOKUP_RATE_LIMIT = {
+  max: 20,
+  timeWindow: '1 minute',
+  keyGenerator: (request: FastifyRequest) => request.user?.id ?? request.ip,
+} as const;
 
 /** Mirrors the CHECK on schema_grants.role (migration 001). */
 const GrantBody = z.object({ role: z.enum(['viewer', 'editor', 'owner']) });

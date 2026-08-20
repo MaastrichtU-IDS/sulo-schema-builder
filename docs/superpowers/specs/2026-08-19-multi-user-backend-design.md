@@ -253,6 +253,15 @@ Highest match wins:
 - Report reads inherit the schema's view level: anonymous users can read cached
   reports on public schemas and can never trigger a run.
 - Ownership transfer is an explicit route requiring `own`, not a PATCH field.
+  `own` is a floor, not the whole rule: transfer additionally requires *actual*
+  ownership — `schema.owner_id === user.id`, or the admin role — and this is
+  load-bearing rather than defensive. A transfer leaves the previous owner an
+  `owner` grant so that handing a schema over is not a lockout, and an `owner`
+  grant resolves to `own`; if transfer were merely `own`-level, that previous
+  owner could transfer the schema straight back, and "not a lockout" and "the
+  old owner cannot transfer again" would be jointly unsatisfiable. The
+  comparison lives in the acl module (`mayTransferOwnership`) next to
+  `mayChangeVisibility`, not in the route.
 - `GET /ontology-schemas/:id/upper-concepts` and the standalone
   `GET /upper-concepts?iri=…` proxy both require authentication and count against
   the caller's `upperFetchPerHour` quota. The per-schema form additionally

@@ -67,6 +67,11 @@ export interface UserIdentity {
  * sequential scan over a few thousand rows, and the route's own rate limit
  * (USER_LOOKUP_RATE_LIMIT) is what keeps that from being a lever. Add a
  * functional index before that assumption stops holding.
+ *
+ * Unlike the grantee checks in modules/acl/grants.repo.ts, this needs no
+ * explicit exclusion of the reserved LOCAL_SUBJECT seed row: migration 002
+ * gives it no email, and resolveUser refuses to authenticate that subject, so
+ * nothing can ever put one there for `=` to match.
  */
 export async function findByEmailExact(db: Kysely<DB>, email: string): Promise<UserIdentity[]> {
   const rows = await db
