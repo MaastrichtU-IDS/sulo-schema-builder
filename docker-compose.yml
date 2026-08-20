@@ -50,6 +50,8 @@ services:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
+      keycloak:
+        condition: service_healthy
     networks:
       - sulo-net
     restart: unless-stopped
@@ -132,6 +134,20 @@ services:
     networks:
       - sulo-net
     restart: unless-stopped
+    # Without this, the api container's boot-time JWKS pre-fetch (auth.ts)
+    # would race Keycloak's own startup + realm import (which take longer than
+    # api's other dependencies) on every fresh `docker compose up`: the whole
+    # process — including the anonymous /health and /auth-config routes that
+    # used to come up fine regardless — would crash-loop until Keycloak
+    # answered. KC_HEALTH_ENABLED above already serves /health/ready on the
+    # management port (9000, deliberately not published — it's an in-network
+    # signal, not a public endpoint). The image ships neither curl nor wget,
+    # only bash, hence the raw /dev/tcp request instead of a one-line curl.
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/9000 && printf 'GET /health/ready HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3 && grep -q '\"status\": \"UP\"' <&3"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
 
 networks:
   sulo-net:
