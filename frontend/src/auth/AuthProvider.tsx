@@ -66,8 +66,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
+      let keycloak: Keycloak | undefined;
       try {
-        const keycloak = createKeycloak(config);
+        keycloak = createKeycloak(config);
         keycloakRef.current = keycloak;
 
         const authenticated = await keycloak.init({
@@ -79,26 +80,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (cancelled) return;
 
         if (authenticated) {
+          // `keycloak` is `let`-declared (so the catch block below can tell
+          // whether it's still the ref's owner), and TS doesn't narrow a
+          // `let` across a closure boundary — capture it in a `const` here
+          // so the closures below keep the non-undefined type.
+          const activeKeycloak = keycloak;
           setTokenProvider({
-            getToken: async () => keycloak.token ?? null,
+            getToken: async () => activeKeycloak.token ?? null,
             refresh: async () => {
               try {
                 // A 30s minimum-validity margin: renew slightly ahead of
                 // expiry rather than racing the API's own verification.
-                await keycloak.updateToken(30);
+                await activeKeycloak.updateToken(30);
                 return true;
               } catch {
                 return false;
               }
             },
           });
-          setUser({ name: keycloak.tokenParsed?.name, email: keycloak.tokenParsed?.email });
+          setUser({ name: activeKeycloak.tokenParsed?.name, email: activeKeycloak.tokenParsed?.email });
           setStatus('authenticated');
         } else {
           setStatus('anonymous');
         }
       } catch {
-        keycloakRef.current = null;
+        // Under React.StrictMode's dev double-invoke, two effect runs each
+        // construct their own Keycloak instance. If this (aborted) run's
+        // init() rejects after the *other*, live run already installed a
+        // working instance and authenticated, clearing the ref
+        // unconditionally would null out the live instance — making
+        // login()/logout() permanent no-ops while status/user keep
+        // reporting authenticated. Only clear the ref if it still points at
+        // *this* run's instance.
+        if (keycloakRef.current === keycloak) keycloakRef.current = null;
         if (!cancelled) setStatus('disabled');
       }
     }

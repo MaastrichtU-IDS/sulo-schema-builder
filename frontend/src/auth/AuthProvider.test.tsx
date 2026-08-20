@@ -1,5 +1,6 @@
+import React from 'react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { renderHook, waitFor } from '@testing-library/react';
+import { render, renderHook, waitFor } from '@testing-library/react';
 
 // Shared mock state, hoisted above the vi.mock factories below so both the
 // factories and the test bodies can read/reset it.
@@ -15,13 +16,22 @@ const h = vi.hoisted(() => {
   let nextAuthenticated = false;
   let nextTokenParsed: { name?: string; email?: string } | undefined = undefined;
   let nextInitError: Error | null = null;
+  // Per-instance override of init()'s behavior, consumed in construction
+  // order — lets a test give two constructed Keycloak instances (e.g. two
+  // React.StrictMode effect invocations sharing one component's refs)
+  // independently controlled, out-of-order-resolving init() promises.
+  const initBehaviors: Array<() => Promise<boolean>> = [];
 
-  return { instances, get nextAuthenticated() { return nextAuthenticated; },
+  return {
+    instances,
+    get nextAuthenticated() { return nextAuthenticated; },
     setNextAuthenticated: (v: boolean) => { nextAuthenticated = v; },
     setNextTokenParsed: (v: { name?: string; email?: string } | undefined) => { nextTokenParsed = v; },
     getNextTokenParsed: () => nextTokenParsed,
     setNextInitError: (e: Error | null) => { nextInitError = e; },
     getNextInitError: () => nextInitError,
+    queueInitBehavior: (fn: () => Promise<boolean>) => { initBehaviors.push(fn); },
+    nextInitBehavior: () => initBehaviors.shift(),
   };
 });
 
@@ -33,6 +43,15 @@ vi.mock('keycloak-js', () => {
     token: string | undefined;
     tokenParsed: { name?: string; email?: string } | undefined;
     init = vi.fn(async () => {
+      const behavior = h.nextInitBehavior();
+      if (behavior) {
+        const authenticated = await behavior();
+        if (authenticated) {
+          this.token = 'tok-abc';
+          this.tokenParsed = h.getNextTokenParsed();
+        }
+        return authenticated;
+      }
       if (h.getNextInitError()) throw h.getNextInitError();
       const authenticated = h.nextAuthenticated;
       if (authenticated) {
@@ -146,5 +165,63 @@ describe('AuthProvider', () => {
     const { result } = renderAuth();
 
     await waitFor(() => expect(result.current.status).toBe('disabled'));
+  });
+
+  // Regression for the code-review finding on AuthProvider.tsx: under
+  // React.StrictMode's dev double-invoke, the effect runs twice for the
+  // same component instance (same `keycloakRef`), each constructing its own
+  // Keycloak instance. If the FIRST (StrictMode-aborted) run's init()
+  // rejects only after the SECOND (live) run has already authenticated and
+  // installed a token provider, an unconditional `keycloakRef.current =
+  // null` in the first run's catch block would null out the live instance
+  // — leaving `status`/`user` reporting authenticated while login()/logout()
+  // silently became permanent no-ops. The fix compares instance identity
+  // before clearing the ref.
+  it('keeps the live authenticated instance when a stale double-invoke run rejects after it (StrictMode ordering hazard)', async () => {
+    apiGet.mockResolvedValue({ data: { enabled: true, issuer: ISSUER, clientId: 'sulo-spa' } });
+    h.setNextTokenParsed({ name: 'Ada Lovelace', email: 'ada@example.org' });
+
+    let rejectStale: (e: Error) => void = () => {};
+    let resolveLive: (v: boolean) => void = () => {};
+
+    // Instance #1 ("stale"/aborted run): init() stays pending until we
+    // reject it below, deliberately AFTER instance #2 has already resolved.
+    h.queueInitBehavior(() => new Promise((_resolve, reject) => { rejectStale = reject; }));
+    // Instance #2 ("live" run): init() stays pending until we resolve it
+    // with `true` (authenticated), which happens FIRST.
+    h.queueInitBehavior(() => new Promise((resolve) => { resolveLive = resolve; }));
+
+    function Probe() {
+      const auth = useAuth();
+      probed = auth;
+      return null;
+    }
+    let probed!: ReturnType<typeof useAuth>;
+
+    render(
+      <React.StrictMode>
+        <AuthProvider>
+          <Probe />
+        </AuthProvider>
+      </React.StrictMode>,
+    );
+
+    await waitFor(() => expect(h.instances).toHaveLength(2));
+
+    // Live run wins first.
+    resolveLive(true);
+    await waitFor(() => expect(probed.status).toBe('authenticated'));
+    expect(probed.user).toEqual({ name: 'Ada Lovelace', email: 'ada@example.org' });
+
+    const liveInstance = h.instances[1];
+
+    // Stale run's init() rejects afterwards — this must not clobber the
+    // live instance's ref, nor flip status away from 'authenticated'.
+    rejectStale(new Error('aborted run: iframe check-sso failed'));
+    await Promise.resolve().then(() => Promise.resolve()); // let the rejection's catch block run
+
+    expect(probed.status).toBe('authenticated');
+    probed.login();
+    expect(liveInstance.login).toHaveBeenCalledTimes(1);
   });
 });
