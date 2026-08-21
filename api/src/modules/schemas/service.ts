@@ -102,10 +102,6 @@ function jsonOrNull(value: unknown[] | undefined): string | null | undefined {
   return value.length > 0 ? JSON.stringify(value) : null;
 }
 
-export async function listSchemas(db: Kysely<DB>, ownerId: string) {
-  return (await repo.listSchemas(db, ownerId)).map(schemaRowToSummary);
-}
-
 /** Thin pass-through: repo.listSchemasByScope already returns rows sorted and scoped. */
 export async function listSchemasByScope(
   db: Kysely<DB>, scope: repo.ListScope, userId: string | null,
@@ -116,11 +112,14 @@ export async function listSchemasByScope(
 /**
  * The full API shape for a schema row the caller already holds.
  *
- * Split out from getSchemaWithChildren because the ACL guard has already loaded
- * and authorized the row (modules/acl/guards.ts): re-fetching it by id would be
- * a second query, and worse, a second answer — a handler that disagreed with
- * the guard about which row `:id` names is exactly the seam authorization bugs
- * live in.
+ * This is the only way to get that shape: there is deliberately no sibling
+ * "fetch by id and assemble" function. Every production caller reaches this
+ * through requireAccess/schemaAccess (modules/acl/guards.ts), which has
+ * already loaded and authorized the row — an unscoped read-by-id sitting next
+ * to this one is exactly the shape a future handler would reach for by
+ * accident, bypassing the guard entirely. If you need the full shape for a
+ * row you have not already authorized, load and check it yourself first;
+ * do not add that convenience here.
  */
 export async function schemaWithChildren(db: Kysely<DB>, row: SchemaRow) {
   const [classes, properties] = await Promise.all([
@@ -134,12 +133,6 @@ export async function schemaWithChildren(db: Kysely<DB>, row: SchemaRow) {
     classes: classes.map(classRowToApi),
     properties: properties.map(propertyRowToApi),
   };
-}
-
-export async function getSchemaWithChildren(db: Kysely<DB>, id: string) {
-  const row = await repo.getSchemaRow(db, id);
-  if (!row) return undefined;
-  return schemaWithChildren(db, row);
 }
 
 export async function createSchema(db: Kysely<DB>, ownerId: string, input: SchemaInput) {

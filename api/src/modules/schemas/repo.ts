@@ -17,10 +17,6 @@ import type {
   PropertyRow, PropertyUpdate, SchemaRow, SchemaUpdate,
 } from '../../db/types.js';
 
-export async function listSchemas(db: Kysely<DB>, ownerId: string): Promise<SchemaRow[]> {
-  return db.selectFrom('schemas').selectAll().where('owner_id', '=', ownerId).orderBy('title').execute();
-}
-
 export type ListScope = 'mine' | 'shared' | 'public';
 
 /**
@@ -86,8 +82,23 @@ export async function insertSchema(db: Kysely<DB>, values: NewSchema): Promise<S
   return db.insertInto('schemas').values(values).returningAll().executeTakeFirstOrThrow();
 }
 
+/**
+ * `modified_at` tracks the schema's *content*, not who may see it or who
+ * owns it — matching transferOwnership's own comment in grants.repo.ts, which
+ * leaves it untouched for the same reason. A patch that sets only
+ * `visibility` is a publication decision, not a content edit, so it must not
+ * bump it; anything else in the patch (including visibility alongside a
+ * content field) does. An empty patch — nothing to set at all — still bumps
+ * it, matching this function's behaviour before this distinction existed,
+ * rather than issuing a no-op `UPDATE ... SET` with no columns.
+ */
 export async function patchSchema(db: Kysely<DB>, id: string, values: SchemaUpdate): Promise<void> {
-  await db.updateTable('schemas').set({ ...values, modified_at: new Date() }).where('id', '=', id).execute();
+  const keys = Object.keys(values);
+  const isVisibilityOnly = keys.length > 0 && keys.every((key) => key === 'visibility');
+  await db.updateTable('schemas')
+    .set({ ...values, ...(isVisibilityOnly ? {} : { modified_at: new Date() }) })
+    .where('id', '=', id)
+    .execute();
 }
 
 export async function removeSchema(db: Kysely<DB>, id: string): Promise<void> {

@@ -2,12 +2,26 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { startTestDb, truncateAll, type TestDb } from '../../test/pg.js';
 import { LOCAL_OWNER_ID } from '../../db/constants.js';
 import * as service from './service.js';
+import * as repo from './repo.js';
 
 let t: TestDb;
 
 beforeAll(async () => { t = await startTestDb(); });
 afterAll(async () => { await t.stop(); });
 beforeEach(async () => { await truncateAll(t.db); });
+
+/**
+ * service.schemaWithChildren deliberately takes a row, not an id — it exists
+ * for callers that already hold one from an authorized read (see its own
+ * comment). This test file has no ACL guard to authorize through, so it
+ * reads the row directly the way moderation.routes.ts does, and assembles
+ * the same full shape production code gets after requireAccess.
+ */
+async function readBack(id: string) {
+  const row = await repo.getSchemaRow(t.db, id);
+  if (!row) return undefined;
+  return service.schemaWithChildren(t.db, row);
+}
 
 describe('schemas service', () => {
   it('creates a schema and reads it back with empty children', async () => {
@@ -16,7 +30,7 @@ describe('schemas service', () => {
     expect(created.id).toBeTruthy();
     expect(created.url).toContain(created.id);
 
-    const full = await service.getSchemaWithChildren(t.db, created.id);
+    const full = await readBack(created.id);
     expect(full).toMatchObject({ title: 'Clinical', description: 'demo', classes: [], properties: [] });
   });
 
@@ -27,19 +41,40 @@ describe('schemas service', () => {
     expect(created.baseUri).toBe('https://example.org/ns/');
 
     await service.updateSchema(t.db, created.id, { baseUri: 'https://example.org/other#' });
-    expect((await service.getSchemaWithChildren(t.db, created.id))!.baseUri).toBe('https://example.org/other#');
+    expect((await readBack(created.id))!.baseUri).toBe('https://example.org/other#');
+  });
+
+  // grants.repo.ts's transferOwnership documents modified_at as tracking
+  // *content*, not publication state — this pins repo.ts#patchSchema to that
+  // same rule now that both files agree on it.
+  it('bumps modified_at for a content patch but not for a visibility-only one', async () => {
+    const created = await service.createSchema(t.db, LOCAL_OWNER_ID, { title: 'Freshness' });
+    const initial = (await repo.getSchemaRow(t.db, created.id))!;
+
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    await service.updateSchema(t.db, created.id, { visibility: 'public' });
+    const afterVisibility = (await repo.getSchemaRow(t.db, created.id))!;
+    expect(afterVisibility.modified_at.getTime()).toBe(initial.modified_at.getTime());
+
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    await service.updateSchema(t.db, created.id, { title: 'Freshness v2' });
+    const afterContent = (await repo.getSchemaRow(t.db, created.id))!;
+    expect(afterContent.modified_at.getTime()).toBeGreaterThan(initial.modified_at.getTime());
   });
 
   it('lists an owner schemas ordered by title', async () => {
     await service.createSchema(t.db, LOCAL_OWNER_ID, { title: 'Zebra' });
     await service.createSchema(t.db, LOCAL_OWNER_ID, { title: 'Alpha' });
 
-    const list = await service.listSchemas(t.db, LOCAL_OWNER_ID);
+    // service.listSchemas/repo.listSchemas were deleted as dead code (the
+    // production `mine` scope has used listSchemasByScope since plan 3); this
+    // is the same owner_id = :me, orderBy(title) query under its current name.
+    const list = await service.listSchemasByScope(t.db, 'mine', LOCAL_OWNER_ID);
     expect(list.map((s) => s.title)).toEqual(['Alpha', 'Zebra']);
   });
 
   it('returns undefined for a missing schema', async () => {
-    expect(await service.getSchemaWithChildren(t.db, '11111111-1111-1111-1111-111111111111')).toBeUndefined();
+    expect(await readBack('11111111-1111-1111-1111-111111111111')).toBeUndefined();
   });
 
   it('round-trips classes and properties including jsonb columns', async () => {
@@ -58,17 +93,17 @@ describe('schemas service', () => {
       disjointPropertyIris: ['https://example.org/external'],
     });
 
-    const full = (await service.getSchemaWithChildren(t.db, schema.id))!;
+    const full = (await readBack(schema.id))!;
     expect(full.classes.map((c) => c.name)).toEqual(['Event', 'Visit']);
     expect(full.classes.find((c) => c.name === 'Visit')!.superClassId).toBe(parent.id);
 
-    const readBack = full.properties.find((p) => p.id === prop.id)!;
-    expect(readBack.mappingPattern).toEqual([
+    const readProp = full.properties.find((p) => p.id === prop.id)!;
+    expect(readProp.mappingPattern).toEqual([
       { subject: '?this', predicate: 'https://w3id.org/sulo/isPartOf', object: parent.url },
     ]);
-    expect(readBack.propertyFeatures).toEqual(['functional']);
-    expect(readBack.disjointPropertyIris).toEqual(['https://example.org/external']);
-    expect(readBack.isRequired).toBe(true);
+    expect(readProp.propertyFeatures).toEqual(['functional']);
+    expect(readProp.disjointPropertyIris).toEqual(['https://example.org/external']);
+    expect(readProp.isRequired).toBe(true);
   });
 
   it('treats an empty-string patch value as a field clear', async () => {
@@ -80,7 +115,7 @@ describe('schemas service', () => {
 
     await service.updateClass(t.db, schema.id, child.id, { superClassId: '', mapsToConceptIri: '' });
 
-    const full = (await service.getSchemaWithChildren(t.db, schema.id))!;
+    const full = (await readBack(schema.id))!;
     const updated = full.classes.find((c) => c.id === child.id)!;
     expect(updated.superClassId).toBeUndefined();
     expect(updated.mapsToConceptIri).toBeUndefined();
@@ -94,7 +129,7 @@ describe('schemas service', () => {
 
     await service.deleteSchema(t.db, schema.id);
 
-    expect(await service.getSchemaWithChildren(t.db, schema.id)).toBeUndefined();
+    expect(await readBack(schema.id)).toBeUndefined();
     const { rows } = await t.pool.query('select count(*)::int as n from classes');
     expect(rows[0].n).toBe(0);
   });
@@ -108,7 +143,7 @@ describe('schemas service', () => {
 
     await service.deleteClass(t.db, schema.id, cls.id);
 
-    const full = (await service.getSchemaWithChildren(t.db, schema.id))!;
+    const full = (await readBack(schema.id))!;
     expect(full.properties.find((p) => p.id === prop.id)!.domainClassId).toBeUndefined();
   });
 
@@ -130,7 +165,7 @@ describe('schemas service', () => {
     // An empty patch cannot rely on an UPDATE's row count, so it probes instead.
     expect(await service.updateClass(t.db, b.id, cls.id, {})).toBe(false);
 
-    const untouched = (await service.getSchemaWithChildren(t.db, a.id))!;
+    const untouched = (await readBack(a.id))!;
     expect(untouched.classes).toHaveLength(1);
     expect(untouched.classes[0].label).toBe('person');
     expect(untouched.properties).toHaveLength(1);
