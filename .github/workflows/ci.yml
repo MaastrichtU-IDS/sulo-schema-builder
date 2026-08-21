@@ -108,19 +108,24 @@ jobs:
 
       # docker compose up above already blocked on api's `depends_on:
       # condition: service_healthy` for keycloak, so this seeds a realm
-      # that has finished importing rather than racing it.
+      # that has finished importing rather than racing it. Seeds both
+      # accounts the specs below need ("Alice" and "Bob" — see
+      # docker/keycloak/seed-test-user.sh's own header).
       #
       # -T: `docker compose exec` attaches stdin by default, which fails with
       # "the input device is not a TTY" on a GitHub Actions runner (no TTY on
       # stdin). -T disables that and is a no-op locally either way.
-      - name: Seed the e2e test user
+      - name: Seed the e2e test users
         run: |
           docker compose -f docker-compose.yml exec -T \
             -e KEYCLOAK_ADMIN_PASSWORD=admin -e KEYCLOAK_ADMIN=admin \
             keycloak sh /opt/keycloak/bin/seed-test-user.sh
 
-      - name: Run the auth e2e spec
-        run: npx --prefix frontend playwright test -c frontend/playwright.config.ts frontend/e2e/auth-flow.spec.ts
+      # sharing-flow.spec.ts runs in this same job rather than a second one:
+      # same stack, same seeding, and one more spec is far cheaper than a
+      # second cold build (Keycloak image pull, two npm ci's, frontend build).
+      - name: Run the auth and sharing e2e specs
+        run: npx --prefix frontend playwright test -c frontend/playwright.config.ts frontend/e2e/auth-flow.spec.ts frontend/e2e/sharing-flow.spec.ts
 
       - name: Dump container logs on failure
         if: failure()
