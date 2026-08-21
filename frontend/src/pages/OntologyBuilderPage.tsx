@@ -63,6 +63,7 @@ import {
 } from '../lib/formSchemas.js';
 import PropertyFeaturesEditor from '../components/PropertyFeaturesEditor.js';
 import ShareDialog from '../components/ShareDialog.js';
+import ConsistencyBadge from '../components/ConsistencyBadge.js';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   serializeSchema,
@@ -3462,6 +3463,9 @@ function SchemaDetailPage({ id }: { id: string }) {
                   <span className="font-mono">{schema.baseUri}</span>
                 </div>
               )}
+              <div className="mt-3 max-w-md">
+                <ConsistencyBadge schemaId={schema.id} authStatus={authStatus} />
+              </div>
             </div>
             <div className="flex gap-2 shrink-0">
               <button
