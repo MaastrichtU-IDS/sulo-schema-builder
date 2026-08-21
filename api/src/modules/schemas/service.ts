@@ -112,14 +112,14 @@ export async function listSchemasByScope(
 /**
  * The full API shape for a schema row the caller already holds.
  *
- * This is the only way to get that shape: there is deliberately no sibling
- * "fetch by id and assemble" function. Every production caller reaches this
+ * This is the only way *routes* get that shape: every route reaches this
  * through requireAccess/schemaAccess (modules/acl/guards.ts), which has
  * already loaded and authorized the row — an unscoped read-by-id sitting next
  * to this one is exactly the shape a future handler would reach for by
  * accident, bypassing the guard entirely. If you need the full shape for a
- * row you have not already authorized, load and check it yourself first;
- * do not add that convenience here.
+ * row you have not already authorized, load and check it yourself first; do
+ * not add that convenience here. `schemaForReasoning` below is the one
+ * deliberate exception, for the one caller that is not a request.
  */
 export async function schemaWithChildren(db: Kysely<DB>, row: SchemaRow) {
   const [classes, properties] = await Promise.all([
@@ -133,6 +133,22 @@ export async function schemaWithChildren(db: Kysely<DB>, row: SchemaRow) {
     classes: classes.map(classRowToApi),
     properties: properties.map(propertyRowToApi),
   };
+}
+
+/**
+ * The unscoped read-by-id `schemaWithChildren`'s own doc comment warns future
+ * handlers off: this is that read, and it exists on purpose. The reasoning
+ * pipeline (modules/reasoning/owl.ts) generates OWL from a debounced job, not
+ * a request — there is no caller to authorize, and the whole point is that
+ * the generated document describes the schema exactly as stored, not as any
+ * one caller is allowed to see it. Do not call this from a route; routes
+ * authorize through requireAccess/schemaAccess and then use
+ * `schemaWithChildren(db, row)` with the row the guard already loaded.
+ */
+export async function schemaForReasoning(db: Kysely<DB>, id: string) {
+  const row = await repo.getSchemaRow(db, id);
+  if (!row) return undefined;
+  return schemaWithChildren(db, row);
 }
 
 export async function createSchema(db: Kysely<DB>, ownerId: string, input: SchemaInput) {

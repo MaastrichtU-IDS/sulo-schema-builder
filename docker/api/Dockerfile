@@ -84,6 +84,22 @@ COPY --from=robot /usr/local/bin/robot /usr/local/bin/robot
 
 COPY --from=builder /app/package.json /app/package-lock.json /app/.npmrc ./
 COPY --from=builder /app/api/package.json ./api/
+# @sulo/schema-core is a workspace dependency (api/package.json declares it as
+# "*"), so `npm ci` below symlinks node_modules/@sulo/schema-core straight to
+# packages/schema-core — without this copy that directory does not exist in
+# this stage and the symlink dangles, which builds clean and then fails at
+# runtime with ERR_MODULE_NOT_FOUND the first time anything imports the
+# package (plan-01 follow-up #6). `dist` (already built in the `builder`
+# stage above) rather than `src`, because this stage runs `--omit=dev`: no
+# typescript here for schema-core's own `prepare`/`tsc` to run against.
+COPY --from=builder /app/packages/schema-core/package.json ./packages/schema-core/
+COPY --from=builder /app/packages/schema-core/dist ./packages/schema-core/dist
+# dist/ above is already built, but the manifest still carries the `prepare`
+# (`tsc`) hook, and `npm ci` runs it for a local workspace dependency whether
+# or not it was asked for by name. This stage has no typescript (--omit=dev)
+# and no src/ to build from, so that hook must not run here — strip it rather
+# than fight it.
+RUN node -e "const fs=require('fs');const p='./packages/schema-core/package.json';const j=JSON.parse(fs.readFileSync(p,'utf8'));delete j.scripts.prepare;fs.writeFileSync(p,JSON.stringify(j));"
 RUN npm ci -w sulo-schema-builder-api --omit=dev
 
 COPY --from=builder /app/api/dist ./api/dist
@@ -109,9 +125,17 @@ COPY --from=robot /usr/local/bin/robot /usr/local/bin/robot
 
 COPY package.json package-lock.json .npmrc ./
 COPY api/package.json ./api/
+# Sources before the install, same reasoning as the frontend-builder stage's
+# comment above: schema-core's `prepare` (`tsc`) needs src/ present to leave
+# dist/ behind. @sulo/schema-core has to be named alongside the api workspace
+# here — same as the builder/frontend-builder stages above — or its own
+# lifecycle script never runs and the workspace symlink resolves to a
+# package with no dist/, i.e. the same ERR_MODULE_NOT_FOUND the production
+# stage's fix above exists to catch, just with a source dir instead of a
+# missing one.
 COPY packages/schema-core/package.json packages/schema-core/tsconfig.json ./packages/schema-core/
 COPY packages/schema-core/src ./packages/schema-core/src
-RUN npm ci -w sulo-schema-builder-api
+RUN npm ci -w sulo-schema-builder-api -w @sulo/schema-core
 
 COPY api/tsconfig.json ./api/
 COPY api/src ./api/src
