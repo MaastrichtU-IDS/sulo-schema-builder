@@ -53,10 +53,13 @@ beforeEach(async () => { await truncateAll(t.db); });
 /**
  * A schema created through the API by `subject`, then published.
  *
- * Visibility is set with an UPDATE because no route exposes it yet — that is
- * task 3, as is `?scope=`; task 4 is grants and task 5 the moderator unpublish.
- * The owner still comes from the token path, so the `users` row is the one the
- * auth plugin minted and cached.
+ * Visibility is set with a direct UPDATE rather than through PATCH /:id (which
+ * does expose it now, at `own` — task 3) so that setting up a fixture never
+ * depends on the very ACL guard this file is testing. Tasks 3 (`?scope=`), 4
+ * (grants) and 5 (the moderator unpublish route) have all shipped; this file
+ * stays about sessions regardless, per the header above. The owner still
+ * comes from the token path, so the `users` row is the one the auth plugin
+ * minted and cached.
  */
 async function schemaOwnedBy(
   subject: string, visibility: 'private' | 'unlisted' | 'public', title: string,
@@ -213,6 +216,17 @@ describe('schema routes under authentication', () => {
       headers: harness.bearer(bob), payload: { title: 'Edited by Bob' },
     });
     expect(patch.statusCode).toBe(204);
+
+    // An editor grant must not just fail to be *looser* than required (the
+    // DELETE below) — it must actually be *enough* to write children. Nothing
+    // else in this file, or in guards.test.ts, ever has an editor-grantee add
+    // a class, so this is the only thing standing between `edit` and `own` on
+    // the six child-write routes.
+    const addClass = await harness.app.inject({
+      method: 'POST', url: `/ontology-schemas/${id}/classes`,
+      headers: harness.bearer(bob), payload: { name: 'BobClass' },
+    });
+    expect(addClass.statusCode).toBe(201);
 
     const del = await harness.app.inject({
       method: 'DELETE', url: `/ontology-schemas/${id}`, headers: harness.bearer(bob),
