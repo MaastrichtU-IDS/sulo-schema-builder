@@ -148,7 +148,20 @@ export default fp<AuthPluginOptions>(async (fastify, opts) => {
 
   fastify.addHook('onRequest', async (request) => {
     const token = bearer(request);
-    if (!token) return;
+    if (!token) {
+      // `bearer()` also returns null for an Authorization header it could not
+      // read as a bearer token at all — `Basic ...`, a malformed `Bearer a b`,
+      // or an empty bearer value. That is not the same as no header: the
+      // caller believes it presented *something*, so this must not read as
+      // plain anonymity any more than an unverifiable token does below (see
+      // authError's own doc comment and modules/acl/guards.ts) — a guard that
+      // allows anonymous callers would otherwise answer `200 []` here and 404
+      // on the caller's own private schema, telling them their data is gone
+      // rather than that their header was malformed. A genuinely absent
+      // header is the one case that stays silent.
+      if (request.headers.authorization !== undefined) request.authError = 'invalid';
+      return;
+    }
 
     let claims: TokenClaims;
     try {

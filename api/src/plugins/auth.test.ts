@@ -34,6 +34,9 @@ async function buildApp(): Promise<FastifyInstance> {
   });
 
   app.get('/open', async (request) => ({ user: request.user?.subject ?? null }));
+  app.get('/open-with-error', async (request) => ({
+    user: request.user?.subject ?? null, authError: request.authError,
+  }));
   app.get('/closed', { preHandler: app.authRequired }, async (request) => ({ id: request.user!.id }));
   app.get('/admin-only', { preHandler: [app.authRequired, app.requireRole('admin')] }, async () => ({ ok: true }));
 
@@ -100,6 +103,33 @@ describe('auth plugin', () => {
       const res = await app.inject({ method: 'GET', url: '/closed', headers: { authorization } });
       expect(res.statusCode).toBe(401);
     }
+    await app.close();
+  });
+
+  // Fix for: `bearer()` returns null for `Basic ...`, a malformed `Bearer a b`,
+  // and an empty bearer value — same as no header at all — so authError stayed
+  // null and a route that permits anonymous callers would answer as if the
+  // caller genuinely had no session. That is the exact failure the 'invalid'
+  // branch exists to prevent for an unverifiable-but-present token (the test
+  // above, against a route that requires a session either way, could not have
+  // caught it): a signed-in caller whose header got mangled sees `200 []` and
+  // then a 404 on their own private schema, reading as "your data is gone"
+  // rather than "sign in again". A genuinely absent header is the one case
+  // that must stay silent, or every anonymous request would need an
+  // Authorization header to avoid being misread.
+  it('marks authError invalid for a present-but-unreadable Authorization header, and leaves a genuinely absent one alone', async () => {
+    const app = await buildApp();
+
+    const noHeader = await app.inject({ method: 'GET', url: '/open-with-error' });
+    expect(noHeader.statusCode).toBe(200);
+    expect(noHeader.json()).toEqual({ user: null, authError: null });
+
+    for (const authorization of ['Basic abc', 'Bearer', 'Bearer a b', 'Bearer ']) {
+      const res = await app.inject({ method: 'GET', url: '/open-with-error', headers: { authorization } });
+      expect(res.statusCode).toBe(200);
+      expect(res.json()).toEqual({ user: null, authError: 'invalid' });
+    }
+
     await app.close();
   });
 
