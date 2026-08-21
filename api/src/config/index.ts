@@ -7,6 +7,7 @@ import { dbConfig, postgresConfig } from './db.js';
 import { rdfConfig } from './rdf.js';
 import { reasonerConfig } from './reasoner.js';
 import { resolveAuthConfig } from './auth.js';
+import { quotaConfig } from './quota.js';
 
 export const config = {
   ...serverConfig,
@@ -15,4 +16,5 @@ export const config = {
   rdf: rdfConfig,
   reasoner: reasonerConfig,
   auth: resolveAuthConfig(process.env, storage),
+  quota: quotaConfig,
 } as const;
