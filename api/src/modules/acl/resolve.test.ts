@@ -40,6 +40,10 @@ describe('resolveAccess', () => {
     // a grant must never *reduce* what visibility already allows
     ['viewer grant on a public schema',      user(OTHER), schema('public'), grant('viewer'), 'view'],
     ['editor grant on a public schema',      user(OTHER), schema('public'), grant('editor'), 'edit'],
+
+    // a grant must never *reduce* what owner/admin status already confers
+    ['owner with a stray viewer grant',      user(OWNER), schema('private'), grant('viewer'), 'own'],
+    ['admin with a viewer grant',            user(OTHER, 'admin'), schema('private'), grant('viewer'), 'own'],
   ];
 
   for (const [name, u, s, g, expected] of cases) {
