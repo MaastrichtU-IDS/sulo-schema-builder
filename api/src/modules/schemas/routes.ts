@@ -1,5 +1,9 @@
-// HTTP surface for schemas. Identical paths, payloads and status codes to the
-// SQLite path this replaces; all persistence goes through service.ts.
+// HTTP surface for schemas; all persistence goes through service.ts. Payload
+// *shapes* match the pre-existing SQLite path for the routes that predate
+// this plan, but status codes do not: this plan added 404/403/401 where
+// SQLite unconditionally answered 200 (see the three answers below), a
+// `visibility` field, and `?scope=` — none of which the SQLite path has any
+// equivalent for.
 //
 // AUTHORIZATION LIVES IN ONE PLACE. Every route that names a schema carries a
 // `requireAccess(level)` preHandler (modules/acl/guards.ts), which loads the

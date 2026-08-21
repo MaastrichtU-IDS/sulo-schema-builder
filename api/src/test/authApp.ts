@@ -5,8 +5,8 @@
 //
 // Extracted rather than copied a third time because the order above is not
 // free-form. plugins/auth.ts declares
-// `decorators: { fastify: ['pg'], reply: ['unauthorized','forbidden'] }`, so
-// sensible and the `pg` decorator must already exist when it registers, and the
+// `decorators: { fastify: ['pg'], reply: ['unauthorized','forbidden','serviceUnavailable'] }`,
+// so sensible and the `pg` decorator must already exist when it registers, and the
 // tokens a suite mints have to come from the same offline issuer whose JWKS the
 // plugin was handed. Getting either subtly wrong in a copy produces a
 // registration-time error or a uniform 401 that looks like a product bug.

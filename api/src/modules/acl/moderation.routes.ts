@@ -16,20 +16,27 @@
 // ---------------------------------------------------------------------------
 // DECISION 1 — closing plugins/authDisabled.ts's role-guard blocker.
 //
-// In sqlite mode, authDisabled.ts supplies `requireRole` (and `authRequired`)
-// as no-ops, because the packaged desktop app is single-user and has nobody to
-// authenticate. A role-guarded route registered there would have those no-ops
-// let every request through, unchanged, into a handler that then reads
-// `request.user.role` — which is `null.role` in that mode, forever. Closed two
-// ways, because both are cheap and they fail differently:
+// This route does NOT call `fastify.requireRole` — decision 2 below needs a
+// 404 for the wrong role, and `requireRole` (plugins/auth.ts) answers that
+// with `reply.forbidden()`, a 403. `requireModerator` below is a bespoke
+// preHandler for exactly that reason. But it does the same kind of thing
+// `requireRole` does — reads `request.user.role` and rejects — so it is
+// exposed to the same failure mode: in sqlite mode, authDisabled.ts supplies
+// `requireRole` (and `authRequired`) as no-ops, because the packaged desktop
+// app is single-user and has nobody to authenticate. A role-guarded route
+// registered there would have those no-ops let every request through,
+// unchanged, into a handler that then reads `request.user.role` — which is
+// `null.role` in that mode, forever. Closed two ways, because both are cheap
+// and they fail differently:
 //
 //   * THE BELT — routes/v1/index.ts registers this plugin only inside its
 //     `config.storage === 'postgres'` branch, the same branch that already
 //     selects the Postgres schema/grants routes over the sqlite ones. A route
 //     that is never registered cannot be reached at all, in either mode. This
 //     is the stronger closure, and the one that actually matters in
-//     production: nothing below this comment runs unless a real, non-no-op
-//     `requireRole`/`authRequired` is what registered it.
+//     production: nothing below this comment runs unless the real
+//     (non-no-op) `fastify.authRequired` — the one preHandler from this pair
+//     actually in this route's chain — is what admitted the request.
 //
 //   * THE BRACES — `requireUserOrThrow` below. `fastify.authRequired` runs as
 //     this route's first preHandler and already answers 401 (anonymous, or a
@@ -39,9 +46,10 @@
 //     `request.user` is guaranteed non-null. The throw below is not for that
 //     case; it is insurance for a route someone adds LATER that copies this
 //     pattern but skips the belt, or reorders the preHandlers, or is otherwise
-//     reachable while `request.user` is still null. Where a no-op `requireRole`
-//     would let such a request through unchanged (silently admitting it) and a
-//     bare `request.user.role` read would crash with an unhelpful
+//     reachable while `request.user` is still null. Where the sqlite mode's
+//     no-op `authRequired` would let such a request through unchanged
+//     (silently admitting it) and `requireModerator`'s own
+//     bare `request.user.role` read would then crash with an unhelpful
 //     "Cannot read properties of null", this throws a message that names the
 //     actual mistake and reaches the caller as a masked 500 (plugins/
 //     errorHandler.ts) — loud in the server log, and never a success.

@@ -35,9 +35,12 @@ const v1Routes: FastifyPluginAsync = async (fastify) => {
     await fastify.register(userLookupRoutes, { prefix: '/users' });
     // Belt for moderation.routes.ts's decision 1: registered only here, so it
     // cannot be reached in sqlite mode at all, where plugins/authDisabled.ts's
-    // no-op requireRole/authRequired would otherwise let anyone through. The
-    // braces (a helper that throws loudly if request.user is still absent) are
-    // argued in full at the top of that file.
+    // no-op `authRequired` would otherwise let anyone through (moderation.routes.ts
+    // implements its own role check rather than calling `fastify.requireRole`,
+    // for the 404-not-403 reason argued at the top of that file — but it is
+    // exposed to the same no-op-in-sqlite-mode risk). The braces (a helper
+    // that throws loudly if request.user is still absent) are argued in full
+    // at the top of that file.
     await fastify.register(moderationRoutes, { prefix: '/admin/schemas' });
   } else {
     await fastify.register(legacySqliteRoutes, { prefix: '/ontology-schemas' });
