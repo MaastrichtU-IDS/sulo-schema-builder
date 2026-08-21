@@ -3300,10 +3300,19 @@ function SchemaListPage() {
 
       {schemasQuery.data?.length === 0 && !showCreate && (
         <div className="text-center py-20 text-slate-400 text-sm">
-          No ontology schemas yet.{' '}
-          <button onClick={() => setShowCreate(true)} className="text-violet-600 hover:underline">
-            Create one
-          </button>
+          {authStatus === 'anonymous' ? (
+            // POST /ontology-schemas is 401 without a session (routes.auth.test.ts),
+            // so an anonymous visitor who lands here with no public schemas must
+            // not be invited into a form that can only fail.
+            <>No public ontologies yet. Sign in to create one.</>
+          ) : (
+            <>
+              No ontology schemas yet.{' '}
+              <button onClick={() => setShowCreate(true)} className="text-violet-600 hover:underline">
+                Create one
+              </button>
+            </>
+          )}
         </div>
       )}
     </div>
