@@ -1,3 +1,12 @@
+// INVARIANT: `import type` only for kysely, as in modules/schemas/repo.ts and
+// modules/acl/repo.ts. This file is statically reachable from dist/index.js
+// (routes/v1/index.ts -> acl/grants.routes.ts -> here, which imports
+// findByEmailExact as a value) in *both* storage modes, and pkg cannot
+// snapshot kysely's top-level-await modules — a value import (including
+// `sql`, the natural way to write a functional-index query against
+// lower(email)) crashes the packaged desktop binary at startup with
+// ERR_MODULE_NOT_FOUND, while typecheck, every test and the Docker image stay
+// green.
 import type { Kysely, Selectable } from 'kysely';
 import type { DB, UsersTable } from '../../db/types.js';
 

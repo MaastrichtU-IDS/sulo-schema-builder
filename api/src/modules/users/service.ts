@@ -1,6 +1,14 @@
 // Maps verified token claims onto the local users row. Keycloak owns
 // credentials; this is the mirror the rest of the API joins against.
-
+//
+// INVARIANT: `import type` only for kysely, as in modules/schemas/repo.ts and
+// modules/acl/repo.ts. This file is statically reachable from dist/index.js
+// (routes/v1/index.ts -> acl/grants.routes.ts -> acl/grants.repo.ts -> here,
+// which imports LOCAL_SUBJECT as a value) in *both* storage modes, and pkg
+// cannot snapshot kysely's top-level-await modules — a value import (including
+// `sql`) crashes the packaged desktop binary at startup with
+// ERR_MODULE_NOT_FOUND, while typecheck, every test and the Docker image stay
+// green.
 import type { Kysely } from 'kysely';
 import type { DB } from '../../db/types.js';
 import * as repo from './repo.js';
