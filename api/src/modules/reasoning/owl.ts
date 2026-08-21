@@ -3,6 +3,17 @@
 // frontend uses for its downloads — so the verdict shown on a schema page
 // describes the schema as stored.
 //
+// contentHash covers turtleOwl ALONE, deliberately — not shaclTtl, not
+// anything else generateExports produces. Spec §3
+// (docs/superpowers/specs/2026-08-19-multi-user-backend-design.md) names this:
+// "content_hash is the hash of the generated OWL alone, so a mutation that
+// produces byte-identical OWL (renaming a label back, re-saving an unchanged
+// form) is detected as a no-op and skips the pipeline entirely." A field that
+// has no OWL DL entailment (isRequired is the one @sulo/schema-core actually
+// has today — it only reaches shaclTtl's sh:minCount) is exactly that no-op
+// case, not an exception to it: hashing it in would make every isRequired
+// toggle re-run the reasoner for a verdict that cannot have changed.
+//
 // INVARIANT: `import type` only for kysely here. This module is reachable from
 // routes/v1/index.ts, which both storage modes load, and pkg cannot snapshot
 // kysely's top-level-await modules — a value import kills the packaged desktop
@@ -42,18 +53,12 @@ export async function generateOwl(db: Kysely<DB>, schemaId: string): Promise<Gen
     properties: schema.properties.map((p) => ({ ...p, propertyFeatures: p.propertyFeatures as PropertyFeature[] })),
   };
 
-  const { turtleOwl, shaclTtl } = generateExports(owlSchema);
+  const { turtleOwl } = generateExports(owlSchema);
   return {
     turtle: turtleOwl,
-    // Hashed together with shaclTtl, not turtleOwl alone: a field like
-    // isRequired has no OWL DL entailment (@sulo/schema-core only emits it
-    // into shaclTtl's sh:minCount, never into turtleOwl — verified directly
-    // against the generator), but it is still a real change to the stored
-    // schema. If contentHash tracked turtleOwl alone, toggling isRequired
-    // would leave the cached verdict pointing at content that no longer
-    // matches what is stored, with nothing to invalidate it. Both exports
-    // come from the one generateExports call above, so this costs nothing
-    // extra and stays exactly as deterministic as turtleOwl itself.
-    contentHash: createHash('sha256').update(turtleOwl, 'utf8').update(shaclTtl, 'utf8').digest('hex'),
+    // sha256 of turtleOwl alone — see the module comment above for why
+    // shaclTtl (or anything else generateExports produces) must not be
+    // folded in here.
+    contentHash: createHash('sha256').update(turtleOwl, 'utf8').digest('hex'),
   };
 }

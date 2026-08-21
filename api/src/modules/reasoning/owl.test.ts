@@ -55,7 +55,9 @@ async function addClass(
 
 async function addProperty(
   schemaId: string,
-  input: { name: string; domainClassId?: string; isRequired?: boolean },
+  input: {
+    name: string; domainClassId?: string; isRequired?: boolean; propertyFeatures?: string[];
+  },
 ): Promise<{ id: string }> {
   const res = await harness.inject({
     method: 'POST', url: `/ontology-schemas/${schemaId}/properties`, payload: input,
@@ -64,10 +66,12 @@ async function addProperty(
   return res.json();
 }
 
-async function setRequired(schemaId: string, propId: string, isRequired: boolean): Promise<void> {
+async function patchProperty(
+  schemaId: string, propId: string, patch: { isRequired?: boolean; propertyFeatures?: string[] },
+): Promise<void> {
   const res = await harness.inject({
     method: 'PATCH', url: `/ontology-schemas/${schemaId}/properties/${propId}`,
-    payload: { isRequired },
+    payload: patch,
   });
   expect(res.statusCode).toBe(204);
 }
@@ -137,18 +141,40 @@ describe('generateOwl', () => {
     expect(result!.turtle).toContain(':Item');
   });
 
-  it('changes the hash when a property\'s isRequired flag changes, and leaves it equal when nothing does', async () => {
+  it('changes the hash when a property\'s features change, and leaves it equal when nothing does', async () => {
+    // propertyFeatures reaches turtleOwl directly (ontologyExport.ts folds it
+    // into the property's rdf:type list), so this is a real OWL-content
+    // change, unlike isRequired below.
     const schema = await createSchema({ title: 'Flags' });
     const cls = await addClass(schema.id, 'Thing');
-    const prop = await addProperty(schema.id, { name: 'hasFlag', domainClassId: cls.id, isRequired: false });
+    const prop = await addProperty(schema.id, { name: 'hasFlag', domainClassId: cls.id, propertyFeatures: [] });
 
     const before = await generateOwl(t.db, schema.id);
     const again = await generateOwl(t.db, schema.id);
     expect(again!.contentHash).toBe(before!.contentHash);
 
-    await setRequired(schema.id, prop.id, true);
+    await patchProperty(schema.id, prop.id, { propertyFeatures: ['functional'] });
     const after = await generateOwl(t.db, schema.id);
     expect(after!.contentHash).not.toBe(before!.contentHash);
+  });
+
+  it('leaves the hash unchanged when only isRequired changes, since that flag never reaches turtleOwl', async () => {
+    // Spec §3 (docs/superpowers/specs/2026-08-19-multi-user-backend-design.md):
+    // content_hash is the hash of the generated OWL alone, precisely so that a
+    // mutation producing byte-identical OWL is detected as a no-op and skips
+    // the reasoning pipeline. isRequired is exactly that case — it only ever
+    // reaches shaclTtl (sh:minCount), never turtleOwl — so this is the one
+    // test that must never be "fixed" into asserting the opposite.
+    const schema = await createSchema({ title: 'Required' });
+    const cls = await addClass(schema.id, 'Thing');
+    const prop = await addProperty(schema.id, { name: 'hasFlag', domainClassId: cls.id, isRequired: false });
+
+    const before = await generateOwl(t.db, schema.id);
+    await patchProperty(schema.id, prop.id, { isRequired: true });
+    const after = await generateOwl(t.db, schema.id);
+
+    expect(after!.contentHash).toBe(before!.contentHash);
+    expect(after!.turtle).toBe(before!.turtle);
   });
 
   it('returns undefined for a schema id that does not exist, not an empty document', async () => {
