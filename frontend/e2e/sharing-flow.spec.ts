@@ -201,15 +201,20 @@ test.describe('Sharing and isolation — two real accounts', () => {
     expect(ids).not.toContain(bobOwnSchemaId);
   });
 
-  // Assertion 6: Bob's shared-scoped list contains exactly the one schema
-  // Alice granted him — and never his own (repo.ts's listSchemasByScope
-  // excludes owner_id = :me from the `shared` branch by construction).
+  // Assertion 6: Bob's shared-scoped list contains the one schema Alice
+  // granted him — and never his own (repo.ts's listSchemasByScope excludes
+  // owner_id = :me from the `shared` branch by construction). Scoped to this
+  // run's own id rather than `toEqual([privateSchemaId])`: every run creates a
+  // fresh private schema and grants Bob `viewer` on it, so against a
+  // non-reset volume a second run would find this run's schema *and* a
+  // previous run's, and an exact-list equality would fail in a way that reads
+  // as a product bug rather than what it actually is — test pollution.
   test('assertion 6: Bob’s ?scope=shared contains exactly the shared schema', async () => {
     const res = await bobApi.get('/api/v1/ontology-schemas?scope=shared');
     expect(res.status()).toBe(200);
     const ids: string[] = (await res.json()).map((s: { id: string }) => s.id);
 
-    expect(ids).toEqual([privateSchemaId]);
+    expect(ids).toContain(privateSchemaId);
     expect(ids).not.toContain(bobOwnSchemaId);
   });
 });
