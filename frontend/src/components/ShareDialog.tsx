@@ -6,11 +6,19 @@
 // route echoes the caller's access level (see mappers.ts#schemaRowToSummary,
 // which deliberately omits owner_id). So it is derived from the one request
 // that already answers the question: GET .../grants is guarded at `own`
-// (api/src/modules/acl/grants.routes.ts), so a 200 IS proof of ownership and
+// (api/src/modules/acl/grants.routes.ts), so a 200 IS proof of `own` level and
 // a 403 IS proof of its absence. That is why a viewer and an editor render
 // identically here — both get the same 403 and the same read-only dialog —
 // not because the two roles are indistinguishable in general, but because
 // this is the one request where the server does not distinguish them either.
+//
+// `own` is not the same thing as "the current owner", though: it is also
+// reachable via an `owner`-role *grant* and via the admin role, and a
+// previous owner deliberately keeps an owner-level grant after transferring
+// away (see the confirm() copy below). Any of those callers sees the transfer
+// form and gets a 403 from grants.routes.ts's own-vs-current-owner check when
+// they submit it — handleTransfer below gives that case a distinct message
+// rather than the generic "try again".
 //
 // Hiding the visibility control and the grant form from a non-owner is a UI
 // nicety, not the enforcement point: the server still refuses the write at
@@ -116,8 +124,12 @@ export default function ShareDialog({ schema, onClose }: { schema: OntologySchem
     try {
       await transferSchema.mutateAsync(outcome.user.id);
       setTransferEmail('');
-    } catch {
-      setTransferError('Could not transfer ownership. Try again.');
+    } catch (err) {
+      if (axios.isAxiosError(err) && err.response?.status === 403) {
+        setTransferError('Only the current owner may transfer this schema.');
+      } else {
+        setTransferError('Could not transfer ownership. Try again.');
+      }
     }
   }
 

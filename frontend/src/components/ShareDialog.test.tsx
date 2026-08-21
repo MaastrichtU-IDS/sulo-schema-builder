@@ -59,7 +59,11 @@ describe('ShareDialog', () => {
     del.mockReset();
   });
 
-  it('renders read-only for a viewer (grants fetch 403s)', async () => {
+  // A viewer and an editor both hit this same 403 (see the file header on
+  // ShareDialog.tsx: GET .../grants does not distinguish them, so neither does
+  // this component) — one request, one render, so one test covers both roles
+  // until `access` is exposed on GET /:id.
+  it('renders read-only for any caller without `own`', async () => {
     get.mockRejectedValue(axiosError(403, 'You do not have permission to do that.'));
 
     renderDialog();
@@ -67,20 +71,12 @@ describe('ShareDialog', () => {
     await waitFor(() =>
       expect(screen.getByText(/only the schema owner can manage sharing/i)).toBeInTheDocument(),
     );
-    expect(screen.queryByLabelText(/visibility/i)).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /^add$/i })).not.toBeInTheDocument();
-  });
-
-  it('does not let an editor change visibility (same own-only 403)', async () => {
-    get.mockRejectedValue(axiosError(403, 'You do not have permission to do that.'));
-
-    renderDialog();
-
-    await waitFor(() => expect(get).toHaveBeenCalled());
-    // No visibility control is rendered at all — the server enforces `own`,
-    // and an editor is never shown a control that would only 403.
+    // No visibility control or grant form is rendered at all — the server
+    // enforces `own`, and a non-owner is never shown a control that would
+    // only 403.
     expect(screen.queryByLabelText(/visibility/i)).not.toBeInTheDocument();
     expect(screen.getByText('private')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^add$/i })).not.toBeInTheDocument();
   });
 
   it('gives the owner a working visibility control and grant form', async () => {
@@ -202,5 +198,33 @@ describe('ShareDialog', () => {
       expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['schema-grants', 'schema-1'] }),
     );
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['ontology-schema', 'schema-1'] });
+  });
+
+  // Reachable by a previous owner (who keeps an owner-grant after transferring
+  // away) or an admin: both see the transfer form (they hold `own`), but
+  // POST /transfer 403s them because they are not schema.owner_id. The
+  // generic "try again" message would be actively wrong here — nothing about
+  // retrying fixes it.
+  it('reports a 403 on transfer as "only the current owner may transfer", not a generic retry', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    get.mockImplementation((url: string) => {
+      if (url.includes('/grants')) return Promise.resolve({ data: [] });
+      if (url.includes('/users/lookup')) {
+        return Promise.resolve({ data: { id: 'user-9', displayName: 'Alice' } });
+      }
+      return Promise.reject(new Error(`unexpected GET ${url}`));
+    });
+    post.mockRejectedValue(axiosError(403, 'Only the current owner may transfer this schema.'));
+
+    renderDialog();
+    const user = userEvent.setup();
+
+    await waitFor(() => expect(screen.getByLabelText(/new owner/i)).toBeInTheDocument());
+    await user.type(screen.getByLabelText(/new owner/i), 'alice@example.com');
+    await user.click(screen.getByRole('button', { name: /^transfer$/i }));
+
+    await waitFor(() =>
+      expect(screen.getByText(/only the current owner may transfer this schema/i)).toBeInTheDocument(),
+    );
   });
 });
