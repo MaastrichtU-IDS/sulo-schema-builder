@@ -40,11 +40,21 @@ async function signIn(page: import('@playwright/test').Page) {
 
 test.describe('Auth — real Keycloak login flow', () => {
   test('anonymous, sign-in redirect, sign-in, schema persistence, sign-out', async ({ page }) => {
-    // 1. Anonymous visit: a "Sign in" affordance, no schema list.
+    // 1. Anonymous visit: a "Sign in" affordance, and a scope-tab strip that
+    // proves the anonymous view is a real, meaningful one rather than an
+    // empty gate — the design spec (spec §5 / plan 3) requires anonymous
+    // readers to see public schemas, so there is no "Sign in to see your
+    // schemas." copy to assert on any more (OntologyBuilderPage.tsx pins an
+    // anonymous visitor to one non-interactive "Public" tab and renders
+    // "Mine"/"Shared with me" only once authenticated, since both would
+    // otherwise only ever 401 server-side). Assert that shape directly:
+    // "Public" present, "Mine"/"Shared with me" absent.
     await page.goto(`${BASE}/`);
     await page.waitForLoadState('networkidle');
     await expect(page.getByRole('button', { name: 'Sign in' })).toBeVisible();
-    await expect(page.getByText('Sign in to see your schemas.')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Public', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Mine', exact: true })).not.toBeVisible();
+    await expect(page.getByRole('button', { name: 'Shared with me' })).not.toBeVisible();
 
     // 2 & 3. Sign in through Keycloak's hosted login page (PKCE, redirect_uri,
     // issuer/audience mapper all exercised for real here) and land back
@@ -68,22 +78,27 @@ test.describe('Auth — real Keycloak login flow', () => {
     await page.waitForLoadState('networkidle');
     await expect(page.getByText(title)).toBeVisible({ timeout: 15_000 });
 
-    // 5. Signing out returns to the anonymous state and the UI gates the
-    // list behind a session again. NOTE: this only proves the UI gate, not
-    // owner-scoped listing on the server — once signed out, the whole list
-    // subtree is replaced with "Sign in to see your schemas.", so
-    // `expect(page.getByText(title)).not.toBeVisible()` would pass
-    // regardless of what a GET /ontology-schemas without a token returned.
-    // Owner-scoped listing itself (one subject's GET never contains
-    // another's title) is exercised by the unit suite instead — see
-    // "lists only the caller own schemas" in
-    // api/src/modules/schemas/routes.auth.test.ts. Seeding a second Keycloak
-    // user to make this assertion load-bearing here was judged not worth the
-    // added e2e machinery (a second seeded account, a second sign-in) for
-    // coverage the unit suite already has.
+    // 5. Signing out returns to the same anonymous shape as step 1 — the
+    // "Sign in" affordance and the pinned, non-interactive "Public" tab —
+    // and the title created in step 4 is no longer visible. NOTE: that last
+    // check alone only proves the UI gate, not owner-scoped listing on the
+    // server: since the schema above was created private (the column
+    // default — see schemas.ts's Visibility comment), it never appears in
+    // `?scope=public` regardless of who is asking, so it disappearing here
+    // is expected either way and cannot by itself distinguish "the server
+    // scoped it" from "the UI hid it." Owner-scoped listing itself — one
+    // subject's GET never contains another's title, and an anonymous
+    // scope=public list never contains a private one — is proved
+    // load-bearingly, against the server and with a second real account,
+    // by frontend/e2e/sharing-flow.spec.ts (assertions 1, 5 and 6) and by
+    // the unit suite ("lists only the caller's own schemas" in
+    // api/src/modules/schemas/routes.auth.test.ts). This test keeps only
+    // the cheap, still-true UI-shape assertions.
     await page.getByRole('button', { name: 'Sign out' }).click();
     await expect(page.getByRole('button', { name: 'Sign in' })).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByText('Sign in to see your schemas.')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Public', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Mine', exact: true })).not.toBeVisible();
+    await expect(page.getByRole('button', { name: 'Shared with me' })).not.toBeVisible();
     await expect(page.getByText(title)).not.toBeVisible();
   });
 

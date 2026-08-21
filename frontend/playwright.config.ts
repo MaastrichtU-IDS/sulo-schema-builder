@@ -15,6 +15,17 @@ import { defineConfig, devices } from '@playwright/test';
 export default defineConfig({
   testDir: './e2e',
   timeout: 60_000,
+  // Serial, not Playwright's default (parallel across files, sized to the
+  // CPU count). auth-flow.spec.ts and sharing-flow.spec.ts both sign in as
+  // the same seeded Keycloak account ("Alice"/e2e@example.org) against the
+  // one shared, stateful realm+Postgres the e2e-auth job boots — running
+  // them in different workers raced two logins for that account through
+  // Keycloak's hosted form at once and intermittently failed with a genuine
+  // (not flaky-assertion) "Invalid username or password.", reproduced
+  // locally with 2 workers and gone with 1. A shared external identity
+  // provider is not something either spec can make safe to hit
+  // concurrently, so concurrency is the thing to remove here.
+  workers: 1,
   // An HTML report (frontend/playwright-report/) so ci.yml's e2e-auth job
   // has something concrete to upload on failure — the default reporter
   // writes no file at all.
