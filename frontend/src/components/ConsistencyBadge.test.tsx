@@ -225,4 +225,40 @@ describe('ConsistencyBadge', () => {
     await act(async () => { await vi.advanceTimersByTimeAsync(REPORT_POLL_INTERVAL_MS * 2); });
     expect(call).toBe(settledCalls);
   });
+
+  // Found by e2e proof (frontend/e2e/reasoning-flow.spec.ts): every mutation
+  // schedules a debounced check, but the debounce has an idle window before
+  // it fires — a client that mounts during that window sees `stale`, not
+  // `queued` yet. The old refetchInterval (queued/running only) never polled
+  // from there, so a check that ran and settled entirely server-side left an
+  // open tab stuck showing "not yet checked" forever.
+  it('polls from an initial `stale` too, not only queued/running', async () => {
+    vi.useFakeTimers();
+    let call = 0;
+    get.mockImplementation(() => {
+      call += 1;
+      // Mid-debounce: no job exists yet, so the first several polls still
+      // read `stale` before the debounce fires and it moves to `queued`.
+      if (call <= 2) return Promise.resolve({ data: { state: 'stale', cacheKey: '', computedAt: null, stale: false } });
+      if (call === 3) return Promise.resolve({ data: { state: 'queued', cacheKey: 'k1', computedAt: null, stale: true } });
+      return Promise.resolve({
+        data: {
+          state: 'fresh', cacheKey: 'k1', computedAt: '2026-08-21T10:00:00Z', stale: false,
+          report: { consistent: true, reasoner: 'HermiT', clashes: [] },
+        },
+      });
+    });
+
+    renderBadge('authenticated');
+
+    await vi.waitFor(() => expect(get).toHaveBeenCalledTimes(1));
+    await act(async () => { await vi.advanceTimersByTimeAsync(REPORT_POLL_INTERVAL_MS); });
+    await vi.waitFor(() => expect(get).toHaveBeenCalledTimes(2));
+    await act(async () => { await vi.advanceTimersByTimeAsync(REPORT_POLL_INTERVAL_MS); });
+    await vi.waitFor(() => expect(get).toHaveBeenCalledTimes(3));
+    await act(async () => { await vi.advanceTimersByTimeAsync(REPORT_POLL_INTERVAL_MS); });
+    await vi.waitFor(() => expect(get).toHaveBeenCalledTimes(4));
+
+    await vi.waitFor(() => expect(screen.getByText('Consistent')).toBeInTheDocument());
+  });
 });

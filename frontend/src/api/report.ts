@@ -31,14 +31,24 @@ async function fetchReport(schemaId: string): Promise<SchemaReport> {
 }
 
 /**
- * How often to poll while a check is in flight (`queued`/`running`).
- * `refetchInterval` below turns itself off the moment the state settles to
- * `fresh`/`failed` — an open tab must not keep hammering this endpoint
- * forever, which is exactly the load the hourly refresh quota
+ * How often to poll while a verdict could still change on its own.
+ * `refetchInterval` below turns itself off only at `fresh`/`failed` — the two
+ * genuinely terminal states — an open tab must not keep hammering this
+ * endpoint forever, which is exactly the load the hourly refresh quota
  * (POST .../report/refresh) exists to bound. 4 seconds is fast enough that
  * someone watching the badge sees it move within a handful of polls, and
  * slow enough that a reasoner run lasting tens of seconds costs single-digit
  * requests rather than dozens.
+ *
+ * `stale` polls too, not just `queued`/`running` — found by e2e proof
+ * (frontend/e2e/reasoning-flow.spec.ts): every mutation schedules a
+ * debounced check (modules/reasoning/pipeline.ts's `scheduleCheck`,
+ * REASON_DEBOUNCE_MS=5s idle / 30s max wait), so a client that mounts in the
+ * few seconds between "just edited" and "debounce fired" sees `stale` with
+ * no job queued *yet* — not `queued` itself. Polling only queued/running
+ * missed exactly that window: the check ran and settled fresh entirely
+ * server-side while this tab's query sat with polling switched off forever,
+ * showing "not yet checked" past the point where it plainly had been.
  */
 export const REPORT_POLL_INTERVAL_MS = 4000;
 
@@ -59,7 +69,8 @@ export function useSchemaReport(schemaId: string) {
     enabled: !!schemaId,
     refetchInterval: (query) => {
       const state = query.state.data?.state;
-      return state === 'queued' || state === 'running' ? REPORT_POLL_INTERVAL_MS : false;
+      if (state === undefined) return false; // no data yet — the initial fetch, not a poll
+      return state === 'fresh' || state === 'failed' ? false : REPORT_POLL_INTERVAL_MS;
     },
   });
 }
