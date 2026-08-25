@@ -1,7 +1,10 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { startTestDb, truncateAll, type TestDb } from '../../test/pg.js';
-import { buildAuthedApp, type AuthedTestApp } from '../../test/authApp.js';
+import { buildAuthedApp, FIXTURE_SUBJECT, type AuthedTestApp } from '../../test/authApp.js';
 import { stopPendingChecks } from '../reasoning/pipeline.js';
+import { config } from '../../config/index.js';
+import { TIERS } from '../quota/tiers.js';
+import { UPPER_CONCEPTS_FETCH } from '../quota/service.js';
 
 let t: TestDb;
 let harness: AuthedTestApp;
@@ -16,11 +19,19 @@ let harness: AuthedTestApp;
  * with no token at all.
  */
 let inject: AuthedTestApp['inject'];
+let fixtureUserId: string;
 
 beforeAll(async () => {
   t = await startTestDb();
   harness = await buildAuthedApp(t.db);
   inject = harness.inject;
+  // First sight: the auth plugin's onRequest upserts the users row. `users`
+  // is one of the few tables truncateAll spares, so this id is stable for
+  // every test below regardless of run order.
+  const seen = await inject({ method: 'GET', url: '/ontology-schemas' });
+  expect(seen.statusCode).toBe(200);
+  const { rows } = await t.pool.query('select id from users where subject = $1', [FIXTURE_SUBJECT]);
+  fixtureUserId = rows[0].id;
 });
 
 afterAll(async () => {
@@ -390,5 +401,71 @@ describe('ontology-schemas routes (postgres)', () => {
     const res = await inject({ method: 'GET', url: `/ontology-schemas/${schema.id}/upper-concepts` });
     expect(res.statusCode).toBe(400);
     expect(res.json().message).toMatch(/private address|not allowed|Internal hostnames/i);
+  });
+
+  // spec §6, amended into this task after Task 2 built the logic and left it
+  // unwired: maxSchemas on POST /, counted per-owner.
+  describe('quota: maxSchemas', () => {
+    it('answers 409 quota_exceeded at the limit, creating no row', async () => {
+      for (let i = 0; i < TIERS.free.maxSchemas; i += 1) {
+        await t.db.insertInto('schemas').values({
+          owner_id: fixtureUserId, title: `filler-${i}`, description: null,
+          upper_ontology_iri: null, base_uri: null,
+        }).execute();
+      }
+
+      const res = await inject({ method: 'POST', url: '/ontology-schemas', payload: { title: 'One too many' } });
+      expect(res.statusCode).toBe(409);
+      expect(res.json()).toMatchObject({ error: 'quota_exceeded' });
+
+      const count = await t.db.selectFrom('schemas').select((eb) => eb.fn.countAll().as('n'))
+        .where('owner_id', '=', fixtureUserId).executeTakeFirstOrThrow();
+      expect(Number(count.n)).toBe(TIERS.free.maxSchemas);
+    });
+
+    it('allows creation below the limit', async () => {
+      const res = await inject({ method: 'POST', url: '/ontology-schemas', payload: { title: 'Room to spare' } });
+      expect(res.statusCode).toBe(201);
+    });
+  });
+
+  // spec §6, the other half of the same amendment: upperFetchPerHour on the
+  // schema-scoped proxy. The SULO url is used as the fixture IRI because it
+  // is ALWAYS answered from the bundled copy (rdf/guardedUpperConcepts.ts) —
+  // no real network fetch, so these assertions are about metering, not about
+  // whether some external host is reachable.
+  describe('quota: upperFetchPerHour', () => {
+    async function suloSchema(): Promise<string> {
+      const created = (await inject({
+        method: 'POST', url: '/ontology-schemas',
+        payload: { title: 'Upper fetch fixture', upperOntologyIri: config.reasoner.suloUrl },
+      })).json();
+      return created.id;
+    }
+
+    it('a bundled/cached answer never consumes budget, however many times it is asked', async () => {
+      const schemaId = await suloSchema();
+      for (let i = 0; i < TIERS.free.upperFetchPerHour + 5; i += 1) {
+        const res = await inject({ method: 'GET', url: `/ontology-schemas/${schemaId}/upper-concepts` });
+        expect(res.statusCode).toBe(200);
+      }
+      const events = await t.db.selectFrom('usage_events').selectAll()
+        .where('kind', '=', UPPER_CONCEPTS_FETCH).execute();
+      expect(events).toHaveLength(0);
+    });
+
+    it('answers 429 with retryAfter once the caller is over budget', async () => {
+      const schemaId = await suloSchema();
+      for (let i = 0; i < TIERS.free.upperFetchPerHour; i += 1) {
+        await t.db.insertInto('usage_events').values({
+          user_id: fixtureUserId, kind: UPPER_CONCEPTS_FETCH, schema_id: null, cost_ms: null, cache_hit: false,
+        }).execute();
+      }
+
+      const res = await inject({ method: 'GET', url: `/ontology-schemas/${schemaId}/upper-concepts` });
+      expect(res.statusCode).toBe(429);
+      expect(res.json()).toMatchObject({ error: 'quota_exceeded' });
+      expect(typeof res.json().retryAfter).toBe('number');
+    });
   });
 });

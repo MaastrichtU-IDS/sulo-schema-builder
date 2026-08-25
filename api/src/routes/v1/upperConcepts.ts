@@ -21,7 +21,9 @@
 
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
+import { config } from '../../config/index.js';
 import { guardedUpperConcepts, UPPER_CONCEPTS_RATE_LIMIT } from '../../rdf/guardedUpperConcepts.js';
+import { checkQuota, recordUsage, UPPER_CONCEPTS_FETCH } from '../../modules/quota/service.js';
 
 const Query = z.object({ iri: z.string().min(1).max(2048) });
 
@@ -32,8 +34,26 @@ const upperConceptsRoute: FastifyPluginAsync = async (fastify) => {
   }, async (request, reply) => {
     const { iri } = Query.parse(request.query);
 
+    // Quota only exists in postgres mode: `request.user` is always null in
+    // sqlite mode (plugins/authDisabled.ts's no-op authRequired), where
+    // there is no users table to charge and this route's guard is already
+    // the no-op that keeps the desktop path exactly as it was.
+    if (config.storage === 'postgres' && request.user) {
+      const quota = await checkQuota(fastify.pg, request.user, UPPER_CONCEPTS_FETCH);
+      if (!quota.allowed) {
+        return reply.code(429).send({ error: 'quota_exceeded', message: quota.reason, retryAfter: quota.retryAfterSeconds });
+      }
+    }
+
     const result = await guardedUpperConcepts(iri);
-    if (result.ok) return result.concepts;
+    if (result.ok) {
+      if (config.storage === 'postgres' && request.user && !result.cacheHit) {
+        await recordUsage(fastify.pg, {
+          userId: request.user.id, kind: UPPER_CONCEPTS_FETCH, schemaId: null, costMs: null, cacheHit: false,
+        });
+      }
+      return result.concepts;
+    }
 
     if (result.reason === 'too_large') {
       return reply.code(422).send({ error: 'ontology_too_large', message: result.message });

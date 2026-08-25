@@ -7,6 +7,7 @@ import reasonRoutes from './reason.js';
 import schemasRoutes from '../../modules/schemas/routes.js';
 import grantsRoutes, { userLookupRoutes } from '../../modules/acl/grants.routes.js';
 import moderationRoutes from '../../modules/acl/moderation.routes.js';
+import reasoningRoutes from '../../modules/reasoning/routes.js';
 import legacySqliteRoutes from '../../legacy/sqlite/ontology.routes.js';
 
 const v1Routes: FastifyPluginAsync = async (fastify) => {
@@ -29,6 +30,11 @@ const v1Routes: FastifyPluginAsync = async (fastify) => {
   if (config.storage === 'postgres') {
     await fastify.register(schemasRoutes, { prefix: '/ontology-schemas' });
     await fastify.register(grantsRoutes, { prefix: '/ontology-schemas' });
+    // Verdict endpoints — a sibling of the schema/grants trees under the same
+    // prefix, for the same reason grants.routes.ts is: `:id` is the schema id
+    // requireAccess already resolves, and being a sibling means this file
+    // must (and does) register aclGuards itself.
+    await fastify.register(reasoningRoutes, { prefix: '/ontology-schemas' });
     // Names no schema, so it is guarded by a session and its own rate limit
     // rather than by the ACL. Its privacy posture is argued in full at the top
     // of grants.routes.ts — read that before touching it.

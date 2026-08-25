@@ -57,6 +57,7 @@ import { guardedUpperConcepts, UPPER_CONCEPTS_RATE_LIMIT } from '../../rdf/guard
 import { aclGuards, mayChangeVisibility, requireAccess, requireSaneToken } from '../acl/guards.js';
 import type { AccessLevel } from '../acl/resolve.js';
 import type { RequestUser } from '../users/service.js';
+import { checkQuota, recordUsage, SCHEMA_CREATE, UPPER_CONCEPTS_FETCH } from '../quota/service.js';
 import * as service from './service.js';
 import {
   AddClassBody, AddPropertyBody, CreateOntologySchemaBody, ListSchemasQuery,
@@ -142,7 +143,15 @@ const schemasRoutes: FastifyPluginAsync = async (fastify) => {
 
   fastify.post('/', { preHandler: fastify.authRequired }, async (request, reply) => {
     const data = CreateOntologySchemaBody.parse(request.body);
-    const created = await service.createSchema(fastify.pg, requireUser(request).id, data);
+    const user = requireUser(request);
+    // spec §6: maxSchemas counts only what THIS user owns — checkQuota's
+    // SCHEMA_CREATE branch already scopes it that way. Checked before the
+    // insert, so a denial creates no row.
+    const quota = await checkQuota(fastify.pg, user, SCHEMA_CREATE);
+    if (!quota.allowed) {
+      return reply.code(409).send({ error: 'quota_exceeded', message: quota.reason });
+    }
+    const created = await service.createSchema(fastify.pg, user.id, data);
     return reply.code(201).send(created);
   });
 
@@ -173,8 +182,26 @@ const schemasRoutes: FastifyPluginAsync = async (fastify) => {
     const { schema } = schemaAccess(request);
     if (!schema.upper_ontology_iri) return [];
 
+    // spec §6: the per-user budget on top of the per-route rate limit above —
+    // it meters the remote fetches this server performs on a caller's
+    // behalf, so it is checked before the fetch and NOT charged for a
+    // response guardedUpperConcepts answers from its own cache (see
+    // recordUsage below, gated on `!result.cacheHit`).
+    const user = requireUser(request);
+    const quota = await checkQuota(fastify.pg, user, UPPER_CONCEPTS_FETCH);
+    if (!quota.allowed) {
+      return reply.code(429).send({ error: 'quota_exceeded', message: quota.reason, retryAfter: quota.retryAfterSeconds });
+    }
+
     const result = await guardedUpperConcepts(schema.upper_ontology_iri);
-    if (result.ok) return result.concepts;
+    if (result.ok) {
+      if (!result.cacheHit) {
+        await recordUsage(fastify.pg, {
+          userId: user.id, kind: UPPER_CONCEPTS_FETCH, schemaId: schema.id, costMs: null, cacheHit: false,
+        });
+      }
+      return result.concepts;
+    }
     // Rows written before the write-time check existed (or by a future path that
     // skips it) can still hold a rejected IRI, so this stays a real branch.
     if (result.reason === 'too_large') return reply.unprocessableEntity(result.message);

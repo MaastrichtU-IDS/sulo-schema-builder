@@ -50,7 +50,14 @@ const ACCEPT = 'text/turtle;q=1, application/n-triples;q=0.9, text/n3;q=0.8';
 export const UPPER_CONCEPTS_RATE_LIMIT = { max: 30, timeWindow: '1 minute' } as const;
 
 export type GuardedUpperConceptsResult =
-  | { ok: true; concepts: UpperConcept[] }
+  /**
+   * `cacheHit` distinguishes "answered from the in-memory cache or the
+   * bundled SULO copy" (no remote fetch happened) from "just fetched over
+   * the network" — modules/schemas/routes.ts and routes/v1/upperConcepts.ts
+   * use it to decide whether this call actually spent any of the caller's
+   * `upperFetchPerHour` quota (spec §6: a cached response must not).
+   */
+  | { ok: true; concepts: UpperConcept[]; cacheHit: boolean }
   /** The IRI violated the fetch policy — a 400 for both callers. */
   | { ok: false; reason: 'not_allowed'; message: string }
   /** The document was fetchable but too big to parse — a 422 for both callers. */
@@ -78,12 +85,12 @@ export async function guardedUpperConcepts(iri: string): Promise<GuardedUpperCon
 
   // SULO is bundled with the server — never fetched on a caller's behalf.
   if (normalizeIri(iri) === normalizeIri(config.reasoner.suloUrl)) {
-    return { ok: true, concepts: await bundledSuloConcepts() };
+    return { ok: true, concepts: await bundledSuloConcepts(), cacheHit: true };
   }
 
   const cached = cache.get(iri);
   if (cached && Date.now() - cached.at < CACHE_TTL_MS) {
-    return { ok: true, concepts: cached.concepts };
+    return { ok: true, concepts: cached.concepts, cacheHit: true };
   }
 
   let concepts: UpperConcept[] = [];
@@ -116,7 +123,7 @@ export async function guardedUpperConcepts(iri: string): Promise<GuardedUpperCon
     if (oldest !== undefined) cache.delete(oldest);
   }
   cache.set(iri, { at: Date.now(), concepts });
-  return { ok: true, concepts };
+  return { ok: true, concepts, cacheHit: false };
 }
 
 /** Test seam: the module-level cache would otherwise leak between suites. */

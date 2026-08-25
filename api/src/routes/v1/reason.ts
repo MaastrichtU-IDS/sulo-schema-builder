@@ -108,37 +108,51 @@ const reasonRoutes: FastifyPluginAsync = async (fastify) => {
     return buildStatus();
   });
 
-  // POST /reason — run a full OWL DL consistency check (SULO + user OWL via HermiT).
-  // Guarded (design §5): a reasoning run is the most expensive thing this
-  // server does, and an anonymous caller can never trigger one.
-  fastify.post('/', {
-    preHandler: fastify.authRequired,
-    config: {
-      // Enforced whenever config.rateLimitEnabled registers the plugin.
-      rateLimit: { max: 10, timeWindow: '1 minute' },
-    },
-  }, async (request, reply) => {
-    const { turtle } = ReasonBody.parse(request.body);
-    try {
-      const report = await reasonOntologyDL(turtle);
-      return reply.send(report);
-    } catch (err) {
-      if (err instanceof ReasonerBusyError) {
-        return reply.code(429).send({ error: 'reasoner_busy', message: err.message });
+  // POST /reason — run a full OWL DL consistency check over CLIENT-SUPPLIED
+  // Turtle (SULO + user OWL via HermiT).
+  //
+  // NOT REGISTERED in postgres mode (spec §7): the automatic pipeline
+  // (modules/reasoning/{pipeline,routes}.ts) reasons only over schemas it
+  // stores, generating the OWL itself — this route is the one remaining path
+  // by which a caller could make the host spawn a JVM over bytes it chose,
+  // and removing it here is what closes that. The frozen sqlite desktop path
+  // keeps it: there the reasoner is the local user's own machine, and it is
+  // the only reasoning surface that storage mode has (no pipeline, no queue,
+  // no report endpoints — see modules/reasoning/pipeline.ts's header).
+  //
+  // Guarded (design §5) in the mode where it still exists: a reasoning run is
+  // the most expensive thing this server does, and an anonymous caller can
+  // never trigger one.
+  if (config.storage !== 'postgres') {
+    fastify.post('/', {
+      preHandler: fastify.authRequired,
+      config: {
+        // Enforced whenever config.rateLimitEnabled registers the plugin.
+        rateLimit: { max: 10, timeWindow: '1 minute' },
+      },
+    }, async (request, reply) => {
+      const { turtle } = ReasonBody.parse(request.body);
+      try {
+        const report = await reasonOntologyDL(turtle);
+        return reply.send(report);
+      } catch (err) {
+        if (err instanceof ReasonerBusyError) {
+          return reply.code(429).send({ error: 'reasoner_busy', message: err.message });
+        }
+        if (err instanceof ReasonerUnavailableError) {
+          return reply.code(503).send({ error: 'reasoner_unavailable', message: err.message });
+        }
+        // A non-zero ROBOT exit usually means a malformed ontology / parse error.
+        request.log.error({ err }, 'reasoner failed');
+        const stderr = (err as { stderr?: string }).stderr;
+        return reply.code(422).send({
+          error: 'reasoning_failed',
+          message: 'The reasoner could not process this ontology.',
+          detail: stderr?.slice(0, 2000),
+        });
       }
-      if (err instanceof ReasonerUnavailableError) {
-        return reply.code(503).send({ error: 'reasoner_unavailable', message: err.message });
-      }
-      // A non-zero ROBOT exit usually means a malformed ontology / parse error.
-      request.log.error({ err }, 'reasoner failed');
-      const stderr = (err as { stderr?: string }).stderr;
-      return reply.code(422).send({
-        error: 'reasoning_failed',
-        message: 'The reasoner could not process this ontology.',
-        detail: stderr?.slice(0, 2000),
-      });
-    }
-  });
+    });
+  }
 };
 
 export default reasonRoutes;
