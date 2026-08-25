@@ -21,6 +21,19 @@ export function setTokenProvider(provider: TokenProvider | null): void {
   tokenProvider = provider;
 }
 
+/**
+ * The `Authorization` header this session would attach right now, for a
+ * caller that cannot use the axios instance's own interceptor above —
+ * events.ts's raw `fetch` (an SSE stream, which `EventSource` cannot set a
+ * header on at all) is the one place that needs this today. Empty on the
+ * desktop build, where `tokenProvider` is never set because the API needs
+ * no token there.
+ */
+export async function authHeader(): Promise<Record<string, string>> {
+  const token = await tokenProvider?.getToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 apiClient.interceptors.request.use(async (config) => {
   const token = await tokenProvider?.getToken();
   if (token) config.headers.Authorization = `Bearer ${token}`;

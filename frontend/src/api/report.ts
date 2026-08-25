@@ -4,13 +4,15 @@
 // contract before changing these types.
 //
 // Every bit of fetching lives here, not in the component, because plan 5
-// swaps this polling for server-sent events: that swap should touch this
-// file and nothing else. `ConsistencyBadge.tsx` only ever calls the two
-// hooks below.
+// swaps this polling for server-sent events: that swap touches only this
+// file, exactly as planned — see useSchemaReport below. `ConsistencyBadge.tsx`
+// only ever calls the two hooks in this file.
 
+import { useEffect, useRef } from 'react';
 import axios from 'axios';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from './client.js';
+import { subscribeToSchema } from './events.js';
 import type { ConsistencyReport } from '@sulo/schema-core';
 
 export type { ConsistencyReport };
@@ -31,8 +33,9 @@ async function fetchReport(schemaId: string): Promise<SchemaReport> {
 }
 
 /**
- * How often to poll while a verdict could still change on its own.
- * `refetchInterval` below turns itself off only at `fresh`/`failed` — the two
+ * How often to poll while a verdict could still change on its own AND no
+ * live stream is doing the job instead (see `useSchemaReport` below).
+ * `refetchInterval` turns itself off only at `fresh`/`failed` — the two
  * genuinely terminal states — an open tab must not keep hammering this
  * endpoint forever, which is exactly the load the hourly refresh quota
  * (POST .../report/refresh) exists to bound. 4 seconds is fast enough that
@@ -61,13 +64,73 @@ const reportKey = (schemaId: string) => ['schema-report', schemaId];
  * false` here: a transient failure fetching the verdict is worth retrying
  * the way any other read is, unlike grants.ts's ownership probe where a 403
  * is itself the answer.
+ *
+ * Plan 5: change publication replaces the polling interval above with a
+ * live SSE subscription (events.ts) whenever one is connected — `liveRef`
+ * is what `refetchInterval` below consults to stand down while a stream is
+ * doing the job. A ref rather than component state on purpose: flipping it
+ * needs no re-render of its own — `refetchInterval` is re-consulted by
+ * react-query after every fetch settles regardless of what triggered it, so
+ * the *next* fetch to complete (the initial one, or one an event below
+ * forces) always sees the current value.
+ *
+ * `onOpen` only flips the ref; it does NOT also force a refetch. Doing so
+ * raced the connection's own async handshake against the query's initial
+ * fetch — both start at mount, and `invalidateQueries`/`refetchQueries`
+ * called while a fetch is already in flight for that key is a deliberate
+ * no-op in react-query (it will not start a redundant concurrent fetch).
+ * That race cost nothing to lose: the initial fetch already reflects
+ * current reality by the time IT resolves, and `refetchInterval`'s own
+ * post-fetch re-evaluation is what stops polling from there — no forced
+ * refetch was ever needed for that part.
+ *
+ * `onEvent`, by contrast, fires well after mount, so no such race applies —
+ * `invalidateQueries` reliably forces the refetch spec §8 promises: the
+ * payload is a hint only, and this is what turns "something changed" into
+ * an actual read through the ACL-checked endpoint, never trusting the
+ * payload's own contents.
+ *
+ * The subscription degrades to the interval on ANY failure to connect or
+ * stay connected — a corporate proxy blocking SSE outright must fall back
+ * to exactly plan 4's polling, not to a page that silently never updates
+ * again, which is why `onError` (never connected, or the stream later
+ * dropped) unconditionally clears `liveRef` and re-checks.
  */
 export function useSchemaReport(schemaId: string) {
+  const queryClient = useQueryClient();
+  const liveRef = useRef(false);
+
+  useEffect(() => {
+    if (!schemaId) return undefined;
+    liveRef.current = false;
+
+    const unsubscribe = subscribeToSchema(schemaId, {
+      onOpen: () => {
+        liveRef.current = true;
+      },
+      onEvent: () => {
+        // The payload is a hint only (spec §8) — refetch through the
+        // ACL-checked endpoint rather than trusting anything in it.
+        queryClient.invalidateQueries({ queryKey: reportKey(schemaId) });
+      },
+      onError: () => {
+        liveRef.current = false;
+        queryClient.invalidateQueries({ queryKey: reportKey(schemaId) });
+      },
+    });
+
+    return () => {
+      liveRef.current = false;
+      unsubscribe();
+    };
+  }, [schemaId, queryClient]);
+
   return useQuery<SchemaReport>({
     queryKey: reportKey(schemaId),
     queryFn: () => fetchReport(schemaId),
     enabled: !!schemaId,
     refetchInterval: (query) => {
+      if (liveRef.current) return false; // the SSE subscription is doing the job
       const state = query.state.data?.state;
       if (state === undefined) return false; // no data yet — the initial fetch, not a poll
       return state === 'fresh' || state === 'failed' ? false : REPORT_POLL_INTERVAL_MS;

@@ -3463,9 +3463,17 @@ function SchemaDetailPage({ id }: { id: string }) {
                   <span className="font-mono">{schema.baseUri}</span>
                 </div>
               )}
-              <div className="mt-3 max-w-md">
-                <ConsistencyBadge schemaId={schema.id} authStatus={authStatus} />
-              </div>
+              {/* The automatic, server-side badge needs GET/POST .../report,
+                  which exist only in postgres mode (plan 4 task 6) —
+                  `authStatus === 'disabled'` is that mode's own signal
+                  (config/auth.ts: auth is enabled if and only if
+                  storage === 'postgres'), so this must not render in the
+                  desktop build, where those routes 404. */}
+              {authStatus !== 'disabled' && (
+                <div className="mt-3 max-w-md">
+                  <ConsistencyBadge schemaId={schema.id} authStatus={authStatus} />
+                </div>
+              )}
             </div>
             <div className="flex gap-2 shrink-0">
               <button
@@ -3480,12 +3488,20 @@ function SchemaDetailPage({ id }: { id: string }) {
               >
                 Generate ↓
               </button>
-              <button
-                onClick={() => setShowConsistency(true)}
-                className="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium px-4 py-1.5 rounded-lg transition-colors"
-              >
-                Check consistency
-              </button>
+              {/* The mirror image of the badge above: this modal reasons
+                  over client-supplied Turtle via POST /reason, which plan 4
+                  task 6 deliberately un-registers in postgres mode (spec §7
+                  — the server must not spawn a JVM over bytes a caller
+                  chose there). Desktop-only, where that route still exists
+                  because the reasoner is the user's own machine. */}
+              {authStatus === 'disabled' && (
+                <button
+                  onClick={() => setShowConsistency(true)}
+                  className="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium px-4 py-1.5 rounded-lg transition-colors"
+                >
+                  Check consistency
+                </button>
+              )}
               <button
                 onClick={() => setShowShare(true)}
                 className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-medium px-4 py-1.5 rounded-lg transition-colors border border-slate-300"

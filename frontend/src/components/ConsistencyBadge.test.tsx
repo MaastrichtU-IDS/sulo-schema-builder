@@ -9,11 +9,18 @@ const get = vi.fn();
 const post = vi.fn();
 
 vi.mock('../api/client.js', () => ({
-  apiClient: {
-    get: (...args: unknown[]) => get(...args),
-    post: (...args: unknown[]) => post(...args),
-  },
+  apiClient: { defaults: { baseURL: '/api/v1' }, get: (...args: unknown[]) => get(...args), post: (...args: unknown[]) => post(...args) },
+  authHeader: async () => ({}),
 }));
+
+// report.ts now also opens an SSE subscription (events.ts's subscribeToSchema,
+// a raw `fetch`) alongside the polled apiClient.get above. Most of this
+// suite is about the polling fallback's own behaviour — unchanged by plan 5
+// — so `beforeEach` below stubs `fetch` to fail immediately and
+// consistently rather than actually reaching the network from jsdom: every
+// case except the "live SSE subscription" describe block at the bottom
+// exercises exactly the "SSE unavailable" path a real corporate proxy would
+// produce. Those cases override the stub with a controllable stream instead.
 
 const ConsistencyBadge = (await import('./ConsistencyBadge.js')).default;
 const { REPORT_POLL_INTERVAL_MS } = await import('../api/report.js');
@@ -34,10 +41,26 @@ function renderBadge(authStatus: 'loading' | 'disabled' | 'anonymous' | 'authent
   return { ...utils, queryClient };
 }
 
+function rejectingFetch() {
+  return vi.fn().mockRejectedValue(new Error('SSE unavailable in this test environment'));
+}
+
+/** A ReadableStream events.ts's subscribeToSchema can read from, pushed to at the test's own pace. */
+function controllableSseStream() {
+  let ctrl!: ReadableStreamDefaultController<Uint8Array>;
+  const stream = new ReadableStream<Uint8Array>({ start: (c) => { ctrl = c; } });
+  const encoder = new TextEncoder();
+  return {
+    stream,
+    push(text: string) { ctrl.enqueue(encoder.encode(text)); },
+  };
+}
+
 describe('ConsistencyBadge', () => {
   beforeEach(() => {
     get.mockReset();
     post.mockReset();
+    vi.stubGlobal('fetch', rejectingFetch());
   });
 
   afterEach(() => {
@@ -260,5 +283,81 @@ describe('ConsistencyBadge', () => {
     await vi.waitFor(() => expect(get).toHaveBeenCalledTimes(4));
 
     await vi.waitFor(() => expect(screen.getByText('Consistent')).toBeInTheDocument());
+  });
+
+  describe('live SSE subscription (plan 5)', () => {
+    it('an event on the stream triggers a refetch, without waiting for the poll interval', async () => {
+      const sse = controllableSseStream();
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, body: sse.stream }));
+
+      get.mockResolvedValueOnce({
+        data: { state: 'stale', cacheKey: '', computedAt: null, stale: false },
+      }).mockResolvedValueOnce({
+        data: {
+          state: 'fresh', cacheKey: 'k1', computedAt: '2026-08-21T10:00:00Z', stale: false,
+          report: { consistent: true, reasoner: 'HermiT', clashes: [] },
+        },
+      });
+
+      renderBadge('authenticated');
+      // Waits for the INITIAL fetch to genuinely settle (not just for `get`
+      // to have been called) before the stream event below: react-query
+      // treats invalidateQueries called while a fetch for that key is
+      // already in flight as a no-op (it never starts a redundant
+      // concurrent fetch), so pushing the event any earlier would race the
+      // component's own mount-time fetch — a real subscriber only connects
+      // well after mount in practice, and this is that.
+      await vi.waitFor(() => expect(screen.getByText(/not yet been checked/i)).toBeInTheDocument());
+      expect(get).toHaveBeenCalledTimes(1);
+
+      // No poll interval elapses here — only a real SSE event triggers the
+      // second fetch below, proving the stream (not the fallback timer) did it.
+      sse.push('data: {"schemaId":"schema-1","kind":"report","at":"2026-08-25T00:00:00Z"}\n\n');
+
+      await vi.waitFor(() => expect(get).toHaveBeenCalledTimes(2));
+      await vi.waitFor(() => expect(screen.getByText('Consistent')).toBeInTheDocument());
+    });
+
+    it('falls back to polling when the stream cannot connect at all', async () => {
+      vi.useFakeTimers();
+      vi.stubGlobal('fetch', rejectingFetch());
+      let call = 0;
+      get.mockImplementation(() => {
+        call += 1;
+        if (call < 3) return Promise.resolve({ data: { state: 'queued', cacheKey: 'k1', computedAt: null, stale: true } });
+        return Promise.resolve({
+          data: {
+            state: 'fresh', cacheKey: 'k1', computedAt: '2026-08-21T10:00:00Z', stale: false,
+            report: { consistent: true, reasoner: 'HermiT', clashes: [] },
+          },
+        });
+      });
+
+      renderBadge('authenticated');
+      await vi.waitFor(() => expect(get).toHaveBeenCalledTimes(1));
+      await act(async () => { await vi.advanceTimersByTimeAsync(REPORT_POLL_INTERVAL_MS); });
+      await vi.waitFor(() => expect(get).toHaveBeenCalledTimes(2));
+      await act(async () => { await vi.advanceTimersByTimeAsync(REPORT_POLL_INTERVAL_MS); });
+      await vi.waitFor(() => expect(get).toHaveBeenCalledTimes(3));
+
+      await vi.waitFor(() => expect(screen.getByText('Consistent')).toBeInTheDocument());
+    });
+
+    it('closes the stream on unmount', async () => {
+      const abortSpy = vi.fn();
+      const sse = controllableSseStream();
+      const fetchMock = vi.fn((_url: string, init: RequestInit) => {
+        init.signal?.addEventListener('abort', abortSpy);
+        return Promise.resolve({ ok: true, body: sse.stream });
+      });
+      vi.stubGlobal('fetch', fetchMock);
+      get.mockResolvedValue({ data: { state: 'stale', cacheKey: '', computedAt: null, stale: false } });
+
+      const { unmount } = renderBadge('authenticated');
+      await vi.waitFor(() => expect(fetchMock).toHaveBeenCalled());
+
+      unmount();
+      expect(abortSpy).toHaveBeenCalledOnce();
+    });
   });
 });
