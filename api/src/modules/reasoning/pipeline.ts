@@ -43,6 +43,11 @@ function queueRepo(): Promise<typeof import('./queue.repo.js')> {
   return import('./queue.repo.js');
 }
 
+/** Same reasoning as queueRepo() above, for notify.ts's real kysely `sql` value. */
+function eventsNotify(): Promise<typeof import('../events/notify.js')> {
+  return import('../events/notify.js');
+}
+
 export interface PipelineDeps {
   db: Kysely<DB>;
   /** Injected so tests never spawn a JVM. Defaults to the real HermiT run. */
@@ -105,6 +110,9 @@ async function settle(db: Kysely<DB>, schemaId: string, cacheKey: string, conten
     .set({ latest_report_key: cacheKey, content_hash: contentHash, reason_state: isCurrent ? 'fresh' : 'stale' })
     .where('id', '=', schemaId)
     .execute();
+
+  const { notifySchemaChanged } = await eventsNotify();
+  await notifySchemaChanged(db, schemaId, 'report');
 }
 
 export type CheckOutcome =
@@ -146,6 +154,8 @@ export async function checkNow(deps: PipelineDeps, schemaId: string, requestedBy
     // Not enqueued at all (spec §6): the reasoner would reject it anyway, and
     // this way no job, no queue slot and no quota are ever spent on it.
     await deps.db.updateTable('schemas').set({ reason_state: 'failed' }).where('id', '=', schemaId).execute();
+    const { notifySchemaChanged } = await eventsNotify();
+    await notifySchemaChanged(deps.db, schemaId, 'report');
     return { kind: 'owl-too-large' };
   }
 
@@ -169,6 +179,8 @@ export async function checkNow(deps: PipelineDeps, schemaId: string, requestedBy
   const enqueued = await enqueue(deps.db, { schemaId, requestedBy, cacheKey });
   if (enqueued === 'queued') {
     await deps.db.updateTable('schemas').set({ reason_state: 'queued' }).where('id', '=', schemaId).execute();
+    const { notifySchemaChanged } = await eventsNotify();
+    await notifySchemaChanged(deps.db, schemaId, 'mutated');
     return { kind: 'enqueued', cacheKey };
   }
   // Already a queued/running job for this schema (the partial unique index
@@ -250,6 +262,18 @@ export async function runOnce(deps: PipelineDeps): Promise<RunOnceResult> {
   const job: ClaimedJob | undefined = await claimNext(deps.db);
   if (!job) return { claimed: false };
 
+  // `WHERE reason_state = 'queued'`: a newer edit landing between enqueue and
+  // this claim already reset the schema to 'stale' (markDirty is
+  // unconditional), and that is more informative to a subscriber than
+  // 'running' would be — this update simply does not apply then. Notify
+  // either way; a client that was actually still 'stale' just refetches and
+  // sees no change, which costs one read on an ACL-checked endpoint it
+  // already polls.
+  await deps.db.updateTable('schemas').set({ reason_state: 'running' })
+    .where('id', '=', job.schemaId).where('reason_state', '=', 'queued').execute();
+  const { notifySchemaChanged } = await eventsNotify();
+  await notifySchemaChanged(deps.db, job.schemaId, 'mutated');
+
   const generated = await generateOwl(deps.db, job.schemaId);
   if (!generated) {
     // The schema was deleted after this job was enqueued. Nothing left to
@@ -288,6 +312,7 @@ export async function runOnce(deps: PipelineDeps): Promise<RunOnceResult> {
     // over successfully.
     await finish(deps.db, job.id, { status: 'failed', error: err instanceof Error ? err.message : String(err) });
     await deps.db.updateTable('schemas').set({ reason_state: 'failed' }).where('id', '=', job.schemaId).execute();
+    await notifySchemaChanged(deps.db, job.schemaId, 'report');
     return { claimed: true, jobId: job.id, schemaId: job.schemaId, outcome: 'failed' };
   }
 }

@@ -41,7 +41,15 @@ async function withDirtyMark<T>(
 ): Promise<T> {
   const result = await db.transaction().execute(async (trx) => {
     const value = await write(trx);
-    if (shouldMark(value)) await markDirty(trx, schemaId);
+    if (shouldMark(value)) {
+      await markDirty(trx, schemaId);
+      // Dynamic import, not a static one: notify.ts holds a real kysely
+      // `sql` value (pg_notify has no query-builder method), and this file
+      // sits on routes/v1/index.ts's eager import graph in both storage
+      // modes. See notify.ts's own header for the full argument.
+      const { notifySchemaChanged } = await import('../events/notify.js');
+      await notifySchemaChanged(trx, schemaId, 'mutated');
+    }
     return value;
   });
   if (shouldMark(result)) scheduleCheck({ db }, schemaId, actorId);

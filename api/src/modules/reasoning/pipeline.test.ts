@@ -252,6 +252,42 @@ describe('runOnce', () => {
     expect(stored?.report).toEqual(CONSISTENT);
   });
 
+  it('sets reason_state to running for the duration of the reasoner call, visibly (not just queued -> fresh)', async () => {
+    const schema = await createSchema();
+    const owner = await ownerOf(schema.id);
+    await checkNow(deps(), schema.id, owner);
+    expect(await reasonState(schema.id)).toBe('queued');
+
+    let stateDuringRun: string | undefined;
+    const observing = deps(async () => {
+      stateDuringRun = await reasonState(schema.id);
+      return CONSISTENT;
+    });
+    await runOnce(observing);
+
+    expect(stateDuringRun).toBe('running');
+  });
+
+  it('does not clobber a newer edit\'s stale mark with running', async () => {
+    const schema = await createSchema();
+    const owner = await ownerOf(schema.id);
+    await checkNow(deps(), schema.id, owner);
+
+    // A newer edit lands after enqueue but before the worker claims it —
+    // markDirty is unconditional, so this really does reset reason_state.
+    await addClass(schema.id, 'NewSinceEnqueue');
+    expect(await reasonState(schema.id)).toBe('stale');
+
+    let stateDuringRun: string | undefined;
+    const observing = deps(async () => {
+      stateDuringRun = await reasonState(schema.id);
+      return CONSISTENT;
+    });
+    await runOnce(observing);
+
+    expect(stateDuringRun).toBe('stale');
+  });
+
   it('returns claimed:false when nothing is queued', async () => {
     expect(await runOnce(deps())).toEqual({ claimed: false });
   });
