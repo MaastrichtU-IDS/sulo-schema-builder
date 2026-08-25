@@ -27,6 +27,12 @@ const WINDOW_MS = 60 * 60 * 1000;
  */
 export const SCHEMA_CREATE = 'schema_create';
 
+/** A real (non-cache-hit) reasoning run, automatic or an explicit refresh. Counted against `runsPerHour`. */
+export const REASON_RUN = 'reason';
+
+/** A remote upper-ontology fetch this server performed on a user's behalf. Counted against `upperFetchPerHour`. */
+export const UPPER_CONCEPTS_FETCH = 'upper_concepts_fetch';
+
 /**
  * The minimum a caller needs to identify whose quota to check. Deliberately
  * not `RequestUser` from modules/users/service.ts: `tier` here is a plain
@@ -107,9 +113,17 @@ export type QuotaResult =
  */
 export async function checkQuota(db: Kysely<DB>, user: QuotaUser, kind: string): Promise<QuotaResult> {
   const limits = limitsFor(user.tier);
-  return kind === SCHEMA_CREATE
-    ? checkSchemaCount(db, user.id, limits)
-    : checkRunsWindow(db, user.id, kind, limits);
+  if (kind === SCHEMA_CREATE) return checkSchemaCount(db, user.id, limits);
+
+  // Every other `kind` is a rolling-hour window, but not all windows share a
+  // cap: an upper-ontology fetch is metered against `upperFetchPerHour`,
+  // everything else (currently just REASON_RUN) against `runsPerHour`. A
+  // future third window-based kind needing its own field would have to
+  // extend this dispatch explicitly — see modules/reasoning/pipeline.ts's
+  // header for the same caution about kind-specific behaviour hiding here.
+  const cap = kind === UPPER_CONCEPTS_FETCH ? limits.upperFetchPerHour : limits.runsPerHour;
+  const reasonLabel = kind === UPPER_CONCEPTS_FETCH ? 'upper-ontology fetches per hour' : 'runs-per-hour';
+  return checkRunsWindow(db, user.id, kind, cap, reasonLabel);
 }
 
 async function checkSchemaCount(db: Kysely<DB>, userId: string, limits: TierLimits): Promise<QuotaResult> {
@@ -139,7 +153,7 @@ async function checkSchemaCount(db: Kysely<DB>, userId: string, limits: TierLimi
  * lets a denial say *when* capacity returns instead of a made-up number.
  */
 async function checkRunsWindow(
-  db: Kysely<DB>, userId: string, kind: string, limits: TierLimits,
+  db: Kysely<DB>, userId: string, kind: string, cap: number, reasonLabel: string,
 ): Promise<QuotaResult> {
   const windowStart = new Date(Date.now() - WINDOW_MS);
   const row = await db
@@ -154,15 +168,15 @@ async function checkRunsWindow(
     .where('created_at', '>', windowStart)
     .executeTakeFirstOrThrow();
 
-  if (Number(row.count) < limits.runsPerHour) return { allowed: true };
+  if (Number(row.count) < cap) return { allowed: true };
 
-  // Reachable only when count > 0 (limits.runsPerHour is always positive),
-  // so `oldest` is never null here.
+  // Reachable only when count > 0 (cap is always positive), so `oldest` is
+  // never null here.
   const oldest = row.oldest instanceof Date ? row.oldest : new Date(row.oldest as string);
   const retryAfterSeconds = Math.max(1, Math.ceil((oldest.getTime() + WINDOW_MS - Date.now()) / 1000));
   return {
     allowed: false,
     retryAfterSeconds,
-    reason: `runs-per-hour limit reached (${limits.runsPerHour}/hour)`,
+    reason: `${reasonLabel} limit reached (${cap}/hour)`,
   };
 }

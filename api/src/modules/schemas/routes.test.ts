@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { startTestDb, truncateAll, type TestDb } from '../../test/pg.js';
 import { buildAuthedApp, type AuthedTestApp } from '../../test/authApp.js';
+import { stopPendingChecks } from '../reasoning/pipeline.js';
 
 let t: TestDb;
 let harness: AuthedTestApp;
@@ -23,6 +24,11 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  // Every mutating request below schedules a debounced reasoning check
+  // against this file's own db/pool (schemas/service.ts) — drop those before
+  // that pool is destroyed, so a leftover timer never fires against a dead
+  // connection while a later, unrelated test file is running.
+  stopPendingChecks();
   await harness.close();
   await t.stop();
 });

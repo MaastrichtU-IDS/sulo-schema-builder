@@ -62,6 +62,16 @@ export async function createServer() {
     await server.register(pgPlugin);
     const { default: authPlugin } = await import('./plugins/auth.js');
     await server.register(authPlugin, { auth: config.auth });
+
+    // The automatic reasoning pipeline (spec §7): claim loops plus the
+    // recovery sweep. Postgres-mode only — the frozen sqlite desktop path
+    // keeps reason.ts's old in-process FIFO, untouched. Started after `pg`
+    // is registered (workers read/write through `server.pg`) and stopped on
+    // `onClose` so a reload or a test teardown never leaks a claim loop, the
+    // sweep interval, or a pending debounce timer.
+    const { startWorkers, stopWorkers } = await import('./modules/reasoning/worker.js');
+    startWorkers({ db: server.pg });
+    server.addHook('onClose', () => { stopWorkers(); });
   } else {
     await server.register(sqlitePlugin);
     await server.register(authDisabledPlugin);

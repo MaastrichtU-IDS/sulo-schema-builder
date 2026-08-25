@@ -152,7 +152,7 @@ const schemasRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.patch('/:id', { preHandler: requireAccess('edit') }, async (request, reply) => {
     const data = UpdateOntologySchemaBody.parse(request.body);
     if (data.visibility !== undefined) assertMayChangeVisibility(schemaAccess(request).level);
-    await service.updateSchema(fastify.pg, schemaAccess(request).schema.id, data);
+    await service.updateSchema(fastify.pg, schemaAccess(request).schema.id, data, requireUser(request).id);
     return reply.code(204).send();
   });
 
@@ -185,7 +185,7 @@ const schemasRoutes: FastifyPluginAsync = async (fastify) => {
     // No existence probe: the guard already loaded the row, so the FK cannot be
     // tripped by an unknown schema id — an unknown one never reaches here.
     const data = AddClassBody.parse(request.body);
-    const created = await service.addClass(fastify.pg, schemaAccess(request).schema.id, data);
+    const created = await service.addClass(fastify.pg, schemaAccess(request).schema.id, data, requireUser(request).id);
     return reply.code(201).send(created);
   });
 
@@ -195,7 +195,7 @@ const schemasRoutes: FastifyPluginAsync = async (fastify) => {
 
     const schemaId = schemaAccess(request).schema.id;
     const data = UpdateClassBody.parse(request.body);
-    const updated = await service.updateClass(fastify.pg, schemaId, parsed.data.classId, data);
+    const updated = await service.updateClass(fastify.pg, schemaId, parsed.data.classId, data, requireUser(request).id);
     if (!updated) return reply.notFound(`Class ${parsed.data.classId} not found in schema ${schemaId}`);
     return reply.code(204).send();
   });
@@ -205,14 +205,14 @@ const schemasRoutes: FastifyPluginAsync = async (fastify) => {
     if (!parsed.success) return reply.badRequest('Malformed id');
 
     const schemaId = schemaAccess(request).schema.id;
-    const deleted = await service.deleteClass(fastify.pg, schemaId, parsed.data.classId);
+    const deleted = await service.deleteClass(fastify.pg, schemaId, parsed.data.classId, requireUser(request).id);
     if (!deleted) return reply.notFound(`Class ${parsed.data.classId} not found in schema ${schemaId}`);
     return reply.code(204).send();
   });
 
   fastify.post('/:id/properties', { preHandler: requireAccess('edit') }, async (request, reply) => {
     const data = AddPropertyBody.parse(request.body);
-    const created = await service.addProperty(fastify.pg, schemaAccess(request).schema.id, data);
+    const created = await service.addProperty(fastify.pg, schemaAccess(request).schema.id, data, requireUser(request).id);
     return reply.code(201).send(created);
   });
 
@@ -222,7 +222,7 @@ const schemasRoutes: FastifyPluginAsync = async (fastify) => {
 
     const schemaId = schemaAccess(request).schema.id;
     const data = UpdatePropertyBody.parse(request.body);
-    const updated = await service.updateProperty(fastify.pg, schemaId, parsed.data.propId, data);
+    const updated = await service.updateProperty(fastify.pg, schemaId, parsed.data.propId, data, requireUser(request).id);
     if (!updated) return reply.notFound(`Property ${parsed.data.propId} not found in schema ${schemaId}`);
     return reply.code(204).send();
   });
@@ -232,7 +232,7 @@ const schemasRoutes: FastifyPluginAsync = async (fastify) => {
     if (!parsed.success) return reply.badRequest('Malformed id');
 
     const schemaId = schemaAccess(request).schema.id;
-    const deleted = await service.deleteProperty(fastify.pg, schemaId, parsed.data.propId);
+    const deleted = await service.deleteProperty(fastify.pg, schemaId, parsed.data.propId, requireUser(request).id);
     if (!deleted) return reply.notFound(`Property ${parsed.data.propId} not found in schema ${schemaId}`);
     return reply.code(204).send();
   });

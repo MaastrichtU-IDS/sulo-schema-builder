@@ -31,6 +31,7 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { startTestDb, truncateAll, type TestDb } from '../../test/pg.js';
 import { buildAuthedApp, type AuthedTestApp } from '../../test/authApp.js';
+import { stopPendingChecks } from '../reasoning/pipeline.js';
 
 let t: TestDb;
 let harness: AuthedTestApp;
@@ -44,6 +45,9 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  // See routes.test.ts's afterAll for why: a mutating request here schedules
+  // a debounced check against this file's own pool.
+  stopPendingChecks();
   await harness.close();
   await t.stop();
 });

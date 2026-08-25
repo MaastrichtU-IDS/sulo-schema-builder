@@ -7,8 +7,46 @@
 import type { Kysely } from 'kysely';
 import type { DB, SchemaRow } from '../../db/types.js';
 import { publicUrlProblem } from '../../rdf/safeFetch.js';
+import { markDirty, scheduleCheck } from '../reasoning/pipeline.js';
 import * as repo from './repo.js';
 import { classRowToApi, normalizeBaseUri, propertyRowToApi, schemaIri, schemaRowToSummary } from './mappers.js';
+
+/**
+ * Marks `schemaId` dirty in the SAME transaction as the write that just
+ * changed it (spec §7 step 1), then — once that transaction has actually
+ * committed — schedules a debounced check for it. The two are deliberately
+ * not the same step: `markDirty` must roll back with everything else if the
+ * write fails (a failed mutation must leave no dirty mark), while scheduling
+ * a check is an in-memory side effect with nothing to roll back and every
+ * reason to wait until the write it is about to read is durable.
+ *
+ * `actorId` becomes the check's `requestedBy` — whose tier gates the
+ * automatic run if one is needed (modules/reasoning/pipeline.ts). Every
+ * mutating route passes the caller's own id; there is no path today where a
+ * schema is written without a signed-in caller behind it.
+ */
+/**
+ * `shouldMark` guards the child-write routes (update/delete class or
+ * property): `repo.patchClass`/`removeClass`/etc. return the number of rows
+ * matched, and a class/property id that does not exist in this schema
+ * matches none — the route turns that into a 404, and it must not carry a
+ * dirty mark for a write that never happened. Defaults to "always", which is
+ * right for an insert (it either succeeds or throws) and for `updateSchema`'s
+ * content patch (unconditionally targeted at `id`, never "no such row" —
+ * that would already be a 404 from the ACL guard before this runs).
+ */
+async function withDirtyMark<T>(
+  db: Kysely<DB>, schemaId: string, actorId: string | null, write: (trx: Kysely<DB>) => Promise<T>,
+  shouldMark: (result: T) => boolean = () => true,
+): Promise<T> {
+  const result = await db.transaction().execute(async (trx) => {
+    const value = await write(trx);
+    if (shouldMark(value)) await markDirty(trx, schemaId);
+    return value;
+  });
+  if (shouldMark(result)) scheduleCheck({ db }, schemaId, actorId);
+  return result;
+}
 
 /**
  * A client mistake this layer detects that the routes cannot: it needs a
@@ -166,12 +204,17 @@ export async function createSchema(db: Kysely<DB>, ownerId: string, input: Schem
     // "private" instead of two that could drift.
     ...(input.visibility !== undefined ? { visibility: input.visibility } : {}),
   });
+  // No transaction/markDirty needed: the column default already leaves a
+  // brand-new row `reason_state = 'stale'`. Scheduling a check now (rather
+  // than waiting for the sweep to notice it, minutes later) is what makes a
+  // freshly created schema's badge move on its own.
+  scheduleCheck({ db }, row.id, ownerId);
   return { ...schemaRowToSummary(row), classes: [], properties: [] };
 }
 
-export async function updateSchema(db: Kysely<DB>, id: string, patch: SchemaPatch): Promise<void> {
+export async function updateSchema(db: Kysely<DB>, id: string, patch: SchemaPatch, actorId: string | null): Promise<void> {
   assertFetchableIri(patch.upperOntologyIri);
-  await repo.patchSchema(db, id, {
+  const values = {
     ...(patch.title !== undefined ? { title: patch.title } : {}),
     ...(patch.description !== undefined ? { description: nullable(patch.description) } : {}),
     ...(patch.upperOntologyIri !== undefined ? { upper_ontology_iri: nullable(patch.upperOntologyIri) } : {}),
@@ -182,54 +225,69 @@ export async function updateSchema(db: Kysely<DB>, id: string, patch: SchemaPatc
     // (assertMayChangeVisibility) before this function is ever called — this
     // layer only knows how to write the column, not who may ask it to.
     ...(patch.visibility !== undefined ? { visibility: patch.visibility } : {}),
-  });
+  };
+
+  // A patch touching ONLY visibility cannot change what the reasoner sees —
+  // mirrors repo.patchSchema's own modified_at distinction, for the same
+  // reason: publication is not a content edit.
+  const keys = Object.keys(values);
+  const isVisibilityOnly = keys.length > 0 && keys.every((key) => key === 'visibility');
+  if (isVisibilityOnly) {
+    await repo.patchSchema(db, id, values);
+    return;
+  }
+  await withDirtyMark(db, id, actorId, (trx) => repo.patchSchema(trx, id, values));
 }
 
 export async function deleteSchema(db: Kysely<DB>, id: string): Promise<void> {
   await repo.removeSchema(db, id);
 }
 
-export async function addClass(db: Kysely<DB>, schemaId: string, input: ClassInput) {
+export async function addClass(db: Kysely<DB>, schemaId: string, input: ClassInput, actorId: string | null) {
   await assertClassInSchema(db, schemaId, 'superClassId', input.superClassId);
-  const row = await repo.insertClass(db, {
+  const row = await withDirtyMark(db, schemaId, actorId, (trx) => repo.insertClass(trx, {
     schema_id: schemaId,
     name: input.name,
     label: input.label ?? null,
     description: input.description ?? null,
     maps_to_concept_iri: input.mapsToConceptIri ?? null,
     super_class_id: nullable(input.superClassId) ?? null,
-  });
+  }));
   return classRowToApi(row);
 }
 
 /**
  * Scoped to `schemaId`: a class is only reachable through the schema that owns
- * it. Returns false when nothing matched, which the route turns into a 404.
+ * it. Returns false when nothing matched, which the route turns into a 404 —
+ * and, per `withDirtyMark`'s `shouldMark`, carries no dirty mark either.
  */
 export async function updateClass(
-  db: Kysely<DB>, schemaId: string, classId: string, patch: ClassPatch,
+  db: Kysely<DB>, schemaId: string, classId: string, patch: ClassPatch, actorId: string | null,
 ): Promise<boolean> {
   if (patch.superClassId === classId) {
     throw new SchemaWriteError('superClassId: a class cannot be its own superclass');
   }
   await assertClassInSchema(db, schemaId, 'superClassId', patch.superClassId);
-  const matched = await repo.patchClass(db, schemaId, classId, {
+  const matched = await withDirtyMark(db, schemaId, actorId, (trx) => repo.patchClass(trx, schemaId, classId, {
     ...(patch.name !== undefined ? { name: patch.name } : {}),
     ...(patch.label !== undefined ? { label: nullable(patch.label) } : {}),
     ...(patch.description !== undefined ? { description: nullable(patch.description) } : {}),
     ...(patch.mapsToConceptIri !== undefined ? { maps_to_concept_iri: nullable(patch.mapsToConceptIri) } : {}),
     ...(patch.superClassId !== undefined ? { super_class_id: nullable(patch.superClassId) } : {}),
-  });
+  }), (n) => n > 0);
   return matched > 0;
 }
 
-export async function deleteClass(db: Kysely<DB>, schemaId: string, classId: string): Promise<boolean> {
-  return (await repo.removeClass(db, schemaId, classId)) > 0;
+export async function deleteClass(db: Kysely<DB>, schemaId: string, classId: string, actorId: string | null): Promise<boolean> {
+  const matched = await withDirtyMark(
+    db, schemaId, actorId, (trx) => repo.removeClass(trx, schemaId, classId), (n) => n > 0,
+  );
+  return matched > 0;
 }
 
-export async function addProperty(db: Kysely<DB>, schemaId: string, input: PropertyInput) {
+export async function addProperty(db: Kysely<DB>, schemaId: string, input: PropertyInput, actorId: string | null) {
   await assertClassInSchema(db, schemaId, 'domainClassId', input.domainClassId);
-  const row = await repo.insertProperty(db, {
+  const row = await withDirtyMark(db, schemaId, actorId, (trx) => repo.insertProperty(trx, {
     schema_id: schemaId,
     name: input.name,
     label: input.label ?? null,
@@ -244,16 +302,16 @@ export async function addProperty(db: Kysely<DB>, schemaId: string, input: Prope
     property_features: jsonOrNull(input.propertyFeatures) ?? null,
     inverse_property_iri: input.inversePropertyIri ?? null,
     disjoint_property_iris: jsonOrNull(input.disjointPropertyIris) ?? null,
-  });
+  }));
   return propertyRowToApi(row);
 }
 
 /** Scoped to `schemaId` for the same reason as updateClass. */
 export async function updateProperty(
-  db: Kysely<DB>, schemaId: string, propId: string, patch: PropertyPatch,
+  db: Kysely<DB>, schemaId: string, propId: string, patch: PropertyPatch, actorId: string | null,
 ): Promise<boolean> {
   await assertClassInSchema(db, schemaId, 'domainClassId', patch.domainClassId);
-  const matched = await repo.patchProperty(db, schemaId, propId, {
+  const matched = await withDirtyMark(db, schemaId, actorId, (trx) => repo.patchProperty(trx, schemaId, propId, {
     ...(patch.name !== undefined ? { name: patch.name } : {}),
     ...(patch.label !== undefined ? { label: nullable(patch.label) } : {}),
     ...(patch.description !== undefined ? { description: nullable(patch.description) } : {}),
@@ -269,10 +327,13 @@ export async function updateProperty(
     ...(patch.disjointPropertyIris !== undefined
       ? { disjoint_property_iris: jsonOrNull(patch.disjointPropertyIris) }
       : {}),
-  });
+  }), (n) => n > 0);
   return matched > 0;
 }
 
-export async function deleteProperty(db: Kysely<DB>, schemaId: string, propId: string): Promise<boolean> {
-  return (await repo.removeProperty(db, schemaId, propId)) > 0;
+export async function deleteProperty(db: Kysely<DB>, schemaId: string, propId: string, actorId: string | null): Promise<boolean> {
+  const matched = await withDirtyMark(
+    db, schemaId, actorId, (trx) => repo.removeProperty(trx, schemaId, propId), (n) => n > 0,
+  );
+  return matched > 0;
 }

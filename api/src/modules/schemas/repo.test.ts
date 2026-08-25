@@ -1,13 +1,18 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { startTestDb, truncateAll, type TestDb } from '../../test/pg.js';
 import { LOCAL_OWNER_ID } from '../../db/constants.js';
+import { stopPendingChecks } from '../reasoning/pipeline.js';
 import * as service from './service.js';
 import * as repo from './repo.js';
 
 let t: TestDb;
 
 beforeAll(async () => { t = await startTestDb(); });
-afterAll(async () => { await t.stop(); });
+// Every service.* mutation below schedules a debounced reasoning check
+// against this file's own db/pool — stopPendingChecks drops those before the
+// pool they would read from is destroyed, so a leftover timer never fires
+// against a dead connection in a later, unrelated test file.
+afterAll(async () => { stopPendingChecks(); await t.stop(); });
 beforeEach(async () => { await truncateAll(t.db); });
 
 /**
@@ -40,7 +45,7 @@ describe('schemas service', () => {
     });
     expect(created.baseUri).toBe('https://example.org/ns/');
 
-    await service.updateSchema(t.db, created.id, { baseUri: 'https://example.org/other#' });
+    await service.updateSchema(t.db, created.id, { baseUri: 'https://example.org/other#' }, LOCAL_OWNER_ID);
     expect((await readBack(created.id))!.baseUri).toBe('https://example.org/other#');
   });
 
@@ -52,12 +57,12 @@ describe('schemas service', () => {
     const initial = (await repo.getSchemaRow(t.db, created.id))!;
 
     await new Promise((resolve) => setTimeout(resolve, 5));
-    await service.updateSchema(t.db, created.id, { visibility: 'public' });
+    await service.updateSchema(t.db, created.id, { visibility: 'public' }, LOCAL_OWNER_ID);
     const afterVisibility = (await repo.getSchemaRow(t.db, created.id))!;
     expect(afterVisibility.modified_at.getTime()).toBe(initial.modified_at.getTime());
 
     await new Promise((resolve) => setTimeout(resolve, 5));
-    await service.updateSchema(t.db, created.id, { title: 'Freshness v2' });
+    await service.updateSchema(t.db, created.id, { title: 'Freshness v2' }, LOCAL_OWNER_ID);
     const afterContent = (await repo.getSchemaRow(t.db, created.id))!;
     expect(afterContent.modified_at.getTime()).toBeGreaterThan(initial.modified_at.getTime());
   });
@@ -79,8 +84,8 @@ describe('schemas service', () => {
 
   it('round-trips classes and properties including jsonb columns', async () => {
     const schema = await service.createSchema(t.db, LOCAL_OWNER_ID, { title: 'Family' });
-    const parent = await service.addClass(t.db, schema.id, { name: 'Event' });
-    const child = await service.addClass(t.db, schema.id, { name: 'Visit', superClassId: parent.id });
+    const parent = await service.addClass(t.db, schema.id, { name: 'Event' }, LOCAL_OWNER_ID);
+    const child = await service.addClass(t.db, schema.id, { name: 'Visit', superClassId: parent.id }, LOCAL_OWNER_ID);
 
     const prop = await service.addProperty(t.db, schema.id, {
       name: 'occursIn',
@@ -91,7 +96,7 @@ describe('schemas service', () => {
       isRequired: true,
       propertyFeatures: ['functional'],
       disjointPropertyIris: ['https://example.org/external'],
-    });
+    }, LOCAL_OWNER_ID);
 
     const full = (await readBack(schema.id))!;
     expect(full.classes.map((c) => c.name)).toEqual(['Event', 'Visit']);
@@ -108,12 +113,12 @@ describe('schemas service', () => {
 
   it('treats an empty-string patch value as a field clear', async () => {
     const schema = await service.createSchema(t.db, LOCAL_OWNER_ID, { title: 'Family' });
-    const parent = await service.addClass(t.db, schema.id, { name: 'Event' });
+    const parent = await service.addClass(t.db, schema.id, { name: 'Event' }, LOCAL_OWNER_ID);
     const child = await service.addClass(t.db, schema.id, {
       name: 'Visit', superClassId: parent.id, mapsToConceptIri: 'https://w3id.org/sulo/Process',
-    });
+    }, LOCAL_OWNER_ID);
 
-    await service.updateClass(t.db, schema.id, child.id, { superClassId: '', mapsToConceptIri: '' });
+    await service.updateClass(t.db, schema.id, child.id, { superClassId: '', mapsToConceptIri: '' }, LOCAL_OWNER_ID);
 
     const full = (await readBack(schema.id))!;
     const updated = full.classes.find((c) => c.id === child.id)!;
@@ -124,8 +129,8 @@ describe('schemas service', () => {
 
   it('cascades deletes to classes and properties', async () => {
     const schema = await service.createSchema(t.db, LOCAL_OWNER_ID, { title: 'Doomed' });
-    await service.addClass(t.db, schema.id, { name: 'Gone' });
-    await service.addProperty(t.db, schema.id, { name: 'alsoGone', propertyType: 'datatype' });
+    await service.addClass(t.db, schema.id, { name: 'Gone' }, LOCAL_OWNER_ID);
+    await service.addProperty(t.db, schema.id, { name: 'alsoGone', propertyType: 'datatype' }, LOCAL_OWNER_ID);
 
     await service.deleteSchema(t.db, schema.id);
 
@@ -136,12 +141,12 @@ describe('schemas service', () => {
 
   it('nulls the domain reference when a class a property points at is deleted', async () => {
     const schema = await service.createSchema(t.db, LOCAL_OWNER_ID, { title: 'Refs' });
-    const cls = await service.addClass(t.db, schema.id, { name: 'Subject' });
+    const cls = await service.addClass(t.db, schema.id, { name: 'Subject' }, LOCAL_OWNER_ID);
     const prop = await service.addProperty(t.db, schema.id, {
       name: 'hasName', propertyType: 'datatype', domainClassId: cls.id,
-    });
+    }, LOCAL_OWNER_ID);
 
-    await service.deleteClass(t.db, schema.id, cls.id);
+    await service.deleteClass(t.db, schema.id, cls.id, LOCAL_OWNER_ID);
 
     const full = (await readBack(schema.id))!;
     expect(full.properties.find((p) => p.id === prop.id)!.domainClassId).toBeUndefined();
@@ -153,17 +158,17 @@ describe('schemas service', () => {
   it('refuses to mutate or delete a child through another schema id', async () => {
     const a = await service.createSchema(t.db, LOCAL_OWNER_ID, { title: 'A' });
     const b = await service.createSchema(t.db, LOCAL_OWNER_ID, { title: 'B' });
-    const cls = await service.addClass(t.db, a.id, { name: 'Person', label: 'person' });
+    const cls = await service.addClass(t.db, a.id, { name: 'Person', label: 'person' }, LOCAL_OWNER_ID);
     const prop = await service.addProperty(t.db, a.id, {
       name: 'hasName', propertyType: 'datatype', label: 'has name',
-    });
+    }, LOCAL_OWNER_ID);
 
-    expect(await service.updateClass(t.db, b.id, cls.id, { label: 'hacked' })).toBe(false);
-    expect(await service.deleteClass(t.db, b.id, cls.id)).toBe(false);
-    expect(await service.updateProperty(t.db, b.id, prop.id, { label: 'hacked' })).toBe(false);
-    expect(await service.deleteProperty(t.db, b.id, prop.id)).toBe(false);
+    expect(await service.updateClass(t.db, b.id, cls.id, { label: 'hacked' }, LOCAL_OWNER_ID)).toBe(false);
+    expect(await service.deleteClass(t.db, b.id, cls.id, LOCAL_OWNER_ID)).toBe(false);
+    expect(await service.updateProperty(t.db, b.id, prop.id, { label: 'hacked' }, LOCAL_OWNER_ID)).toBe(false);
+    expect(await service.deleteProperty(t.db, b.id, prop.id, LOCAL_OWNER_ID)).toBe(false);
     // An empty patch cannot rely on an UPDATE's row count, so it probes instead.
-    expect(await service.updateClass(t.db, b.id, cls.id, {})).toBe(false);
+    expect(await service.updateClass(t.db, b.id, cls.id, {}, LOCAL_OWNER_ID)).toBe(false);
 
     const untouched = (await readBack(a.id))!;
     expect(untouched.classes).toHaveLength(1);
@@ -172,10 +177,10 @@ describe('schemas service', () => {
     expect(untouched.properties[0].label).toBe('has name');
 
     // The owning schema id still works, including the empty-patch path.
-    expect(await service.updateClass(t.db, a.id, cls.id, {})).toBe(true);
-    expect(await service.updateClass(t.db, a.id, cls.id, { label: 'ok' })).toBe(true);
-    expect(await service.deleteProperty(t.db, a.id, prop.id)).toBe(true);
-    expect(await service.deleteClass(t.db, a.id, cls.id)).toBe(true);
+    expect(await service.updateClass(t.db, a.id, cls.id, {}, LOCAL_OWNER_ID)).toBe(true);
+    expect(await service.updateClass(t.db, a.id, cls.id, { label: 'ok' }, LOCAL_OWNER_ID)).toBe(true);
+    expect(await service.deleteProperty(t.db, a.id, prop.id, LOCAL_OWNER_ID)).toBe(true);
+    expect(await service.deleteClass(t.db, a.id, cls.id, LOCAL_OWNER_ID)).toBe(true);
   });
 
   // The 400 the routes answer for a cross-schema reference or a hostile
@@ -186,15 +191,15 @@ describe('schemas service', () => {
   it('raises a client error, not a server error, for a rejected write', async () => {
     const schema = await service.createSchema(t.db, LOCAL_OWNER_ID, { title: 'Guarded' });
     const other = await service.createSchema(t.db, LOCAL_OWNER_ID, { title: 'Other' });
-    const foreign = await service.addClass(t.db, other.id, { name: 'Outsider' });
+    const foreign = await service.addClass(t.db, other.id, { name: 'Outsider' }, LOCAL_OWNER_ID);
 
     for (const attempt of [
-      () => service.addClass(t.db, schema.id, { name: 'X', superClassId: foreign.id }),
-      () => service.addProperty(t.db, schema.id, { name: 'p', propertyType: 'datatype', domainClassId: foreign.id }),
+      () => service.addClass(t.db, schema.id, { name: 'X', superClassId: foreign.id }, LOCAL_OWNER_ID),
+      () => service.addProperty(t.db, schema.id, { name: 'p', propertyType: 'datatype', domainClassId: foreign.id }, LOCAL_OWNER_ID),
       () => service.createSchema(t.db, LOCAL_OWNER_ID, {
         title: 'Y', upperOntologyIri: 'http://169.254.169.254/latest/meta-data/',
       }),
-      () => service.updateSchema(t.db, schema.id, { upperOntologyIri: 'http://127.0.0.1/x' }),
+      () => service.updateSchema(t.db, schema.id, { upperOntologyIri: 'http://127.0.0.1/x' }, LOCAL_OWNER_ID),
     ]) {
       await expect(attempt()).rejects.toMatchObject({
         name: 'SchemaWriteError',
@@ -207,9 +212,9 @@ describe('schemas service', () => {
     const schema = await service.createSchema(t.db, LOCAL_OWNER_ID, { title: 'Empty' });
     const ghost = '11111111-1111-1111-1111-111111111111';
 
-    expect(await service.updateClass(t.db, schema.id, ghost, { label: 'x' })).toBe(false);
-    expect(await service.deleteClass(t.db, schema.id, ghost)).toBe(false);
-    expect(await service.updateProperty(t.db, schema.id, ghost, { label: 'x' })).toBe(false);
-    expect(await service.deleteProperty(t.db, schema.id, ghost)).toBe(false);
+    expect(await service.updateClass(t.db, schema.id, ghost, { label: 'x' }, LOCAL_OWNER_ID)).toBe(false);
+    expect(await service.deleteClass(t.db, schema.id, ghost, LOCAL_OWNER_ID)).toBe(false);
+    expect(await service.updateProperty(t.db, schema.id, ghost, { label: 'x' }, LOCAL_OWNER_ID)).toBe(false);
+    expect(await service.deleteProperty(t.db, schema.id, ghost, LOCAL_OWNER_ID)).toBe(false);
   });
 });

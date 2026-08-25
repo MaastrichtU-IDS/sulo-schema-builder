@@ -52,4 +52,21 @@ export const reasonerConfig = {
   ),
   // Max explanations to fetch per clash.
   maxExplanations: parseInt(optional('REASONER_MAX_EXPLANATIONS', '1'), 10),
+
+  // ─── Automatic reasoning pipeline (postgres mode only; spec §7) ───────────
+  // Debounce: how long a schema must sit idle after an edit before it is
+  // checked (5s), and the hard ceiling on how long a continuously-edited
+  // schema can go without one (30s) — spec's own numbers.
+  debounceMs: parseInt(optional('REASON_DEBOUNCE_MS', '5000'), 10),
+  debounceMaxMs: parseInt(optional('REASON_DEBOUNCE_MAX_MS', '30000'), 10),
+  // Recovery sweep: how often it runs, and how long a schema may sit `stale`
+  // (a debounce timer lost to a restart or held by another replica) before
+  // the sweep re-triggers a check for it.
+  sweepIntervalMs: parseInt(optional('REASON_SWEEP_INTERVAL_MS', '60000'), 10),
+  staleSweepAfterMs: parseInt(optional('REASON_STALE_SWEEP_AFTER_MS', '120000'), 10),
+  // A `running` job older than its requester's tier timeout is requeued;
+  // this many attempts and it is marked `failed` instead of looping forever.
+  jobMaxAttempts: parseInt(optional('REASON_JOB_MAX_ATTEMPTS', '3'), 10),
+  // How long an idle worker sleeps between claim attempts when the queue is empty.
+  workerPollIntervalMs: parseInt(optional('REASON_WORKER_POLL_MS', '1000'), 10),
 } as const;
