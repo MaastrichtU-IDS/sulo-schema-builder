@@ -15,17 +15,21 @@ import type { DB } from '../db/types.js';
 export interface TestDb {
   db: Kysely<DB>;
   pool: Pool;
+  /** For a suite that needs its OWN raw `pg` connection (e.g. modules/events/listener.ts) rather than a pool client. */
+  connectionString: string;
   stop: () => Promise<void>;
 }
 
 export async function startTestDb(): Promise<TestDb> {
   const container: StartedPostgreSqlContainer = await new PostgreSqlContainer('postgres:16-alpine').start();
-  const pool = new Pool({ connectionString: container.getConnectionUri() });
+  const connectionString = container.getConnectionUri();
+  const pool = new Pool({ connectionString });
   await runMigrations(pool, resolve(import.meta.dirname, '..', '..', 'migrations'));
   const db = new Kysely<DB>({ dialect: new PostgresDialect({ pool }) });
   return {
     db,
     pool,
+    connectionString,
     stop: async () => {
       await db.destroy();
       await container.stop();

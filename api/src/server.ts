@@ -72,6 +72,16 @@ export async function createServer() {
     const { startWorkers, stopWorkers } = await import('./modules/reasoning/worker.js');
     startWorkers({ db: server.pg });
     server.addHook('onClose', () => { stopWorkers(); });
+
+    // Change publication (spec §8): one dedicated `pg.Client` LISTENing for
+    // the process's whole lifetime, fanning out in-process to SSE
+    // subscribers (modules/events/sse.ts). Loaded the same lazy way as
+    // pgPlugin/authPlugin above and for the same reason — it holds a real
+    // `pg` value that must never enter the packaged desktop binary's static
+    // import graph.
+    const { startListener, stopListener } = await import('./modules/events/listener.js');
+    await startListener();
+    server.addHook('onClose', async () => { await stopListener(); });
   } else {
     await server.register(sqlitePlugin);
     await server.register(authDisabledPlugin);

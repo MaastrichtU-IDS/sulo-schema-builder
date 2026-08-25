@@ -8,6 +8,7 @@ import { rdfConfig } from './rdf.js';
 import { reasonerConfig } from './reasoner.js';
 import { resolveAuthConfig } from './auth.js';
 import { quotaConfig } from './quota.js';
+import { eventsConfig } from './events.js';
 
 export const config = {
   ...serverConfig,
@@ -17,4 +18,5 @@ export const config = {
   reasoner: reasonerConfig,
   auth: resolveAuthConfig(process.env, storage),
   quota: quotaConfig,
+  events: eventsConfig,
 } as const;

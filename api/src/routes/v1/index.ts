@@ -8,6 +8,7 @@ import schemasRoutes from '../../modules/schemas/routes.js';
 import grantsRoutes, { userLookupRoutes } from '../../modules/acl/grants.routes.js';
 import moderationRoutes from '../../modules/acl/moderation.routes.js';
 import reasoningRoutes from '../../modules/reasoning/routes.js';
+import sseRoutes from '../../modules/events/sse.js';
 import legacySqliteRoutes from '../../legacy/sqlite/ontology.routes.js';
 
 const v1Routes: FastifyPluginAsync = async (fastify) => {
@@ -35,6 +36,11 @@ const v1Routes: FastifyPluginAsync = async (fastify) => {
     // requireAccess already resolves, and being a sibling means this file
     // must (and does) register aclGuards itself.
     await fastify.register(reasoningRoutes, { prefix: '/ontology-schemas' });
+    // Change publication (spec §8) — a third sibling under the same prefix,
+    // for the same reason as the two above: `:id` is the schema id
+    // requireAccess resolves, and being a sibling means aclGuards is
+    // registered here too.
+    await fastify.register(sseRoutes, { prefix: '/ontology-schemas' });
     // Names no schema, so it is guarded by a session and its own rate limit
     // rather than by the ACL. Its privacy posture is argued in full at the top
     // of grants.routes.ts — read that before touching it.
