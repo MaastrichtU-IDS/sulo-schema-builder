@@ -69,7 +69,7 @@ describe('withGroupAdminOverride', () => {
   const ADMIN: service.RequestUser = { id: '3', subject: 'kc-3', role: 'admin', tier: 'free' };
 
   it('elevates to admin when the token carries the configured group', () => {
-    const result = service.withGroupAdminOverride(USER, { sub: 'kc-1', groups: ['/admins'] }, '/admins');
+    const result = service.withGroupAdminOverride(USER, { sub: 'kc-1', groups: ['admins'] }, 'admins');
     expect(result.role).toBe('admin');
     // Every other field is passed through unchanged.
     expect(result.id).toBe(USER.id);
@@ -77,23 +77,23 @@ describe('withGroupAdminOverride', () => {
   });
 
   it('elevates a moderator too — additive on top of whatever role already applies', () => {
-    const result = service.withGroupAdminOverride(MODERATOR, { sub: 'kc-2', groups: ['/admins'] }, '/admins');
+    const result = service.withGroupAdminOverride(MODERATOR, { sub: 'kc-2', groups: ['admins'] }, 'admins');
     expect(result.role).toBe('admin');
   });
 
   it('is a no-op when adminGroup is null, regardless of the token', () => {
-    const result = service.withGroupAdminOverride(USER, { sub: 'kc-1', groups: ['/admins'] }, null);
+    const result = service.withGroupAdminOverride(USER, { sub: 'kc-1', groups: ['admins'] }, null);
     expect(result).toBe(USER); // same reference: not even a copy
   });
 
   it('is a no-op when the groups claim is missing, not an array, or does not contain the configured group', () => {
-    expect(service.withGroupAdminOverride(USER, { sub: 'kc-1' }, '/admins')).toBe(USER);
-    expect(service.withGroupAdminOverride(USER, { sub: 'kc-1', groups: '/admins' }, '/admins')).toBe(USER);
-    expect(service.withGroupAdminOverride(USER, { sub: 'kc-1', groups: ['/staff'] }, '/admins')).toBe(USER);
+    expect(service.withGroupAdminOverride(USER, { sub: 'kc-1' }, 'admins')).toBe(USER);
+    expect(service.withGroupAdminOverride(USER, { sub: 'kc-1', groups: 'admins' }, 'admins')).toBe(USER);
+    expect(service.withGroupAdminOverride(USER, { sub: 'kc-1', groups: ['staff'] }, 'admins')).toBe(USER);
   });
 
   it('never demotes: an already-admin user stays admin without the group', () => {
-    const result = service.withGroupAdminOverride(ADMIN, { sub: 'kc-3' }, '/admins');
+    const result = service.withGroupAdminOverride(ADMIN, { sub: 'kc-3' }, 'admins');
     expect(result).toBe(ADMIN);
   });
 });

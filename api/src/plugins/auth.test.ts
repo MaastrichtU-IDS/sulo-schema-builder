@@ -154,8 +154,8 @@ describe('auth plugin', () => {
 
   describe('Keycloak group admin override', () => {
     it('admits a caller via the configured group claim, with no global_role change in Postgres', async () => {
-      const app = await buildApp('/admins');
-      const token = await issuer.sign({ sub: 'kc-group-admin', groups: ['/admins'] });
+      const app = await buildApp('admins');
+      const token = await issuer.sign({ sub: 'kc-group-admin', groups: ['admins'] });
 
       const res = await app.inject({ method: 'GET', url: '/admin-only', headers: { authorization: `Bearer ${token}` } });
       expect(res.statusCode).toBe(200);
@@ -167,9 +167,9 @@ describe('auth plugin', () => {
     });
 
     it('ignores an unrelated group, and a token with no groups claim at all', async () => {
-      const app = await buildApp('/admins');
+      const app = await buildApp('admins');
 
-      const wrongGroup = await issuer.sign({ sub: 'kc-other-group', groups: ['/staff'] });
+      const wrongGroup = await issuer.sign({ sub: 'kc-other-group', groups: ['staff'] });
       const denied1 = await app.inject({ method: 'GET', url: '/admin-only', headers: { authorization: `Bearer ${wrongGroup}` } });
       expect(denied1.statusCode).toBe(403);
 
@@ -182,7 +182,7 @@ describe('auth plugin', () => {
 
     it('does nothing when AUTH_ADMIN_GROUP is unset, even if the token carries a matching groups claim', async () => {
       const app = await buildApp(null);
-      const token = await issuer.sign({ sub: 'kc-group-off', groups: ['/admins'] });
+      const token = await issuer.sign({ sub: 'kc-group-off', groups: ['admins'] });
 
       const res = await app.inject({ method: 'GET', url: '/admin-only', headers: { authorization: `Bearer ${token}` } });
       expect(res.statusCode).toBe(403);
@@ -195,7 +195,7 @@ describe('auth plugin', () => {
         "insert into users (subject, global_role) values ($1, 'admin') on conflict (subject) do update set global_role = 'admin'",
         ['kc-db-admin'],
       );
-      const app = await buildApp('/admins');
+      const app = await buildApp('admins');
       const token = await issuer.sign({ sub: 'kc-db-admin' });
 
       const res = await app.inject({ method: 'GET', url: '/admin-only', headers: { authorization: `Bearer ${token}` } });

@@ -144,13 +144,13 @@ describe('resolveAuthConfig', () => {
       expect(resolveAuthConfig({}, 'sqlite').adminGroup).toBeNull();
     });
 
-    it('honours an explicit group path', () => {
-      const cfg = resolveAuthConfig({ ...BASE, AUTH_ADMIN_GROUP: '/admins' }, 'postgres');
-      expect(cfg.adminGroup).toBe('/admins');
+    it('honours an explicit group name', () => {
+      const cfg = resolveAuthConfig({ ...BASE, AUTH_ADMIN_GROUP: 'admins' }, 'postgres');
+      expect(cfg.adminGroup).toBe('admins');
     });
 
     it('trims whitespace and treats an empty/whitespace-only value as unset', () => {
-      expect(resolveAuthConfig({ ...BASE, AUTH_ADMIN_GROUP: '  /admins  ' }, 'postgres').adminGroup).toBe('/admins');
+      expect(resolveAuthConfig({ ...BASE, AUTH_ADMIN_GROUP: '  admins  ' }, 'postgres').adminGroup).toBe('admins');
       expect(resolveAuthConfig({ ...BASE, AUTH_ADMIN_GROUP: '   ' }, 'postgres').adminGroup).toBeNull();
     });
   });

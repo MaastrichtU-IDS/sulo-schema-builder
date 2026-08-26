@@ -39,9 +39,11 @@ export interface TokenClaims {
   preferred_username?: string;
   orcid?: string;
   /**
-   * Keycloak group paths (e.g. `["/admins"]`), present only when a
-   * group-membership protocol mapper is configured on the client — see
-   * docker/keycloak/realm-sulo.json. Untrusted shape: a claim from any other
+   * Keycloak group names (e.g. `["admins"]` — the mapper's `full.path` is
+   * `false`, so a top-level group's own name, not its leading-slash path, is
+   * what shows up here), present only when a group-membership protocol
+   * mapper is configured on the client — see docker/keycloak/
+   * realm-sulo.json. Untrusted shape: a claim from any other
    * identity provider, or an older token minted before the mapper existed,
    * simply won't have it. withGroupAdminOverride below treats anything that
    * isn't an array of strings as "no groups" rather than throwing.

@@ -49,7 +49,7 @@
           "consentRequired": false,
           "config": {
             "claim.name": "groups",
-            "full.path": "true",
+            "full.path": "false",
             "id.token.claim": "false",
             "access.token.claim": "true",
             "userinfo.token.claim": "false"

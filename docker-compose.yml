@@ -65,12 +65,14 @@ services:
       # Unset by default (an empty value resolves to `null` in
       # api/src/config/auth.ts) — admin has to be granted by hand through
       # `PATCH /admin/users/:id` unless a deployment opts into managing it via
-      # a Keycloak group instead. This realm ships a "/admins" group and the
+      # a Keycloak group instead. This realm ships an "admins" group and the
       # group-membership protocol mapper it needs (docker/keycloak/
-      # realm-sulo.json) already wired for that group path, so setting this to
-      # `/admins` and adding a user to that group is enough — no other config
-      # changes required. See api/src/modules/users/service.ts's
-      # withGroupAdminOverride for the exact (additive, never-demoting) rule.
+      # realm-sulo.json) already wired for that group's bare name — no leading
+      # slash: the mapper's `full.path` is `false`, so the token carries
+      # "admins", not "/admins" — so setting this to `admins` and adding a
+      # user to that group is enough — no other config changes required. See
+      # api/src/modules/users/service.ts's withGroupAdminOverride for the
+      # exact (additive, never-demoting) rule.
       AUTH_ADMIN_GROUP: ${AUTH_ADMIN_GROUP:-}
     depends_on:
       db:

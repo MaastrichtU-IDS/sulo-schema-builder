@@ -31,8 +31,10 @@ export interface AuthConfig {
    */
   requireJwksAtBoot: boolean;
   /**
-   * A Keycloak group path (e.g. "/admins") whose members are treated as
-   * admin — additive on top of `global_role`, never a demotion: see
+   * A Keycloak group's bare name (e.g. "admins" — no leading slash; the
+   * shipped realm's group-membership mapper has `full.path` set to `false`)
+   * whose members are treated as admin — additive on top of `global_role`,
+   * never a demotion: see
    * modules/users/service.ts's withGroupAdminOverride for the actual check,
    * and docker/keycloak/realm-sulo.json for the group + group-membership
    * protocol mapper this repo ships for local dev/CI. `null` (the default)
