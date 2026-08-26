@@ -68,9 +68,10 @@ import {
   serializeSchema,
   parseSchemaExport,
   importSchemaExport,
-  buildShareUrl,
+  encodeShareFragment,
   decodeShareFragment,
   SHARE_FRAGMENT_PREFIX,
+  SHARE_LINK_LIMIT,
   type SchemaExport,
 } from '../lib/schemaTransfer.js';
 
@@ -1484,23 +1485,29 @@ function downloadTextFile(filename: string, text: string, mime: string) {
 }
 
 function ShareModal({ schema, onClose }: { schema: OntologySchema; onClose: () => void }) {
-  const [shareUrl, setShareUrl] = useState<string | null | 'pending'>('pending');
-  const [copied, setCopied] = useState(false);
+  // The codec'd, self-contained string (schemaTransfer.ts) — the one of the
+  // three that's async and size-bounded, hence its own pending/too-large
+  // states below. Deliberately a bare string, never wrapped in a URL: it's
+  // meant to be pasted into another instance's own "paste to import" field
+  // (see SchemaListPage), not clicked. 'direct' (below) is a plain URL to
+  // this schema on this server, built synchronously.
+  const [shareString, setShareString] = useState<string | null | 'pending'>('pending');
+  const [copiedKind, setCopiedKind] = useState<'direct' | 'share' | null>(null);
   const exportFile = useMemo(() => serializeSchema(schema), [schema]);
+  const directLink = `${window.location.origin}/ontology/${schema.id}`;
 
   useEffect(() => {
     let cancelled = false;
-    buildShareUrl(exportFile)
-      .then((url) => { if (!cancelled) setShareUrl(url); })
-      .catch(() => { if (!cancelled) setShareUrl(null); });
+    encodeShareFragment(exportFile)
+      .then((s) => { if (!cancelled) setShareString(s.length <= SHARE_LINK_LIMIT ? s : null); })
+      .catch(() => { if (!cancelled) setShareString(null); });
     return () => { cancelled = true; };
   }, [exportFile]);
 
-  function copyLink() {
-    if (typeof shareUrl !== 'string') return;
-    navigator.clipboard.writeText(shareUrl).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+  function copy(text: string, kind: 'direct' | 'share') {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopiedKind(kind);
+      setTimeout(() => setCopiedKind((k) => (k === kind ? null : k)), 2000);
     });
   }
 
@@ -1518,36 +1525,62 @@ function ShareModal({ schema, onClose }: { schema: OntologySchema; onClose: () =
         <div>
           <h2 className="font-semibold text-slate-800 text-lg">Share “{schema.title}”</h2>
           <p className="text-sm text-slate-500 mt-1">
-            Your schemas are stored on the server. To hand this one to someone else — or move it
-            to another machine — share a link or a file. Importing always creates an independent
-            copy, so later edits to either side stay separate.
+            Three ways to hand this schema to someone else, depending on whether they already have
+            access here or are working somewhere else entirely.
           </p>
         </div>
 
         <div className="space-y-2">
-          <div className="text-sm font-medium text-slate-700">Share link</div>
-          {shareUrl === 'pending' && <div className="text-sm text-slate-400">Preparing link…</div>}
-          {shareUrl === null && (
+          <div className="text-sm font-medium text-slate-700">Direct link</div>
+          <div className="flex gap-2 items-center">
+            <input
+              readOnly
+              value={directLink}
+              onFocus={(e) => e.currentTarget.select()}
+              className="flex-1 border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-mono text-slate-600 bg-slate-50"
+            />
+            <button
+              onClick={() => copy(directLink, 'direct')}
+              className="bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium px-4 py-1.5 rounded-lg transition-colors shrink-0"
+            >
+              {copiedKind === 'direct' ? 'Copied ✓' : 'Copy'}
+            </button>
+          </div>
+          <p className="text-xs text-slate-400">
+            Opens this exact, live schema here. Only works for someone who already has access to
+            it, or once you've made it public — anyone else sees the same thing a stranger would.
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <div className="text-sm font-medium text-slate-700">Share string</div>
+          {shareString === 'pending' && <div className="text-sm text-slate-400">Preparing…</div>}
+          {shareString === null && (
             <div className="text-sm text-slate-500 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
-              This schema is too large for a link — use the file export below instead.
+              This schema is too large for a share string — use the file export below instead.
             </div>
           )}
-          {typeof shareUrl === 'string' && (
+          {typeof shareString === 'string' && (
             <div className="flex gap-2 items-center">
               <input
                 readOnly
-                value={shareUrl}
+                value={shareString}
                 onFocus={(e) => e.currentTarget.select()}
                 className="flex-1 border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-mono text-slate-600 bg-slate-50"
               />
               <button
-                onClick={copyLink}
+                onClick={() => copy(shareString, 'share')}
                 className="bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium px-4 py-1.5 rounded-lg transition-colors shrink-0"
               >
-                {copied ? 'Copied ✓' : 'Copy'}
+                {copiedKind === 'share' ? 'Copied ✓' : 'Copy'}
               </button>
             </div>
           )}
+          <p className="text-xs text-slate-400">
+            Carries the whole schema in the string itself — paste it into any SULO Schema Builder's
+            "Paste share string" field, local or remote, with no account or access needed there.
+            Importing always creates an independent copy, so later edits to either side stay separate.
+          </p>
         </div>
 
         <div className="space-y-2">
@@ -1559,7 +1592,8 @@ function ShareModal({ schema, onClose }: { schema: OntologySchema; onClose: () =
             Download .json
           </button>
           <p className="text-xs text-slate-400">
-            Also your backup: importing this file restores the schema on any machine.
+            The same self-contained copy as the share string, as a file instead — usable on any
+            local or remote client the same way, and your backup either way.
           </p>
         </div>
 
@@ -1580,6 +1614,8 @@ function SchemaListPage() {
   const [isImporting, setIsImporting] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
   const [pendingShare, setPendingShare] = useState<SchemaExport | null>(null);
+  const [showPasteShare, setShowPasteShare] = useState(false);
+  const [pasteValue, setPasteValue] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { status: authStatus } = useAuth();
   const [scope, setScope] = useState<'mine' | 'shared' | 'public'>('mine');
@@ -1635,6 +1671,27 @@ function SchemaListPage() {
     }
   }
 
+  // The counterpart to ShareModal's "Share string": that one is deliberately
+  // a bare string rather than a URL (see schemaTransfer.ts's own header), so
+  // this is the only way to actually consume one. Tolerant of a caller
+  // pasting an old-style full share link by mistake — strip everything up to
+  // and including SHARE_FRAGMENT_PREFIX if it's present, otherwise treat the
+  // whole trimmed input as the fragment itself.
+  async function handlePasteShareString() {
+    const trimmed = pasteValue.trim();
+    if (!trimmed) return;
+    setImportError(null);
+    const prefixIndex = trimmed.indexOf(SHARE_FRAGMENT_PREFIX);
+    const fragment = prefixIndex === -1 ? trimmed : trimmed.slice(prefixIndex + SHARE_FRAGMENT_PREFIX.length);
+    try {
+      setPendingShare(await decodeShareFragment(fragment));
+      setPasteValue('');
+      setShowPasteShare(false);
+    } catch (err) {
+      setImportError(err instanceof Error ? err.message : 'Could not read that share string.');
+    }
+  }
+
   const form = useForm<NewSchemaForm>({
     resolver: zodResolver(NewSchemaFormSchema),
     defaultValues: { title: '', description: '', upperOntologyIri: 'https://w3id.org/sulo/', baseUri: '' },
@@ -1678,6 +1735,13 @@ function SchemaListPage() {
             {isImporting ? 'Importing…' : 'Import'}
           </button>
           <button
+            onClick={() => setShowPasteShare(!showPasteShare)}
+            className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-medium px-4 py-2 rounded-lg transition-colors border border-slate-300"
+            title="Import a schema from a share string someone sent you"
+          >
+            Paste share string
+          </button>
+          <button
             onClick={() => setShowCreate(!showCreate)}
             className="bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
           >
@@ -1685,6 +1749,43 @@ function SchemaListPage() {
           </button>
         </div>
       </div>
+
+      {/* Counterpart to ShareModal's "Share string" row — that value is
+          deliberately a bare string rather than a URL, so this is the only
+          way to actually consume one. */}
+      {showPasteShare && (
+        <div className="bg-violet-50 border border-violet-200 rounded-xl shadow-sm p-6 space-y-3">
+          <div>
+            <h2 className="font-semibold text-slate-800 text-lg">Import a share string</h2>
+            <p className="text-sm text-slate-500 mt-0.5">
+              Paste the string someone copied from their Share dialog.
+            </p>
+          </div>
+          <Textarea
+            value={pasteValue}
+            onChange={(e) => setPasteValue(e.target.value)}
+            placeholder="Paste the share string here…"
+            className="font-mono text-xs"
+          />
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={handlePasteShareString}
+              disabled={!pasteValue.trim() || isImporting}
+              className="bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white text-sm font-medium px-5 py-2 rounded-lg transition-colors"
+            >
+              {isImporting ? 'Importing…' : 'Load'}
+            </button>
+            <button
+              type="button"
+              onClick={() => { setShowPasteShare(false); setPasteValue(''); setImportError(null); }}
+              className="text-sm text-slate-500 hover:text-slate-700 px-5 py-2 rounded-lg border border-slate-200 hover:bg-white transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Shared-link import prompt */}
       {pendingShare && (
@@ -1872,6 +1973,8 @@ function SchemaListPage() {
 
 function SchemaDetailPage({ id }: { id: string }) {
   const { status: authStatus } = useAuth();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const schemaQuery    = useOntologySchema(id);
   const updateSchema   = useUpdateOntologySchema(id);
   const addClass       = useAddOntologyClass(id);
@@ -1891,6 +1994,7 @@ function SchemaDetailPage({ id }: { id: string }) {
   const [showDiagram, setShowDiagram] = useState(false);
   const [showShare, setShowShare] = useState(false);
   const [showAccess, setShowAccess] = useState(false);
+  const [isForking, setIsForking] = useState(false);
   const [editingClassId, setEditingClassId] = useState<string | null>(null);
   const [editingPropId, setEditingPropId] = useState<string | null>(null);
 
@@ -1936,6 +2040,27 @@ function SchemaDetailPage({ id }: { id: string }) {
       baseUri: values.baseUri || undefined,
     });
     setEditingMeta(false);
+  }
+
+  // Reuses the exact same pipeline as importing a shared schema — see
+  // schemaTransfer.ts's own header — because forking IS that operation: the
+  // live schema, serialized, re-created (fresh ids, every reference remapped)
+  // under the caller's own account. Not a server-side "clone" endpoint: the
+  // client already has everything an import needs, and this way a fork gets
+  // ACL enforcement for free (serializeSchema only ever sees what GET
+  // /ontology-schemas/:id already returned this caller, so a fork can never
+  // exfiltrate more than the caller could already read).
+  async function handleFork() {
+    const schema = schemaQuery.data;
+    if (!schema) return;
+    setIsForking(true);
+    try {
+      const { id: forkedId } = await importSchemaExport(serializeSchema(schema));
+      await queryClient.invalidateQueries({ queryKey: ['ontology-schemas'] });
+      navigate(`/ontology/${forkedId}`);
+    } finally {
+      setIsForking(false);
+    }
   }
 
   async function onAddClass(values: NewClassForm) {
@@ -2042,10 +2167,24 @@ function SchemaDetailPage({ id }: { id: string }) {
               <button
                 onClick={() => setShowShare(true)}
                 className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-medium px-4 py-1.5 rounded-lg transition-colors border border-slate-300"
-                title="Share this schema as a link or a .json file"
+                title="Share this schema as a link, a share string, or a .json file"
               >
                 Share
               </button>
+              {/* Forking needs an account to own the copy it creates — hidden
+                  for an anonymous visitor and on the desktop build (which has
+                  no notion of "your own copy" to fork into; import already
+                  covers that case there). */}
+              {authStatus === 'authenticated' && (
+                <button
+                  onClick={handleFork}
+                  disabled={isForking}
+                  className="bg-slate-100 hover:bg-slate-200 disabled:opacity-50 text-slate-700 text-sm font-medium px-4 py-1.5 rounded-lg transition-colors border border-slate-300"
+                  title="Create your own independent copy of this schema"
+                >
+                  {isForking ? 'Forking…' : 'Fork'}
+                </button>
+              )}
               {/* Sharing/ACL is a Postgres-only feature (see modules/acl) —
                   hidden on the desktop build and for an anonymous visitor,
                   who could never reach `own` to use it. */}
@@ -2058,12 +2197,20 @@ function SchemaDetailPage({ id }: { id: string }) {
                   Manage access
                 </button>
               )}
-              <button
-                onClick={() => setEditingMeta(true)}
-                className="text-sm text-slate-400 hover:text-violet-600 border border-slate-200 hover:border-violet-300 px-3 py-1.5 rounded-lg transition-colors"
-              >
-                Edit info
-              </button>
+              {/* Faded-looking by design (it's a quiet, secondary action),
+                  but that must not be confused with actually disabled: an
+                  anonymous visitor can never hold `edit`, so the control is
+                  hidden outright rather than left clickable-but-doomed —
+                  the PATCH would 403 anyway, but a visible, clickable button
+                  that always fails is worse than no button. */}
+              {authStatus !== 'anonymous' && (
+                <button
+                  onClick={() => setEditingMeta(true)}
+                  className="text-sm text-slate-400 hover:text-violet-600 border border-slate-200 hover:border-violet-300 px-3 py-1.5 rounded-lg transition-colors"
+                >
+                  Edit info
+                </button>
+              )}
             </div>
           </div>
         ) : (

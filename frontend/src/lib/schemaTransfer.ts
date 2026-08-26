@@ -1,5 +1,6 @@
-// Moving a schema between browsers/machines: versioned JSON file export,
-// compressed URL-fragment share links, and an import that re-mints every id.
+// Moving a schema between browsers/machines: versioned JSON file export, a
+// compressed "share string" a caller can paste anywhere text goes, and an
+// import that re-mints every id.
 //
 // Import can't reuse the exported ids/IRIs: classes and properties
 // cross-reference each other both by id (superClassId, domainClassId) and by
@@ -10,10 +11,15 @@
 // don't resolve (e.g. an external property IRI, an xsd: range) pass through
 // untouched.
 //
-// Share links carry the payload in the URL *fragment* (#s=…): the fragment
-// never reaches any server, so no server/proxy URL limits apply — the
-// practical ceiling is chat/LMS link handling, hence SHARE_LINK_LIMIT with a
-// file-export fallback in the UI.
+// The share string is deliberately not a URL: it's meant to be pasted into
+// any SULO Schema Builder's own "paste to import" field, local or remote,
+// never sent to a server on its own — so no server/proxy URL length limit
+// applies. It can still be embedded after `SHARE_FRAGMENT_PREFIX` in a real
+// URL for the auto-import-on-visit path (SchemaListPage's own hash listener),
+// which is why the codec and the prefix still live here unchanged; the UI
+// just no longer builds that URL by default. The practical ceiling is
+// chat/LMS text-field handling, hence SHARE_LINK_LIMIT with a file-export
+// fallback in the UI.
 
 import { z } from 'zod';
 import * as backend from '../api/backend.js';
@@ -233,20 +239,13 @@ export async function encodeShareFragment(file: SchemaExport): Promise<string> {
   return bytesToBase64Url(deflated);
 }
 
-/** Decode and validate a `#s=…` fragment value. Throws on anything malformed. */
+/** Decode and validate a share string. Throws on anything malformed. */
 export async function decodeShareFragment(fragment: string): Promise<SchemaExport> {
   let inflated: Uint8Array;
   try {
     inflated = await pipeThrough(base64UrlToBytes(fragment), new DecompressionStream('deflate-raw'));
   } catch {
-    throw new Error('This share link is damaged or truncated.');
+    throw new Error('This share string is damaged or truncated.');
   }
   return parseSchemaExport(new TextDecoder().decode(inflated));
-}
-
-/** Build a full share URL for the current origin, or null when it would be too long. */
-export async function buildShareUrl(file: SchemaExport): Promise<string | null> {
-  const fragment = await encodeShareFragment(file);
-  const url = `${window.location.origin}/ontology${SHARE_FRAGMENT_PREFIX}${fragment}`;
-  return url.length <= SHARE_LINK_LIMIT ? url : null;
 }
