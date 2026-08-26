@@ -115,7 +115,7 @@ describe('ConsistencyBadge', () => {
     expect(screen.getByText(/hermit/i)).toBeInTheDocument();
   });
 
-  it('shows clashes and their explanations when fresh and inconsistent', async () => {
+  it('shows the one-line verdict up front, and the clash explanations only once expanded', async () => {
     get.mockResolvedValue({
       data: {
         state: 'fresh',
@@ -135,11 +135,21 @@ describe('ConsistencyBadge', () => {
         },
       },
     });
+    const user = userEvent.setup();
 
     renderBadge('authenticated');
 
+    await waitFor(() => expect(screen.getByText(/1 problem found by HermiT/i)).toBeInTheDocument());
+    expect(screen.queryByText('Widget', { exact: true })).not.toBeInTheDocument();
+
+    await user.click(screen.getByText(/1 problem found by HermiT/i));
+
     await waitFor(() => expect(screen.getByText('Widget', { exact: true })).toBeInTheDocument());
     expect(screen.getByText(/subclass of two disjoint classes/i)).toBeInTheDocument();
+
+    // Collapses again on a second click, rather than only ever expanding.
+    await user.click(screen.getByText(/1 problem found by HermiT/i));
+    await waitFor(() => expect(screen.queryByText('Widget', { exact: true })).not.toBeInTheDocument());
   });
 
   it('shows a failed message', async () => {

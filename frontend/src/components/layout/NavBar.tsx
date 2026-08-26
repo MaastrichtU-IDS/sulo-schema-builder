@@ -1,9 +1,5 @@
-import { Link, NavLink } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import UserMenu from './UserMenu.js';
-
-const NAV_LINKS = [
-  { to: '/ontology', label: 'Schema Builder' },
-];
 
 export default function NavBar() {
   return (
@@ -15,23 +11,7 @@ export default function NavBar() {
           </span>
         </Link>
 
-        <div className="flex gap-1 flex-1">
-          {NAV_LINKS.map(({ to, label }) => (
-            <NavLink
-              key={to}
-              to={to}
-              className={({ isActive }) =>
-                `text-sm font-medium px-3 py-1.5 rounded-md transition-colors ${
-                  isActive
-                    ? 'bg-slate-700 text-white'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-800'
-                }`
-              }
-            >
-              {label}
-            </NavLink>
-          ))}
-        </div>
+        <div className="flex-1" />
 
         <UserMenu />
       </div>

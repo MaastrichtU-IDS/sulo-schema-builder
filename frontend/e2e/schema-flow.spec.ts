@@ -14,12 +14,21 @@ import { test, expect } from '@playwright/test';
 const BASE = 'http://localhost:5173';
 
 test.describe('Schema builder — core flow', () => {
-  test('loads the example schema and shows its classes', async ({ page }) => {
+  test('creates a new schema and shows a class added to it', async ({ page }) => {
     await page.goto(`${BASE}/ontology`);
-    await page.getByRole('button', { name: 'Load Example' }).click();
-    // After seeding, the app navigates to the schema detail page.
+    await page.getByRole('button', { name: '+ New Schema' }).click();
+    await page.getByPlaceholder('e.g. Patient Health Record Ontology').fill('E2E Smoke Schema');
+    await page.getByRole('button', { name: 'Create ontology' }).click();
+    // After creating, the app navigates to the schema detail page.
     await expect(page).toHaveURL(/\/ontology\/[0-9a-f-]+$/, { timeout: 30_000 });
-    await expect(page.getByText('Clinical Health Record Schema')).toBeVisible();
+    await expect(page.getByText('E2E Smoke Schema')).toBeVisible();
+
+    await page.getByRole('button', { name: '+ Add Class' }).click();
+    await page.getByPlaceholder('e.g. Patient').fill('ClinicalVisit');
+    // exact: true — the "+ Add Class" toggle button stays on screen once the
+    // form opens, and Playwright's default name match is a substring, so a
+    // plain 'Add Class' here would match both it and this submit button.
+    await page.getByRole('button', { name: 'Add Class', exact: true }).click();
     await expect(page.getByText('ClinicalVisit')).toBeVisible();
   });
 

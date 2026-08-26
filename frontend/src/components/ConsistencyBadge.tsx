@@ -13,6 +13,12 @@
 // can prove: hides the refresh control for an `anonymous` caller (who never
 // holds `edit`), shows it for everyone else, and turns a 403 on the actual
 // attempt into a plain-language message instead of a raw error.
+//
+// The clash list (the individual unsatisfiable-class explanations) is
+// collapsed behind a click — only the one-line verdict ("N problems found by
+// HermiT") is shown up front. That headline has to stay visible without any
+// interaction: frontend/e2e/reasoning-flow.spec.ts and events-flow.spec.ts
+// both wait on it directly.
 
 import { useEffect, useState } from 'react';
 import { useSchemaReport, useRefreshReport, type ConsistencyReport } from '../api/report.js';
@@ -25,7 +31,8 @@ function formatRetryAfter(seconds: number): string {
   return `${minutes} minute${minutes === 1 ? '' : 's'}`;
 }
 
-function ClashList({ report }: { report: ConsistencyReport }) {
+/** The one-line verdict, always visible — see the module header for why. */
+function ClashSummary({ report }: { report: ConsistencyReport }) {
   if (report.consistent) {
     return (
       <div className="flex items-start gap-2">
@@ -40,12 +47,21 @@ function ClashList({ report }: { report: ConsistencyReport }) {
     );
   }
   return (
-    <div className="space-y-2">
+    <div className="flex items-start gap-2">
+      <span className="text-rose-600 text-lg leading-none">⚠</span>
       <p className="text-sm font-medium text-rose-700">
         {report.clashes.length} {report.clashes.length === 1 ? 'problem' : 'problems'} found by {report.reasoner}
       </p>
+    </div>
+  );
+}
+
+/** The individual clash explanations — only rendered once the caller expands the box. */
+function ClashDetails({ report }: { report: ConsistencyReport }) {
+  return (
+    <div className="space-y-2 pt-3 mt-3 border-t border-rose-100">
       {report.clashes.map((clash, i) => (
-        <div key={i} className="rounded-lg bg-rose-50 border border-rose-200 p-2">
+        <div key={i} className="rounded-lg bg-rose-50 border border-rose-200 p-3">
           <p className="text-xs font-mono font-medium text-rose-800">
             {clash.label ?? clash.iri ?? (clash.kind === 'inconsistent-ontology' ? 'Inconsistent ontology' : 'Unsatisfiable class')}
           </p>
@@ -67,6 +83,7 @@ export default function ConsistencyBadge({ schemaId, authStatus }: { schemaId: s
   const [quotaWaitCopy, setQuotaWaitCopy] = useState<string | null>(null);
   const [forbidden, setForbidden] = useState(false);
   const [refreshFailed, setRefreshFailed] = useState(false);
+  const [expanded, setExpanded] = useState(false);
 
   const data = reportQuery.data;
 
@@ -77,6 +94,12 @@ export default function ConsistencyBadge({ schemaId, authStatus }: { schemaId: s
       setRefreshFailed(false);
     }
   }, [data?.state]);
+
+  // A different schema's clash list has nothing to do with whatever was
+  // expanded here a moment ago.
+  useEffect(() => {
+    setExpanded(false);
+  }, [schemaId]);
 
   function handleRefresh() {
     setQuotaWaitCopy(null);
@@ -97,7 +120,7 @@ export default function ConsistencyBadge({ schemaId, authStatus }: { schemaId: s
   // surfaces as the `forbidden` message above once they actually try.
   const mayAttemptRefresh = authStatus === 'authenticated' || authStatus === 'disabled';
 
-  function body() {
+  function summary() {
     if (quotaWaitCopy) {
       return (
         <p className="text-sm text-amber-700">
@@ -130,7 +153,7 @@ export default function ConsistencyBadge({ schemaId, authStatus }: { schemaId: s
       case 'failed':
         return <p className="text-sm text-rose-600">The last consistency check failed. Try again.</p>;
       case 'fresh':
-        return data.report ? <ClashList report={data.report} /> : (
+        return data.report ? <ClashSummary report={data.report} /> : (
           <p className="text-sm text-slate-400">This schema has not yet been checked for consistency.</p>
         );
       case 'stale':
@@ -145,7 +168,7 @@ export default function ConsistencyBadge({ schemaId, authStatus }: { schemaId: s
               <p className="text-xs text-amber-600">
                 This verdict may be out of date — the schema has changed since it was computed.
               </p>
-              <ClashList report={data.report} />
+              <ClashSummary report={data.report} />
             </div>
           );
         }
@@ -158,21 +181,50 @@ export default function ConsistencyBadge({ schemaId, authStatus }: { schemaId: s
   const isBusy = data?.state === 'queued' || data?.state === 'running' || refresh.isPending;
   const buttonLabel = data?.computedAt ? 'Refresh' : 'Check consistency';
 
+  // Only an inconsistent verdict has anything more to show — a consistent
+  // one's explanation is already the whole story in the one-line summary.
+  const report = data?.report;
+  const hasDetails = !!report && !report.consistent && (data?.state === 'fresh' || data?.state === 'stale');
+
+  function toggleExpanded() {
+    if (hasDetails) setExpanded((v) => !v);
+  }
+
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-3 space-y-2">
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex-1 min-w-0">{body()}</div>
-        {mayAttemptRefresh && (
-          <button
-            type="button"
-            onClick={handleRefresh}
-            disabled={isBusy}
-            className="text-xs bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white px-3 py-1 rounded-lg transition-colors shrink-0"
-          >
-            {isBusy ? 'Checking…' : buttonLabel}
-          </button>
-        )}
+    <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
+      <div
+        className={`flex items-start justify-between gap-3 p-4 ${hasDetails ? 'cursor-pointer hover:bg-slate-50' : ''}`}
+        onClick={toggleExpanded}
+        onKeyDown={(e) => {
+          if (hasDetails && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); toggleExpanded(); }
+        }}
+        tabIndex={hasDetails ? 0 : undefined}
+        aria-expanded={hasDetails ? expanded : undefined}
+      >
+        <div className="flex-1 min-w-0">{summary()}</div>
+        <div className="flex items-center gap-3 shrink-0">
+          {hasDetails && (
+            <span className="text-xs text-slate-400 select-none">
+              {expanded ? '▾ Hide details' : '▸ See details'}
+            </span>
+          )}
+          {mayAttemptRefresh && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); handleRefresh(); }}
+              disabled={isBusy}
+              className="text-xs bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white px-3 py-1 rounded-lg transition-colors"
+            >
+              {isBusy ? 'Checking…' : buttonLabel}
+            </button>
+          )}
+        </div>
       </div>
+      {hasDetails && expanded && report && (
+        <div className="px-4 pb-4">
+          <ClashDetails report={report} />
+        </div>
+      )}
     </div>
   );
 }
