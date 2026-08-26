@@ -30,6 +30,16 @@ export interface AuthConfig {
    * instead of CrashLoopBackOff.
    */
   requireJwksAtBoot: boolean;
+  /**
+   * A Keycloak group path (e.g. "/admins") whose members are treated as
+   * admin — additive on top of `global_role`, never a demotion: see
+   * modules/users/service.ts's withGroupAdminOverride for the actual check,
+   * and docker/keycloak/realm-sulo.json for the group + group-membership
+   * protocol mapper this repo ships for local dev/CI. `null` (the default)
+   * disables this entirely; a deployment that manages admins purely by hand
+   * through `PATCH /admin/users/:id` is completely unaffected.
+   */
+  adminGroup: string | null;
 }
 
 type Env = Record<string, string | undefined>;
@@ -88,11 +98,16 @@ export function resolveAuthConfig(env: Env, storage: 'postgres' | 'sqlite'): Aut
 
   // The frozen desktop path is single-user and loopback-only: no issuer, no
   // token, no plugin (see server.ts). Nothing below is consulted there.
+  // Read regardless of storage mode, same as clientId/userCacheTtlMs above —
+  // cheap to resolve and there is no reason this one value alone should need
+  // the postgres branch below.
+  const adminGroup = env.AUTH_ADMIN_GROUP?.trim() || null;
+
   if (storage !== 'postgres') {
     return {
       enabled: false,
       issuer: '', audience: '', jwksUri: '', jwksJson: null,
-      clientId, userCacheTtlMs, requireJwksAtBoot: true,
+      clientId, userCacheTtlMs, requireJwksAtBoot: true, adminGroup,
     };
   }
 
@@ -146,5 +161,6 @@ export function resolveAuthConfig(env: Env, storage: 'postgres' | 'sqlite'): Aut
     clientId,
     userCacheTtlMs,
     requireJwksAtBoot: booleanOrDefault(env, 'AUTH_REQUIRE_JWKS_AT_BOOT', true),
+    adminGroup,
   };
 }

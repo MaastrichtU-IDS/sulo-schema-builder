@@ -7,7 +7,9 @@
 import fp from 'fastify-plugin';
 import { createLocalJWKSet, createRemoteJWKSet, jwtVerify, type JWTVerifyGetKey } from 'jose';
 import type { FastifyBaseLogger, FastifyReply, FastifyRequest, preHandlerHookHandler } from 'fastify';
-import { resolveUser, InvalidSubjectError, type RequestUser, type TokenClaims } from '../modules/users/service.js';
+import {
+  resolveUser, withGroupAdminOverride, InvalidSubjectError, type RequestUser, type TokenClaims,
+} from '../modules/users/service.js';
 import type { AuthConfig } from '../config/auth.js';
 
 // A JWKS fetch failure, an unknown `kid`, and an expired token used to funnel
@@ -198,7 +200,8 @@ export default fp<AuthPluginOptions>(async (fastify, opts) => {
     }
 
     try {
-      const user = await resolveUser(fastify.pg, claims);
+      const dbUser = await resolveUser(fastify.pg, claims);
+      const user = withGroupAdminOverride(dbUser, claims, auth.adminGroup);
       cache.set(claims.sub, { at: Date.now(), user });
       request.user = user;
     } catch (err) {

@@ -59,6 +59,12 @@ export interface AuthedAppOptions {
    * into a 429.
    */
   rateLimit?: { max: number; timeWindow: string };
+  /**
+   * Mirrors config/auth.ts's AuthConfig.adminGroup. `null` (the default)
+   * matches every suite's existing behaviour: a token's `groups` claim,
+   * even if present, confers nothing.
+   */
+  adminGroup?: string | null;
 }
 
 export interface AuthedTestApp {
@@ -96,6 +102,7 @@ export async function buildAuthedApp(
       clientId: 'sulo-spa',
       userCacheTtlMs: opts.userCacheTtlMs ?? 60_000,
       requireJwksAtBoot: true,
+      adminGroup: opts.adminGroup ?? null,
     },
   });
   // Before the routes, so their per-route `config.rateLimit` is picked up.

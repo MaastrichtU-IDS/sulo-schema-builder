@@ -38,6 +38,15 @@ export interface TokenClaims {
   name?: string;
   preferred_username?: string;
   orcid?: string;
+  /**
+   * Keycloak group paths (e.g. `["/admins"]`), present only when a
+   * group-membership protocol mapper is configured on the client — see
+   * docker/keycloak/realm-sulo.json. Untrusted shape: a claim from any other
+   * identity provider, or an older token minted before the mapper existed,
+   * simply won't have it. withGroupAdminOverride below treats anything that
+   * isn't an array of strings as "no groups" rather than throwing.
+   */
+  groups?: unknown;
 }
 
 export interface RequestUser {
@@ -62,4 +71,28 @@ export async function resolveUser(db: Kysely<DB>, claims: TokenClaims): Promise<
   });
 
   return { id: row.id, subject: row.subject, role: row.global_role, tier: row.quota_tier };
+}
+
+/**
+ * Keycloak-group-based admin, additive on top of `global_role`: membership in
+ * `adminGroup` elevates a caller to admin for this request, but the reverse
+ * never happens here — a caller already `admin` in Postgres (promoted by
+ * hand through `PATCH /admin/users/:id`, or by an earlier group membership a
+ * now-stale token no longer carries) stays admin regardless of what this
+ * token's `groups` claim says. `adminGroup: null` (the default — see
+ * config/auth.ts) makes this a no-op for every deployment that doesn't use
+ * Keycloak groups for this at all.
+ *
+ * Deliberately never written back to Postgres: `global_role` still means
+ * exactly what it always has (an operator's own explicit grant), and a group
+ * membership that lapses stops conferring admin on this caller's very next
+ * token without needing a corresponding "un-promote" anywhere.
+ */
+export function withGroupAdminOverride(
+  user: RequestUser, claims: TokenClaims, adminGroup: string | null,
+): RequestUser {
+  if (!adminGroup || user.role === 'admin') return user;
+  const groups = claims.groups;
+  if (!Array.isArray(groups) || !groups.includes(adminGroup)) return user;
+  return { ...user, role: 'admin' };
 }

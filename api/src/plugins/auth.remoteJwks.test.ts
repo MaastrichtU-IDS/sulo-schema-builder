@@ -82,6 +82,7 @@ async function buildApp(): Promise<FastifyInstance> {
       clientId: 'sulo-spa',
       userCacheTtlMs: 60_000,
       requireJwksAtBoot: true,
+      adminGroup: null,
     },
   });
 
@@ -158,6 +159,7 @@ describe('AUTH_REQUIRE_JWKS_AT_BOOT', () => {
         clientId: 'sulo-spa',
         userCacheTtlMs: 60_000,
         requireJwksAtBoot,
+        adminGroup: null,
       },
     });
     app.get('/closed', { preHandler: app.authRequired }, async (request) => ({ id: request.user!.id }));

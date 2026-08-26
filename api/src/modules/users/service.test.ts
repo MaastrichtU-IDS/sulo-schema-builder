@@ -59,3 +59,41 @@ describe('users service', () => {
     await expect(service.resolveUser(t.db, { sub: 'local' })).rejects.toThrow(/reserved/i);
   });
 });
+
+// Pure function, no database involved: plugins/auth.ts is the only caller,
+// and its own suite proves the wiring end to end; these pin down the
+// decision table on its own.
+describe('withGroupAdminOverride', () => {
+  const USER: service.RequestUser = { id: '1', subject: 'kc-1', role: 'user', tier: 'free' };
+  const MODERATOR: service.RequestUser = { id: '2', subject: 'kc-2', role: 'moderator', tier: 'free' };
+  const ADMIN: service.RequestUser = { id: '3', subject: 'kc-3', role: 'admin', tier: 'free' };
+
+  it('elevates to admin when the token carries the configured group', () => {
+    const result = service.withGroupAdminOverride(USER, { sub: 'kc-1', groups: ['/admins'] }, '/admins');
+    expect(result.role).toBe('admin');
+    // Every other field is passed through unchanged.
+    expect(result.id).toBe(USER.id);
+    expect(result.tier).toBe(USER.tier);
+  });
+
+  it('elevates a moderator too — additive on top of whatever role already applies', () => {
+    const result = service.withGroupAdminOverride(MODERATOR, { sub: 'kc-2', groups: ['/admins'] }, '/admins');
+    expect(result.role).toBe('admin');
+  });
+
+  it('is a no-op when adminGroup is null, regardless of the token', () => {
+    const result = service.withGroupAdminOverride(USER, { sub: 'kc-1', groups: ['/admins'] }, null);
+    expect(result).toBe(USER); // same reference: not even a copy
+  });
+
+  it('is a no-op when the groups claim is missing, not an array, or does not contain the configured group', () => {
+    expect(service.withGroupAdminOverride(USER, { sub: 'kc-1' }, '/admins')).toBe(USER);
+    expect(service.withGroupAdminOverride(USER, { sub: 'kc-1', groups: '/admins' }, '/admins')).toBe(USER);
+    expect(service.withGroupAdminOverride(USER, { sub: 'kc-1', groups: ['/staff'] }, '/admins')).toBe(USER);
+  });
+
+  it('never demotes: an already-admin user stays admin without the group', () => {
+    const result = service.withGroupAdminOverride(ADMIN, { sub: 'kc-3' }, '/admins');
+    expect(result).toBe(ADMIN);
+  });
+});

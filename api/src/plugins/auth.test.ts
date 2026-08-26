@@ -14,7 +14,7 @@ beforeAll(async () => {
 afterAll(async () => { await t.stop(); });
 beforeEach(async () => { await truncateAll(t.db); });
 
-async function buildApp(): Promise<FastifyInstance> {
+async function buildApp(adminGroup: string | null = null): Promise<FastifyInstance> {
   const app = Fastify();
   await app.register(sensible);
   app.decorate('pg', t.db);
@@ -30,6 +30,7 @@ async function buildApp(): Promise<FastifyInstance> {
       clientId: 'sulo-spa',
       userCacheTtlMs: 60_000,
       requireJwksAtBoot: true,
+      adminGroup,
     },
   });
 
@@ -151,6 +152,59 @@ describe('auth plugin', () => {
     await app2.close();
   });
 
+  describe('Keycloak group admin override', () => {
+    it('admits a caller via the configured group claim, with no global_role change in Postgres', async () => {
+      const app = await buildApp('/admins');
+      const token = await issuer.sign({ sub: 'kc-group-admin', groups: ['/admins'] });
+
+      const res = await app.inject({ method: 'GET', url: '/admin-only', headers: { authorization: `Bearer ${token}` } });
+      expect(res.statusCode).toBe(200);
+
+      const row = await t.pool.query('select global_role from users where subject = $1', ['kc-group-admin']);
+      expect(row.rows[0].global_role).toBe('user'); // never written back — see withGroupAdminOverride's own comment
+
+      await app.close();
+    });
+
+    it('ignores an unrelated group, and a token with no groups claim at all', async () => {
+      const app = await buildApp('/admins');
+
+      const wrongGroup = await issuer.sign({ sub: 'kc-other-group', groups: ['/staff'] });
+      const denied1 = await app.inject({ method: 'GET', url: '/admin-only', headers: { authorization: `Bearer ${wrongGroup}` } });
+      expect(denied1.statusCode).toBe(403);
+
+      const noGroups = await issuer.sign({ sub: 'kc-no-groups' });
+      const denied2 = await app.inject({ method: 'GET', url: '/admin-only', headers: { authorization: `Bearer ${noGroups}` } });
+      expect(denied2.statusCode).toBe(403);
+
+      await app.close();
+    });
+
+    it('does nothing when AUTH_ADMIN_GROUP is unset, even if the token carries a matching groups claim', async () => {
+      const app = await buildApp(null);
+      const token = await issuer.sign({ sub: 'kc-group-off', groups: ['/admins'] });
+
+      const res = await app.inject({ method: 'GET', url: '/admin-only', headers: { authorization: `Bearer ${token}` } });
+      expect(res.statusCode).toBe(403);
+
+      await app.close();
+    });
+
+    it('is additive, never a demotion: an existing DB admin stays admin without the group', async () => {
+      await t.pool.query(
+        "insert into users (subject, global_role) values ($1, 'admin') on conflict (subject) do update set global_role = 'admin'",
+        ['kc-db-admin'],
+      );
+      const app = await buildApp('/admins');
+      const token = await issuer.sign({ sub: 'kc-db-admin' });
+
+      const res = await app.inject({ method: 'GET', url: '/admin-only', headers: { authorization: `Bearer ${token}` } });
+      expect(res.statusCode).toBe(200);
+
+      await app.close();
+    });
+  });
+
   it('refuses a token whose subject is the reserved local seed', async () => {
     const app = await buildApp();
     const token = await issuer.sign({ sub: 'local' });
@@ -187,6 +241,7 @@ describe('auth plugin', () => {
         clientId: 'sulo-spa',
         userCacheTtlMs: 60_000,
         requireJwksAtBoot: true,
+        adminGroup: null,
       },
     });
     app.get('/closed', { preHandler: app.authRequired }, async (request) => ({ id: request.user!.id }));

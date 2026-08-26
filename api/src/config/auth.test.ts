@@ -134,4 +134,24 @@ describe('resolveAuthConfig', () => {
       ).toThrow(/AUTH_REQUIRE_JWKS_AT_BOOT/);
     });
   });
+
+  // modules/users/service.ts's withGroupAdminOverride is a no-op whenever
+  // this is null — the default a deployment that has never heard of
+  // AUTH_ADMIN_GROUP gets, in both storage modes.
+  describe('AUTH_ADMIN_GROUP', () => {
+    it('defaults to null', () => {
+      expect(resolveAuthConfig(BASE, 'postgres').adminGroup).toBeNull();
+      expect(resolveAuthConfig({}, 'sqlite').adminGroup).toBeNull();
+    });
+
+    it('honours an explicit group path', () => {
+      const cfg = resolveAuthConfig({ ...BASE, AUTH_ADMIN_GROUP: '/admins' }, 'postgres');
+      expect(cfg.adminGroup).toBe('/admins');
+    });
+
+    it('trims whitespace and treats an empty/whitespace-only value as unset', () => {
+      expect(resolveAuthConfig({ ...BASE, AUTH_ADMIN_GROUP: '  /admins  ' }, 'postgres').adminGroup).toBe('/admins');
+      expect(resolveAuthConfig({ ...BASE, AUTH_ADMIN_GROUP: '   ' }, 'postgres').adminGroup).toBeNull();
+    });
+  });
 });
