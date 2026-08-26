@@ -1,9 +1,13 @@
 #!/bin/sh
-# Creates (or repairs) two deterministic Keycloak users for the e2e suite to
+# Creates (or repairs) three deterministic Keycloak users for the e2e suite to
 # sign in as through Keycloak's own hosted login page: "Alice"
-# (frontend/e2e/auth-flow.spec.ts and frontend/e2e/sharing-flow.spec.ts) and
-# "Bob" (frontend/e2e/sharing-flow.spec.ts only, added for the two-account
-# isolation/sharing proof). Model: configure-idps.sh in this directory.
+# (frontend/e2e/auth-flow.spec.ts and frontend/e2e/sharing-flow.spec.ts),
+# "Bob" (frontend/e2e/sharing-flow.spec.ts, added for the two-account
+# isolation/sharing proof) and "Carol" (frontend/e2e/events-flow.spec.ts,
+# the admin identity for that spec's tier-change assertion — see her own
+# seed_user call below for why ci.yml promotes her to admin from THIS
+# script's stdout rather than after the fact). Model: configure-idps.sh in
+# this directory.
 #
 # LOCAL AND CI USE ONLY. The passwords below are fixed and committed to this
 # repo — never run this against a realm that is reachable from anywhere but
@@ -83,3 +87,22 @@ seed_user "${E2E_USER_EMAIL:-e2e@example.org}" "${E2E_USER_PASSWORD:-E2ePassw0rd
 # assertions load-bearing against the server, rather than against the UI's
 # own sign-out gate (see that spec's header comment).
 seed_user "${E2E_USER2_EMAIL:-e2e-bob@example.org}" "${E2E_USER2_PASSWORD:-E2eBobPassw0rd!}" "E2E" "Bob"
+
+# "Carol" — only frontend/e2e/events-flow.spec.ts signs in as this account,
+# to exercise a real admin route (PATCH /admin/users/:id) end to end.
+seed_user "${E2E_USER3_EMAIL:-e2e-carol@example.org}" "${E2E_USER3_PASSWORD:-E2eCarolPassw0rd!}" "E2E" "Carol"
+
+# Printed last, in the one machine-parseable line ci.yml's seeding step
+# greps out of this script's stdout: Carol's Keycloak user id, which IS the
+# `sub` claim her tokens carry (Keycloak stamps `sub` with the user's own
+# id) — the same value the `users.subject` column keys off. ci.yml uses it
+# to insert Carol into Postgres with global_role='admin' BEFORE her first
+# sign-in reaches the API, not after: users/repo.ts's upsertBySubject never
+# touches global_role on conflict specifically so a promotion survives a
+# later sign-in, but "later" has to mean later than THIS insert — done
+# after, Carol's own real default 60s subject->user cache entry (plugins/
+# auth.ts) would leave the promotion invisible to her own next request for
+# up to a minute, exactly the effect admin.test.ts's own cache test pins
+# down. $user_id is left set by seed_user above (POSIX sh has no function
+# scoping), so this is Carol's, not Bob's.
+echo "CAROL_ID=$user_id"
