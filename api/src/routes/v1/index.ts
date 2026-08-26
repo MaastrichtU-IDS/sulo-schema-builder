@@ -7,6 +7,7 @@ import reasonRoutes from './reason.js';
 import schemasRoutes from '../../modules/schemas/routes.js';
 import grantsRoutes, { userLookupRoutes } from '../../modules/acl/grants.routes.js';
 import moderationRoutes from '../../modules/acl/moderation.routes.js';
+import adminRoutes from '../../modules/admin/routes.js';
 import reasoningRoutes from '../../modules/reasoning/routes.js';
 import sseRoutes from '../../modules/events/sse.js';
 import legacySqliteRoutes from '../../legacy/sqlite/ontology.routes.js';
@@ -54,6 +55,12 @@ const v1Routes: FastifyPluginAsync = async (fastify) => {
     // that throws loudly if request.user is still absent) are argued in full
     // at the top of that file.
     await fastify.register(moderationRoutes, { prefix: '/admin/schemas' });
+    // Deployment operation (spec §5): user roster, tier changes, aggregated
+    // usage, and the reason_jobs queue. Same belt as moderationRoutes above
+    // — registered only in this branch, so plugins/authDisabled.ts's
+    // sqlite-mode no-op `requireRole` can never admit anyone here — and the
+    // same 404-not-403 reasoning, argued in full at the top of that file.
+    await fastify.register(adminRoutes, { prefix: '/admin' });
   } else {
     await fastify.register(legacySqliteRoutes, { prefix: '/ontology-schemas' });
   }
