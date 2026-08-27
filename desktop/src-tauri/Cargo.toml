@@ -1,6 +1,6 @@
 [package]
 name = "sulo-schema-builder-desktop"
-version = "0.2.0"
+version = "0.2.1"
 description = "SULO Schema Builder desktop shell"
 edition = "2021"
 
