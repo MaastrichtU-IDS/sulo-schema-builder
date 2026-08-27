@@ -1718,36 +1718,44 @@ function SchemaListPage() {
             Define classes and properties for your domain, mapped to an upper-level ontology.
           </p>
         </div>
-        <div className="flex gap-2 shrink-0">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".json,application/json"
-            className="hidden"
-            onChange={handleImportFile}
-          />
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isImporting}
-            className="bg-slate-100 hover:bg-slate-200 disabled:opacity-50 text-slate-700 text-sm font-medium px-4 py-2 rounded-lg transition-colors border border-slate-300"
-            title="Import a schema from a .sulo-schema.json export"
-          >
-            {isImporting ? 'Importing…' : 'Import'}
-          </button>
-          <button
-            onClick={() => setShowPasteShare(!showPasteShare)}
-            className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-medium px-4 py-2 rounded-lg transition-colors border border-slate-300"
-            title="Import a schema from a share string someone sent you"
-          >
-            Paste share string
-          </button>
-          <button
-            onClick={() => setShowCreate(!showCreate)}
-            className="bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
-          >
-            + New Schema
-          </button>
-        </div>
+        {/* Every one of these ends in backend.createSchema — an anonymous
+            caller's POST /ontology-schemas always 401s, so a visible button
+            that always fails is worse than no button (same reasoning as
+            "Edit info" below). Desktop (`'disabled'`) has no such concept —
+            single local user, always allowed — hence `!== 'anonymous'`
+            rather than `=== 'authenticated'`. */}
+        {authStatus !== 'anonymous' && (
+          <div className="flex gap-2 shrink-0">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".json,application/json"
+              className="hidden"
+              onChange={handleImportFile}
+            />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isImporting}
+              className="bg-slate-100 hover:bg-slate-200 disabled:opacity-50 text-slate-700 text-sm font-medium px-4 py-2 rounded-lg transition-colors border border-slate-300"
+              title="Import a schema from a .sulo-schema.json export"
+            >
+              {isImporting ? 'Importing…' : 'Import'}
+            </button>
+            <button
+              onClick={() => setShowPasteShare(!showPasteShare)}
+              className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-medium px-4 py-2 rounded-lg transition-colors border border-slate-300"
+              title="Import a schema from a share string someone sent you"
+            >
+              Paste share string
+            </button>
+            <button
+              onClick={() => setShowCreate(!showCreate)}
+              className="bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+            >
+              + New Schema
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Counterpart to ShareModal's "Share string" row — that value is
@@ -1975,7 +1983,7 @@ function SchemaDetailPage({ id }: { id: string }) {
   const { status: authStatus } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const schemaQuery    = useOntologySchema(id);
+  const schemaQuery    = useOntologySchema(id, authStatus !== 'loading');
   const updateSchema   = useUpdateOntologySchema(id);
   const addClass       = useAddOntologyClass(id);
   const deleteClass    = useDeleteOntologyClass(id);
@@ -2095,7 +2103,12 @@ function SchemaDetailPage({ id }: { id: string }) {
     setShowAddProperty(false);
   }
 
-  if (schemaQuery.isLoading) {
+  // authStatus === 'loading' also covers the query's own disabled window
+  // (useOntologySchema's `enabled` argument below): with the query disabled,
+  // TanStack Query's `isLoading` (isPending && isFetching) is false rather
+  // than true, since it never actually starts fetching — without this,
+  // "Failed to load ontology schema" would flash before check-sso resolves.
+  if (authStatus === 'loading' || schemaQuery.isLoading) {
     return <div className="flex items-center justify-center py-20 text-slate-400 text-sm">Loading…</div>;
   }
   if (schemaQuery.isError || !schemaQuery.data) {
@@ -2108,6 +2121,13 @@ function SchemaDetailPage({ id }: { id: string }) {
 
   const schema = schemaQuery.data;
   const classes: OntologyClass[] = schema.classes;
+  // The one thing schema.accessLevel (api/src/modules/schemas/routes.ts) is
+  // for: gating add/edit/delete controls so a caller who cannot write this
+  // schema never sees a button that only 403s/401s when clicked. Desktop
+  // (`'disabled'`) never sets accessLevel at all (schemaRowToSummary's own
+  // ACL-free path) — `authStatus === 'disabled'` covers that build, same
+  // reasoning as every other edit-affordance gate on this page.
+  const canEdit = authStatus === 'disabled' || schema.accessLevel === 'edit' || schema.accessLevel === 'own';
 
   return (
     <div className="space-y-7">
@@ -2198,12 +2218,13 @@ function SchemaDetailPage({ id }: { id: string }) {
                 </button>
               )}
               {/* Faded-looking by design (it's a quiet, secondary action),
-                  but that must not be confused with actually disabled: an
-                  anonymous visitor can never hold `edit`, so the control is
-                  hidden outright rather than left clickable-but-doomed —
-                  the PATCH would 403 anyway, but a visible, clickable button
-                  that always fails is worse than no button. */}
-              {authStatus !== 'anonymous' && (
+                  but that must not be confused with actually disabled: a
+                  caller without `edit` (anonymous, or signed in but not the
+                  owner/an editor) is hidden outright rather than left
+                  clickable-but-doomed — the PATCH would 401/403 anyway, but
+                  a visible, clickable button that always fails is worse
+                  than no button. */}
+              {canEdit && (
                 <button
                   onClick={() => setEditingMeta(true)}
                   className="text-sm text-slate-400 hover:text-violet-600 border border-slate-200 hover:border-violet-300 px-3 py-1.5 rounded-lg transition-colors"
@@ -2313,16 +2334,18 @@ function SchemaDetailPage({ id }: { id: string }) {
       {/* ── Classes tab ── */}
       {activeTab === 'classes' && (
         <div className="space-y-4">
-          <div className="flex justify-end">
-            <button
-              onClick={() => setShowAddClass(!showAddClass)}
-              className="bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
-            >
-              + Add Class
-            </button>
-          </div>
+          {canEdit && (
+            <div className="flex justify-end">
+              <button
+                onClick={() => setShowAddClass(!showAddClass)}
+                className="bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+              >
+                + Add Class
+              </button>
+            </div>
+          )}
 
-          {showAddClass && (
+          {canEdit && showAddClass && (
             <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6 space-y-4">
               <h3 className="font-semibold text-slate-800">New Class</h3>
               <form onSubmit={classForm.handleSubmit(onAddClass)} className="space-y-4">
@@ -2401,7 +2424,7 @@ function SchemaDetailPage({ id }: { id: string }) {
                 key={cls.id}
                 className="bg-white rounded-xl border border-slate-200 shadow-sm px-5 py-4"
               >
-                {editingClassId === cls.id ? (
+                {canEdit && editingClassId === cls.id ? (
                   <EditClassForm
                     cls={cls}
                     schemaId={id}
@@ -2486,22 +2509,24 @@ function SchemaDetailPage({ id }: { id: string }) {
                         );
                       })()}
                     </div>
-                    <div className="flex gap-2 ml-4 shrink-0">
-                      <button
-                        onClick={() => setEditingClassId(cls.id)}
-                        className="text-slate-400 hover:text-violet-600 text-xs border border-slate-200 hover:border-violet-300 px-2 py-1 rounded-md transition-colors"
-                        title="Edit class"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => deleteClass.mutate(cls.id)}
-                        className="text-slate-400 hover:text-red-500 text-sm transition-colors"
-                        title="Remove class"
-                      >
-                        ✕
-                      </button>
-                    </div>
+                    {canEdit && (
+                      <div className="flex gap-2 ml-4 shrink-0">
+                        <button
+                          onClick={() => setEditingClassId(cls.id)}
+                          className="text-slate-400 hover:text-violet-600 text-xs border border-slate-200 hover:border-violet-300 px-2 py-1 rounded-md transition-colors"
+                          title="Edit class"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => deleteClass.mutate(cls.id)}
+                          className="text-slate-400 hover:text-red-500 text-sm transition-colors"
+                          title="Remove class"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -2509,9 +2534,11 @@ function SchemaDetailPage({ id }: { id: string }) {
             {classes.length === 0 && !showAddClass && (
               <div className="text-center py-12 text-slate-400 text-sm">
                 No classes yet.{' '}
-                <button onClick={() => setShowAddClass(true)} className="text-violet-600 hover:underline">
-                  Add one
-                </button>
+                {canEdit && (
+                  <button onClick={() => setShowAddClass(true)} className="text-violet-600 hover:underline">
+                    Add one
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -2527,16 +2554,18 @@ function SchemaDetailPage({ id }: { id: string }) {
 
       {activeTab === 'properties' && (
         <div className="space-y-4">
-          <div className="flex justify-end">
-            <button
-              onClick={() => setShowAddProperty(!showAddProperty)}
-              className="bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
-            >
-              + Add Property
-            </button>
-          </div>
+          {canEdit && (
+            <div className="flex justify-end">
+              <button
+                onClick={() => setShowAddProperty(!showAddProperty)}
+                className="bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+              >
+                + Add Property
+              </button>
+            </div>
+          )}
 
-          {showAddProperty && (
+          {canEdit && showAddProperty && (
             <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6 space-y-4">
               <h3 className="font-semibold text-slate-800">New Property</h3>
               <form onSubmit={propertyForm.handleSubmit(onAddProperty)} className="space-y-4">
@@ -2738,7 +2767,7 @@ function SchemaDetailPage({ id }: { id: string }) {
                   key={`${prop.name}|${prop.domainClassId ?? ''}`}
                   className="bg-white rounded-xl border border-slate-200 shadow-sm px-5 py-4"
                 >
-                  {editingPropId === prop.id ? (
+                  {canEdit && editingPropId === prop.id ? (
                     <EditPropertyForm
                       prop={prop}
                       schemaId={id}
@@ -2811,22 +2840,24 @@ function SchemaDetailPage({ id }: { id: string }) {
                           </div>
                         )}
                       </div>
-                      <div className="flex gap-2 ml-4 shrink-0">
-                        <button
-                          onClick={() => setEditingPropId(prop.id)}
-                          className="text-slate-400 hover:text-violet-600 text-xs border border-slate-200 hover:border-violet-300 px-2 py-1 rounded-md transition-colors"
-                          title="Edit property"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => deleteProperty.mutate(prop.id)}
-                          className="text-slate-400 hover:text-red-500 text-sm transition-colors"
-                          title="Remove property"
-                        >
-                          ✕
-                        </button>
-                      </div>
+                      {canEdit && (
+                        <div className="flex gap-2 ml-4 shrink-0">
+                          <button
+                            onClick={() => setEditingPropId(prop.id)}
+                            className="text-slate-400 hover:text-violet-600 text-xs border border-slate-200 hover:border-violet-300 px-2 py-1 rounded-md transition-colors"
+                            title="Edit property"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => deleteProperty.mutate(prop.id)}
+                            className="text-slate-400 hover:text-red-500 text-sm transition-colors"
+                            title="Remove property"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -2835,9 +2866,11 @@ function SchemaDetailPage({ id }: { id: string }) {
             {schema.properties.length === 0 && !showAddProperty && (
               <div className="text-center py-12 text-slate-400 text-sm">
                 No properties yet.{' '}
-                <button onClick={() => setShowAddProperty(true)} className="text-violet-600 hover:underline">
-                  Add one
-                </button>
+                {canEdit && (
+                  <button onClick={() => setShowAddProperty(true)} className="text-violet-600 hover:underline">
+                    Add one
+                  </button>
+                )}
               </div>
             )}
           </div>

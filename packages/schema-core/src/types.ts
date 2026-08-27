@@ -57,6 +57,20 @@ export interface OntologySchema {
   /** Overrides `url` as the namespace all classes/properties are minted under, when set. */
   baseUri?: string;
   visibility?: SchemaVisibility;
+  /**
+   * The caller's own resolved access level to this schema — 'view' | 'edit'
+   * | 'own' (never 'none': a request that resolves to 'none' 404s before
+   * this shape is ever built). Present only on GET /ontology-schemas/:id's
+   * response (api/src/modules/schemas/routes.ts), same restriction as
+   * `visibility` above: absent on the SQLite/desktop path, and never set by
+   * anything that constructs an OntologySchema for export/import (the share-
+   * string/file-export codec in schemaTransfer.ts never reads or writes it).
+   * Exists so the frontend can gate edit/delete controls per-schema instead
+   * of only per-authentication-status — owner_id itself stays unexposed
+   * (see schemaRowToSummary's own comment) since this is the only thing a
+   * client actually needs it for.
+   */
+  accessLevel?: 'view' | 'edit' | 'own';
   classes: OntologyClass[];
   properties: OntologyProperty[];
 }
