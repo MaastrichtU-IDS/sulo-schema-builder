@@ -1,29 +1,206 @@
 services:
 
-  # ─── Node.js / Fastify: serves the built React SPA and the REST API from
-  # one process, backed by embedded SQLite — no separate frontend container.
+  # ─── Node.js / Fastify: serves the built React SPA and the API from one
+  # process.
   api:
     build:
       context: .
       dockerfile: docker/api/Dockerfile
+      # Explicit: the Dockerfile's last stage is `development`, so without this
+      # the deployment stack would build the dev image. The override file swaps
+      # this back to `development` for local work. Sharing the stage with the
+      # `migrate` service below also means both run the same compiled dist.
+      target: production
     ports:
       - "8080:3000"
-    env_file: .env
+    # Optional: this file is gitignored and a fresh clone does not have one, so
+    # a required `env_file` failed the documented quick start with "env file not
+    # found". Everything the stack needs has a default below or in the API's own
+    # config; `.env` is only for overrides (POSTGRES_PASSWORD above all).
+    env_file:
+      - path: .env
+        required: false
     environment:
       NODE_ENV: production
-      DB_PATH: /app/data/sulo.db
       # Required: the API defaults to loopback, and a container listening on
       # 127.0.0.1 is unreachable through the published port above.
       HOST: 0.0.0.0
-    volumes:
-      - api-data:/app/data
+      # All of these are interpolated with the current (localhost dev) value
+      # as the *default*, not hardcoded, so a deployer's `.env` or shell
+      # environment wins per Docker Compose precedence (environment: beats
+      # env_file:). Hardcoding them here used to silently override a `.env`
+      # someone had edited for a real hostname — every token then failed
+      # "unexpected iss" against the localhost value baked in below. See the
+      # README's "Deploying somewhere that isn't localhost" note: a
+      # non-localhost deployment must also edit
+      # docker/keycloak/realm-sulo.json's redirectUris/webOrigins/
+      # post.logout.redirect.uris, which are hardcoded to :8080/:5173.
+      DATABASE_URL: ${DATABASE_URL:-postgres://sulo:${POSTGRES_PASSWORD:-sulo}@db:5432/sulo}
+      # Multi-user web deployment. The 'sqlite' mode is the frozen desktop path.
+      SCHEMA_STORAGE: ${SCHEMA_STORAGE:-postgres}
+      # Deliberately the browser-facing URL (localhost:8088), NOT the
+      # in-container "http://keycloak:8080/realms/sulo". Keycloak signs tokens
+      # with the issuer the browser/SPA actually reached it on (KC_HOSTNAME
+      # below), and the API must verify against that same issuer string or
+      # every request fails token verification with "unexpected iss".
+      AUTH_ISSUER: ${AUTH_ISSUER:-http://localhost:8088/realms/sulo}
+      AUTH_AUDIENCE: ${AUTH_AUDIENCE:-sulo-api}
+      # In-network address for the *server-side* JWKS fetch — deliberately
+      # different from AUTH_ISSUER above. Deriving this from AUTH_ISSUER (the
+      # browser-facing URL) broke this stack outright: inside the api
+      # container, "localhost:8088" is the container's own loopback, not
+      # Keycloak, so the fetch failed and every token was rejected with a 401.
+      # See the comment above resolveAuthConfig's AUTH_JWKS_URI handling in
+      # api/src/config/auth.ts for the full argument — a Kubernetes deployment
+      # needs the same split (public ingress issuer, in-cluster service DNS
+      # here).
+      AUTH_JWKS_URI: ${AUTH_JWKS_URI:-http://keycloak:8080/realms/sulo/protocol/openid-connect/certs}
+      # Preserves today's loud "refuse to start" behaviour by default. A
+      # deployment with its own readiness probe (e.g. Kubernetes, where this
+      # compose file's keycloak healthcheck/depends_on has no equivalent)
+      # should set this to false so a Keycloak blip during a rollout degrades
+      # to per-request JWKS resolution instead of CrashLoopBackOff. See
+      # api/src/plugins/auth.ts.
+      AUTH_REQUIRE_JWKS_AT_BOOT: ${AUTH_REQUIRE_JWKS_AT_BOOT:-true}
+      # Unset by default (an empty value resolves to `null` in
+      # api/src/config/auth.ts) — admin has to be granted by hand through
+      # `PATCH /admin/users/:id` unless a deployment opts into managing it via
+      # a Keycloak group instead. This realm ships an "admins" group and the
+      # group-membership protocol mapper it needs (docker/keycloak/
+      # realm-sulo.json) already wired for that group's bare name — no leading
+      # slash: the mapper's `full.path` is `false`, so the token carries
+      # "admins", not "/admins" — so setting this to `admins` and adding a
+      # user to that group is enough — no other config changes required. See
+      # api/src/modules/users/service.ts's withGroupAdminOverride for the
+      # exact (additive, never-demoting) rule.
+      AUTH_ADMIN_GROUP: ${AUTH_ADMIN_GROUP:-}
+      # Unset by default — src/instrumentation.ts never starts the
+      # OpenTelemetry SDK at all without an endpoint to send to, so a local
+      # stack with no collector pays nothing for this. Point it at one
+      # (e.g. http://otel-collector:4318) to get traces for this service;
+      # every other OTEL_* variable (OTEL_SERVICE_NAME, OTEL_TRACES_SAMPLER,
+      # OTEL_EXPORTER_OTLP_HEADERS, ...) is read directly from the
+      # environment by the SDK/exporter themselves, so there is nothing else
+      # to wire through here.
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+      keycloak:
+        condition: service_healthy
     networks:
       - sulo-net
     restart: unless-stopped
 
-volumes:
-  api-data:
+  # One-shot schema migration, run to completion before the API starts, so N
+  # API replicas never race each other applying the same migration. Runs the
+  # compiled entry point: the production image installs with --omit=dev, which
+  # leaves no tsx behind to execute a .ts file.
+  migrate:
+    build:
+      context: .
+      dockerfile: docker/api/Dockerfile
+      target: production
+    command: ["node", "api/dist/scripts/migrate.js"]
+    environment:
+      # Same default-with-override shape as the api service's DATABASE_URL
+      # above it in the file — a `.env` override must win here too, or a
+      # non-default DATABASE_URL migrates the wrong database while the api
+      # service (correctly picking up the override) talks to a different,
+      # unmigrated one.
+      DATABASE_URL: ${DATABASE_URL:-postgres://sulo:${POSTGRES_PASSWORD:-sulo}@db:5432/sulo}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - sulo-net
+    restart: "no"
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: sulo
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sulo}
+      POSTGRES_DB: sulo
+    volumes:
+      - sulo-db:/var/lib/postgresql/data
+      # Creates the separate `keycloak` database Keycloak needs below. Postgres
+      # only runs /docker-entrypoint-initdb.d/ scripts the first time it
+      # initializes a data directory, i.e. only against a fresh `sulo-db`
+      # volume. If you already had this stack running before this file was
+      # added, `docker compose down -v` (or create the database manually — see
+      # the script) before bringing it back up.
+      - ./docker/postgres/init-keycloak.sql:/docker-entrypoint-initdb.d/init-keycloak.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sulo -d sulo"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks:
+      - sulo-net
+    restart: unless-stopped
+
+  # Identity provider: issues and verifies the JWTs the API trusts. The realm
+  # (clients, protocol mappers, disabled IdP stubs) is imported from
+  # docker/keycloak/realm-sulo.json rather than clicked together in the admin
+  # console, so it is versioned and reviewable.
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://db:5432/keycloak
+      KC_DB_USERNAME: sulo
+      KC_DB_PASSWORD: ${POSTGRES_PASSWORD:-sulo}
+      KC_HTTP_PORT: 8080
+      KC_HEALTH_ENABLED: "true"
+      # Deliberately the browser-facing origin, not "http://keycloak:8080" (the
+      # in-container hostname). Keycloak stamps every token's `iss` claim with
+      # whatever hostname the caller used to reach it, and the SPA/browser only
+      # ever reaches this container through the published port below. If this
+      # said "keycloak:8080" instead, tokens would carry an issuer the API's
+      # AUTH_ISSUER (also localhost:8088, see the api service above) could
+      # never match, and every request would fail with "unexpected iss".
+      # Interpolated with the localhost value as the default, same rationale
+      # as the api service's AUTH_ISSUER above — this and AUTH_ISSUER must
+      # always change together (see the README's deployment note).
+      KC_HOSTNAME: ${KC_HOSTNAME:-http://localhost:8088}
+    volumes:
+      - ./docker/keycloak/realm-sulo.json:/opt/keycloak/data/import/realm-sulo.json:ro
+      - ./docker/keycloak/configure-idps.sh:/opt/keycloak/bin/configure-idps.sh:ro
+      # Local/CI only — see the script's own header. Not run automatically;
+      # invoked by hand or by the e2e CI job once Keycloak is healthy.
+      - ./docker/keycloak/seed-test-user.sh:/opt/keycloak/bin/seed-test-user.sh:ro
+    ports:
+      - "8088:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - sulo-net
+    restart: unless-stopped
+    # Without this, the api container's boot-time JWKS pre-fetch (auth.ts)
+    # would race Keycloak's own startup + realm import (which take longer than
+    # api's other dependencies) on every fresh `docker compose up`: the whole
+    # process — including the anonymous /health and /auth-config routes that
+    # used to come up fine regardless — would crash-loop until Keycloak
+    # answered. KC_HEALTH_ENABLED above already serves /health/ready on the
+    # management port (9000, deliberately not published — it's an in-network
+    # signal, not a public endpoint). The image ships neither curl nor wget,
+    # only bash, hence the raw /dev/tcp request instead of a one-line curl.
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/9000 && printf 'GET /health/ready HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3 && grep -q '\"status\": \"UP\"' <&3"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
 
 networks:
   sulo-net:
     driver: bridge
+
+volumes:
+  sulo-db:

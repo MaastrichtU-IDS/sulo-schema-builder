@@ -78,9 +78,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: |
-            api/package-lock.json
-            frontend/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - uses: dtolnay/rust-toolchain@stable
 
@@ -111,14 +109,52 @@ jobs:
           restore-keys: pkg-cache-${{ matrix.pkgTarget }}-
 
       # package-desktop.mjs builds but does not install; `just install` is the
-      # local equivalent of these two.
+      # local equivalent of this (both are a single root `npm install`/`npm ci`
+      # now that api and frontend are npm-workspace members sharing one
+      # root lockfile).
       - name: Install dependencies
-        run: |
-          npm ci --prefix api
-          npm ci --prefix frontend
+        run: npm ci
 
       - name: Build the API sidecar
         run: node api/scripts/package-desktop.mjs ${{ matrix.pkgTarget }}
+
+      # The packaged binary is the one artifact that can be broken while every
+      # other gate is green: pkg cannot snapshot kysely, so any *static* import
+      # of the Postgres side of the graph (see the invariant comments in
+      # api/src/modules/schemas/repo.ts and api/src/server.ts) crashes the
+      # sidecar at startup while typecheck, the test suites and the Docker image
+      # all pass. Boot it once and ask it for its health.
+      - name: Smoke-test the packaged sidecar
+        env:
+          NODE_ENV: production
+          HOST: 127.0.0.1
+          PORT: 3999
+          # Don't fetch the 91 MB ROBOT jar just to answer /health.
+          REASONER_ENABLED: 'false'
+        run: |
+          export DB_PATH="$RUNNER_TEMP/smoke.db"
+          "api/pkg-dist/${{ matrix.builtName }}" > "$RUNNER_TEMP/sidecar.log" 2>&1 &
+          pid=$!
+          ok=0
+          for _ in $(seq 1 30); do
+            if curl -sf "http://127.0.0.1:3999/api/v1/health" -o "$RUNNER_TEMP/health.json"; then
+              ok=1
+              break
+            fi
+            sleep 1
+          done
+          kill "$pid" 2>/dev/null || true
+          if [ "$ok" != 1 ]; then
+            echo "::error::The packaged sidecar never served /api/v1/health. Its output:"
+            cat "$RUNNER_TEMP/sidecar.log"
+            exit 1
+          fi
+          if ! grep -q '"status":"ok"' "$RUNNER_TEMP/health.json"; then
+            echo "::error::Unexpected health response: $(cat "$RUNNER_TEMP/health.json")"
+            cat "$RUNNER_TEMP/sidecar.log"
+            exit 1
+          fi
+          echo "Sidecar healthy: $(cat "$RUNNER_TEMP/health.json")"
 
       - name: Stage the sidecar for Tauri
         run: |

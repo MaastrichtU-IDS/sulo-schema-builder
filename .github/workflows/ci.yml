@@ -1,8 +1,14 @@
 name: CI
 
-# Fast gate on every change: typecheck and unit tests for both packages.
-# Deliberately no Rust, Tauri or native packaging here — that lives in
-# release.yml and takes minutes rather than seconds.
+# `test`: the fast gate on every change — typecheck and unit tests for both
+# packages. Deliberately no Rust, Tauri or native packaging here — that
+# lives in release.yml and takes minutes rather than seconds.
+#
+# `e2e-auth`: a slower, separate job that boots the real docker-compose
+# stack (Postgres + Keycloak + the API) and drives a browser through an
+# actual Keycloak login. Kept out of `test` so a Keycloak/Docker hiccup
+# can't block every PR on unrelated changes — see its own comment for why
+# it exists at all.
 
 on:
   push:
@@ -23,36 +29,144 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: |
-            api/package-lock.json
-            frontend/package-lock.json
+          cache-dependency-path: package-lock.json
 
-      - name: Install api dependencies
-        working-directory: api
+      - name: Install dependencies
         run: npm ci
 
-      - name: Typecheck api
-        working-directory: api
-        run: npx tsc --noEmit
+      # Redundant with schema-core's `prepare` hook (which makes `npm ci` above
+      # produce dist/ on its own, including in release.yml and on a clean
+      # clone). Kept as an explicit, named step so that a regression in that
+      # hook fails here with an obvious message rather than as a TS2307 in the
+      # typecheck below.
+      - name: Build shared package
+        run: npm run build -w @sulo/schema-core
 
-      - name: Test api
-        working-directory: api
-        run: npm test
+      - name: Typecheck
+        run: npm run typecheck
 
-      - name: Install frontend dependencies
-        working-directory: frontend
-        run: npm ci
-
-      - name: Typecheck frontend
-        working-directory: frontend
-        run: npx tsc --noEmit
-
-      - name: Test frontend
-        working-directory: frontend
+      - name: Test
         run: npm test
 
       # Catches build-only breakage (bad imports, Vite config) that tsc and
       # vitest both miss.
       - name: Build frontend
-        working-directory: frontend
-        run: npm run build
+        run: npm run build -w sulo-schema-builder-frontend
+
+  # This is the only automated proof that real Keycloak tokens are accepted:
+  # everywhere else in the repo, auth is exercised with jose-signed test
+  # tokens. Those tokens cannot exercise the audience mapper, issuer
+  # matching, PKCE or the redirect URIs — a token that Keycloak actually
+  # issues carries `aud: ["account"]` without the `sulo-api-audience`
+  # mapper, and Keycloak stamps `iss` with whatever hostname the browser
+  # reached it on, not the in-container one. Both have broken this stack
+  # silently before, with every offline test green.
+  #
+  # A separate job, not a step in `test` above: a Keycloak/Testcontainers
+  # hiccup (slow image pull, cold realm import) must not block the fast
+  # unit-test gate that every unrelated PR needs to pass.
+  e2e-auth:
+    name: E2E — real Keycloak login
+    runs-on: ubuntu-latest
+    # A cold build here has no layer cache (ROBOT jar download, JRE install,
+    # two `npm ci`, frontend build) on top of the Keycloak image pull and
+    # `playwright install --with-deps` — comfortably past the previous 15m
+    # budget on a slow runner. Bumped from 30: events-flow.spec.ts adds a
+    # second real HermiT/ROBOT run (its own live-update assertion needs a
+    # genuine state transition, the same contradiction trick
+    # reasoning-flow.spec.ts uses) on top of this job's existing one.
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx --prefix frontend playwright install --with-deps chromium
+
+      # Ports 3000/8080/8088 are the compose file's own published ports and
+      # are free on a fresh Actions runner, so no port overlay is needed
+      # here (contrast the "may be occupied locally" note in
+      # frontend/e2e/auth-flow.spec.ts).
+      - name: Start the stack
+        run: docker compose -f docker-compose.yml up -d --build
+
+      # `docker compose up -d` returns once the api container has *started*,
+      # not once Node is listening — api has no healthcheck of its own (only
+      # `depends_on: condition: service_healthy` on db/migrate/keycloak), so
+      # without this the Playwright step below would race api's own Node
+      # boot plus its boot-time JWKS pre-fetch. Waits on the same /health
+      # route that has always come up regardless of auth state.
+      - name: Wait for the api to be listening
+        run: |
+          curl --retry 30 --retry-delay 2 --retry-connrefused --retry-all-errors \
+            -sf http://localhost:8080/api/v1/health -o /dev/null
+
+      # docker compose up above already blocked on api's `depends_on:
+      # condition: service_healthy` for keycloak, so this seeds a realm
+      # that has finished importing rather than racing it. Seeds all three
+      # accounts the specs below need ("Alice", "Bob" and "Carol" — see
+      # docker/keycloak/seed-test-user.sh's own header). Captured via
+      # `id:` and `$GITHUB_OUTPUT` rather than read back out of Docker
+      # afterwards: Carol's Keycloak user id (the script's own last stdout
+      # line, `CAROL_ID=...`) is what the next step needs to promote her to
+      # admin in Postgres.
+      #
+      # -T: `docker compose exec` attaches stdin by default, which fails with
+      # "the input device is not a TTY" on a GitHub Actions runner (no TTY on
+      # stdin). -T disables that and is a no-op locally either way.
+      - name: Seed the e2e test users
+        id: seed_users
+        run: |
+          OUTPUT=$(docker compose -f docker-compose.yml exec -T \
+            -e KEYCLOAK_ADMIN_PASSWORD=admin -e KEYCLOAK_ADMIN=admin \
+            keycloak sh /opt/keycloak/bin/seed-test-user.sh)
+          echo "$OUTPUT"
+          echo "carol_id=$(echo "$OUTPUT" | grep '^CAROL_ID=' | cut -d= -f2)" >> "$GITHUB_OUTPUT"
+
+      # Carol has to become an admin BEFORE her first sign-in reaches the
+      # API, not after — see the long comment above seed-test-user.sh's own
+      # `echo "CAROL_ID=$user_id"` line for why insert-then-sign-in avoids
+      # the real 60s subject->user cache entirely, the same exception to
+      # "never insert into users directly" admin.test.ts's own cache test
+      # documents. `on conflict ... do update` is a no-op safety net, not
+      # load-bearing: this job's stack is always a fresh volume (no prior
+      # `users` row for Carol's subject can exist yet).
+      - name: Pre-seed Carol as a Postgres admin
+        run: |
+          docker compose -f docker-compose.yml exec -T db psql -U sulo -d sulo -c \
+            "insert into users (subject, global_role) values ('${{ steps.seed_users.outputs.carol_id }}', 'admin') on conflict (subject) do update set global_role = 'admin'"
+
+      # sharing-flow.spec.ts, reasoning-flow.spec.ts and events-flow.spec.ts
+      # run in this same job rather than their own: same stack, same
+      # seeding, and each additional spec is far cheaper than a second cold
+      # build (Keycloak image pull, two npm ci's, frontend build).
+      # reasoning-flow.spec.ts and events-flow.spec.ts are the slowest things
+      # in this job — each drives a real HermiT/ROBOT run — which is why
+      # this job's own timeout-minutes above is 40 rather than the previous
+      # 30; re-check that budget if either spec grows another JVM-run
+      # assertion.
+      - name: Run the auth, sharing, reasoning and events e2e specs
+        run: npx --prefix frontend playwright test -c frontend/playwright.config.ts frontend/e2e/auth-flow.spec.ts frontend/e2e/sharing-flow.spec.ts frontend/e2e/reasoning-flow.spec.ts frontend/e2e/events-flow.spec.ts
+
+      - name: Dump container logs on failure
+        if: failure()
+        run: docker compose -f docker-compose.yml logs
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: frontend/playwright-report/
+          retention-days: 7
+
+      - name: Stop the stack
+        if: always()
+        run: docker compose -f docker-compose.yml down -v

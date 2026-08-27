@@ -1,11 +1,14 @@
 import Fastify from 'fastify';
-import { config } from './config.js';
+import rateLimit from '@fastify/rate-limit';
+import { config } from './config/index.js';
 
 // Plugins
 import corsPlugin from './plugins/cors.js';
 import helmetPlugin from './plugins/helmet.js';
 import sensiblePlugin from './plugins/sensible.js';
-import dbPlugin from './plugins/db.js';
+import errorHandlerPlugin from './plugins/errorHandler.js';
+import authDisabledPlugin from './plugins/authDisabled.js';
+import sqlitePlugin from './legacy/sqlite/plugin.js';
 import staticFilesPlugin from './plugins/staticFiles.js';
 
 // Routes
@@ -26,10 +29,70 @@ export async function createServer() {
   });
 
   await server.register(corsPlugin);
-  await server.register(helmetPlugin);
+  await server.register(helmetPlugin, { auth: config.auth });
   await server.register(sensiblePlugin);
-  await server.register(dbPlugin);
+  // After sensible (it uses reply.badRequest) and before any route, so both
+  // storage modes and the reason routes share it.
+  await server.register(errorHandlerPlugin);
+  // Whichever database the selected storage mode needs, and only that one:
+  // the SQLite plugin opens a file, the Postgres plugin opens a pool.
+  //
+  // The Postgres plugin is loaded lazily, and the asymmetry is deliberate.
+  // `kysely` cannot be snapshotted by pkg (its top-level-await modules fall
+  // back to source, and their relative imports then fail to resolve inside
+  // /snapshot), so a static import of plugins/pg.js crashes the packaged
+  // desktop binary at startup — even though `storage` is forced to 'sqlite'
+  // there and the pool is never opened. The reverse trick is not available:
+  // pkg's snapshot cannot execute `import()` at all
+  // (ERR_VM_DYNAMIC_IMPORT_CALLBACK_MISSING), so the branch the desktop build
+  // *does* take has to be a static import.
+  //
+  // plugins/auth.js is loaded the same way and for the same reason: it imports
+  // `jose`, which must stay out of the packaged snapshot's static graph. It also
+  // has to come *after* the pg plugin (it declares `decorators: { fastify:
+  // ['pg'] }`) and after sensible, above.
+  //
+  // The else-branch's plugins/authDisabled.js is the counterpart: it re-declares
+  // `authRequired`/`requireRole` as no-ops so that route files can name the
+  // guards unconditionally in both modes. The desktop app is single-user and
+  // loopback-bound, so there is nobody to authenticate — the argument is written
+  // out in full at the top of that file.
+  if (config.storage === 'postgres') {
+    const { default: pgPlugin } = await import('./plugins/pg.js');
+    await server.register(pgPlugin);
+    const { default: authPlugin } = await import('./plugins/auth.js');
+    await server.register(authPlugin, { auth: config.auth });
+
+    // The automatic reasoning pipeline (spec §7): claim loops plus the
+    // recovery sweep. Postgres-mode only — the frozen sqlite desktop path
+    // keeps reason.ts's old in-process FIFO, untouched. Started after `pg`
+    // is registered (workers read/write through `server.pg`) and stopped on
+    // `onClose` so a reload or a test teardown never leaks a claim loop, the
+    // sweep interval, or a pending debounce timer.
+    const { startWorkers, stopWorkers } = await import('./modules/reasoning/worker.js');
+    startWorkers({ db: server.pg });
+    server.addHook('onClose', () => { stopWorkers(); });
+
+    // Change publication (spec §8): one dedicated `pg.Client` LISTENing for
+    // the process's whole lifetime, fanning out in-process to SSE
+    // subscribers (modules/events/sse.ts). Loaded the same lazy way as
+    // pgPlugin/authPlugin above and for the same reason — it holds a real
+    // `pg` value that must never enter the packaged desktop binary's static
+    // import graph.
+    const { startListener, stopListener } = await import('./modules/events/listener.js');
+    await startListener();
+    server.addHook('onClose', async () => { await stopListener(); });
+  } else {
+    await server.register(sqlitePlugin);
+    await server.register(authDisabledPlugin);
+  }
   await server.register(staticFilesPlugin);
+
+  if (config.rateLimitEnabled) {
+    // Per-IP limits, with stricter per-route settings on the expensive
+    // endpoints (reason, upper-concepts).
+    await server.register(rateLimit, { max: 300, timeWindow: '1 minute' });
+  }
 
   await server.register(v1Routes, { prefix: '/api/v1' });
 

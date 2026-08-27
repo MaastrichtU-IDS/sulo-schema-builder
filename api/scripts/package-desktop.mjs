@@ -89,7 +89,14 @@ try {
   rebuildBetterSqlite3(nodeFullVersion);
 
   console.log(`--- packaging (${target}) ---`);
-  run('npx', ['pkg', 'dist/index.js', '-t', target, '--config', 'package.json', '--out-path', 'pkg-dist'], apiRoot);
+  // Resolve the locally-installed @yao-pkg/pkg binary directly rather than
+  // `npx pkg`: inside an npm workspace, npx's local-bin lookup walks from the
+  // repo root rather than this cwd, misses api/node_modules/.bin (kept there
+  // by install-strategy=nested), and silently falls back to whatever
+  // unrelated "pkg" package (if any) is sitting in the npx cache/registry —
+  // not the @yao-pkg/pkg fork this project actually depends on.
+  const pkgBin = resolve(apiRoot, 'node_modules', '.bin', process.platform === 'win32' ? 'pkg.cmd' : 'pkg');
+  run(pkgBin, ['dist/index.js', '-t', target, '--config', 'package.json', '--out-path', 'pkg-dist'], apiRoot);
 
   console.log(`Done: api/pkg-dist/`);
 } finally {

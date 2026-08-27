@@ -17,13 +17,14 @@
 // actually used is reported through /reason/status so a recorded consistency
 // result can say which SULO produced it.
 
-import { existsSync, readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { mkdir, rename, rm, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import type { Quad } from 'n3';
-import { config } from '../config.js';
+import { config } from '../config/index.js';
 import { fetchOntologyDocument, parseOntology } from '../rdf/fetchOntology.js';
-import { getSetting, setSetting, SETTING_SULO_LAST_CHECKED } from '../db/settings.js';
+import { getSetting, setSetting, SETTING_SULO_LAST_CHECKED } from '../legacy/sqlite/settings.js';
 
 const RDF_TYPE     = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type';
 const OWL_ONTOLOGY = 'http://www.w3.org/2002/07/owl#Ontology';
@@ -147,6 +148,41 @@ export function resolveSuloPath(): string {
   }
 }
 
+interface SuloDigestCache { path: string; mtimeMs: number; digest: string }
+let digestCache: SuloDigestCache | undefined;
+
+/**
+ * sha256 of the SULO file `resolveSuloPath()` currently returns.
+ *
+ * This is what a cached reasoning verdict is keyed on (modules/reasoning/
+ * cache.ts's `suloHash`) — get it wrong and a "consistent" badge can be
+ * served against an upper ontology that has since changed underneath it,
+ * which is worse than not caching at all.
+ *
+ * Memoised on (path, mtime) rather than path alone: a save/reason request
+ * must not re-read a megabyte of Turtle every time, but the memo has to
+ * notice both a bundled -> downloaded -> override switch (the path changes)
+ * and an in-place rewrite of the same path (the mtime changes). checkFor
+ * SuloUpdate additionally clears this explicitly the instant it replaces the
+ * file, rather than leaning on mtime resolution alone to catch a rewrite
+ * that lands within the same clock tick.
+ */
+export function getSuloDigest(): string {
+  const path = resolveSuloPath();
+  const mtimeMs = statSync(path).mtimeMs;
+  if (digestCache && digestCache.path === path && digestCache.mtimeMs === mtimeMs) {
+    return digestCache.digest;
+  }
+  const digest = createHash('sha256').update(readFileSync(path)).digest('hex');
+  digestCache = { path, mtimeMs, digest };
+  return digest;
+}
+
+/** Test seam: forget the memoised digest. Also called by checkForSuloUpdate on a successful replace. */
+export function resetSuloDigestCache(): void {
+  digestCache = undefined;
+}
+
 function metadataOf(path: string): SuloMetadata {
   try {
     const parsed = parseOntology(readFileSync(path, 'utf-8'));
@@ -215,6 +251,11 @@ export async function checkForSuloUpdate(force = false): Promise<boolean> {
     await mkdir(dirname(target), { recursive: true });
     await writeFile(partial, doc.text, 'utf-8');
     await rename(partial, target);
+    // Explicit, not just incidental to the (path, mtime) memo key above: a
+    // rewrite that lands within the same filesystem-clock tick as the file
+    // it replaces would otherwise leave getSuloDigest() returning the old
+    // digest for the new file.
+    resetSuloDigestCache();
     return true;
   } catch (err) {
     await rm(partial, { force: true }).catch(() => {});

@@ -18,7 +18,7 @@ import { createReadStream } from 'node:fs';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { dirname } from 'node:path';
-import { config } from '../config.js';
+import { config } from '../config/index.js';
 
 export type RobotState = 'missing' | 'downloading' | 'ready' | 'error';
 

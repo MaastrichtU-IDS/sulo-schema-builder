@@ -1,0 +1,28 @@
+SULO Schema Builder has been deployed.
+
+{{- if .Values.ingress.enabled }}
+{{- range .Values.ingress.hosts }}
+  http{{ if $.Values.ingress.tls }}s{{ end }}://{{ .host }}{{ (index .paths 0).path }}
+{{- end }}
+{{- else if contains "NodePort" .Values.service.type }}
+  Ingress is disabled and the Service is NodePort — get the node port with:
+  export NODE_PORT=$(kubectl get svc {{ include "sulo-schema-builder.fullname" . }} -n {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}")
+{{- else if contains "ClusterIP" .Values.service.type }}
+  Ingress is disabled — reach it from inside the cluster, or port-forward:
+  kubectl port-forward -n {{ .Release.Namespace }} svc/{{ include "sulo-schema-builder.fullname" . }} 8080:{{ .Values.service.port }}
+{{- end }}
+
+Before this is reachable end-to-end, confirm:
+  - config.authIssuer / config.authJwksUri point at a real, already-running
+    Keycloak (this chart does not deploy one).
+  - database.url or database.existingSecret points at a real, already-
+    migrated-compatible Postgres (this chart does not deploy one either —
+    the {{ include "sulo-schema-builder.fullname" . }}-migrate Job only runs
+    schema migrations against it).
+  - Keycloak's own realm has this Service/Ingress's public origin in its
+    client's redirectUris/webOrigins, and (see docker/keycloak/
+    realm-sulo.json and README.md's check-sso troubleshooting entry) in its
+    browserSecurityHeaders' frame-ancestors.
+
+Check the migration Job if the api Pods never go Ready:
+  kubectl logs -n {{ .Release.Namespace }} job/{{ include "sulo-schema-builder.fullname" . }}-migrate

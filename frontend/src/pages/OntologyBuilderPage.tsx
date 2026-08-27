@@ -44,12 +44,12 @@ import {
   type RobotStatus,
   type SuloStatus,
 } from '../api/ontology.js';
-import { apiClient } from '../api/client.js';
+import { useAuth } from '../auth/useAuth.js';
 import {
   extractNamedGroups,
   generateExports,
   buildMermaid,
-} from '../lib/ontologyExport.js';
+} from '@sulo/schema-core';
 import {
   NewSchemaFormSchema,
   EditSchemaFormSchema,
@@ -61,6 +61,33 @@ import {
   type NewPropertyForm,
 } from '../lib/formSchemas.js';
 import PropertyFeaturesEditor from '../components/PropertyFeaturesEditor.js';
+import ShareDialog from '../components/ShareDialog.js';
+import ConsistencyBadge from '../components/ConsistencyBadge.js';
+import { useQueryClient } from '@tanstack/react-query';
+import {
+  serializeSchema,
+  parseSchemaExport,
+  importSchemaExport,
+  encodeShareFragment,
+  decodeShareFragment,
+  SHARE_FRAGMENT_PREFIX,
+  SHARE_LINK_LIMIT,
+  type SchemaExport,
+} from '../lib/schemaTransfer.js';
+
+// ─── Scope tabs (mine / shared with me / public) ────────────────────────────
+//
+// Meaningful only against the Postgres (web) backend — the desktop/SQLite
+// path has no `users` table and so no notion of scope at all (see the module
+// comment in api/src/modules/schemas/routes.ts). An anonymous web visitor can
+// only ever ask for `public` (`mine`/`shared` describe a relationship to a
+// session-less caller and 401 server-side), so they get one, non-interactive
+// tab rather than three where two would only ever 401.
+const SCOPE_TABS: { value: 'mine' | 'shared' | 'public'; label: string }[] = [
+  { value: 'mine', label: 'Mine' },
+  { value: 'shared', label: 'Shared with me' },
+  { value: 'public', label: 'Public' },
+];
 
 // ─── Common XSD types for range dropdown ─────────────────────────────────────
 
@@ -1447,1453 +1474,227 @@ function EditPropertyForm({
 
 // ─── Example schema template ──────────────────────────────────────────────────
 
-const SULO = 'https://w3id.org/sulo/';
+// ─── Share modal ─────────────────────────────────────────────────────────────
 
-const CLINICAL_EXAMPLE_CLASSES: { name: string; label: string; description: string; mapsToConceptIri: string; superClassName?: string }[] = [
-  { name: 'ClinicalVisit',       label: 'Clinical Visit',                description: 'A healthcare encounter between a patient and a provider.',                          mapsToConceptIri: `${SULO}Process` },
-  { name: 'Measurement',         label: 'Measurement',                   description: 'The outcome of a laboratory test or diagnostic analysis.',                          mapsToConceptIri: `${SULO}InformationObject` },
-  { name: 'MedicalProcedure',    label: 'Medical Procedure',             description: 'A clinical action or intervention performed on a patient.',                         mapsToConceptIri: `${SULO}Process` },
-  { name: 'ClinicalCondition',   label: 'Clinical Condition',            description: 'A medical condition, disease, or disorder affecting a patient.',                    mapsToConceptIri: `${SULO}Process` },
-  { name: 'Severity',            label: 'Severity',                      description: 'The degree of seriousness of a condition, symptom, or finding.',                    mapsToConceptIri: `${SULO}Quality` },
-  { name: 'TreatmentPlan',       label: 'Treatment / Treatment Plan',    description: 'A drug administration event or planned course of treatment.',                       mapsToConceptIri: `${SULO}Process` },
-  { name: 'SubjectOfCareRole',   label: 'Subject of Care Role',          description: 'The role played by a person who is the subject of a care activity.',                mapsToConceptIri: `${SULO}Role` },
-  { name: 'CareProviderRole',    label: 'Care Provider Role',            description: 'The role played by a person or organisation providing care.',                        mapsToConceptIri: `${SULO}Role` },
-  { name: 'Person',              label: 'Person',                        description: 'A human being, either as a patient or a care participant.',                          mapsToConceptIri: `${SULO}SpatialObject` },
-  { name: 'AnatomicalStructure', label: 'Anatomical Structure',          description: 'A body part or anatomical site relevant to a clinical finding or procedure.',        mapsToConceptIri: `${SULO}SpatialObject` },
-  { name: 'PerformerRole',       label: 'Performer Role',                description: 'The role of an agent who performs a clinical action or procedure.',                  mapsToConceptIri: `${SULO}Role` },
-  { name: 'ProcessStatus',       label: 'Process Status',                description: 'The state or status of a clinical process or workflow step.',                        mapsToConceptIri: `${SULO}Quality` },
-  { name: 'PharmaceuticalDose',  label: 'Pharmaceutical Dose',           description: 'The quantity and form of a drug administered in a single instance.',                 mapsToConceptIri: `${SULO}Quantity` },
-  { name: 'OutputRole',          label: 'Output Role',                   description: 'The role of an entity produced as an output of a clinical process.',                 mapsToConceptIri: `${SULO}Role` },
-  { name: 'InstrumentRole',      label: 'Instrument Role',               description: 'The role of a device or tool used in a clinical procedure.',                         mapsToConceptIri: `${SULO}Role` },
-  { name: 'CareUnit',            label: 'Care Unit',                     description: 'An organisational unit responsible for delivering a type of care.',                  mapsToConceptIri: `${SULO}SpatialObject` },
-  { name: 'MeasurementProcess',        label: 'Measurement Process',        description: 'A process of measuring or quantifying a clinical observable or parameter.',           mapsToConceptIri: `${SULO}Process`,        superClassName: 'MedicalProcedure' },
-  { name: 'Device',             label: 'Device',                        description: 'A physical instrument or medical device used in a clinical or diagnostic process.',      mapsToConceptIri: `${SULO}SpatialObject` },
-  { name: 'CarePlan',            label: 'Care Plan',                     description: 'A structured set of intended actions or treatments for a patient.',                          mapsToConceptIri: `${SULO}InformationObject` },
-  { name: 'Occupation',         label: 'Occupation',                    description: 'A job, profession, or occupational role held by a person.',                                  mapsToConceptIri: `${SULO}SpatialObject` },
-  { name: 'EvaluationProcess',         label: 'Evaluation Process',         description: 'A process of assessing or evaluating a clinical finding, condition, or patient state.',      mapsToConceptIri: `${SULO}Process`,        superClassName: 'MedicalProcedure' },
-  { name: 'MedicationAdministration',  label: 'Medication Administration',  description: 'A process of administering a drug or pharmaceutical substance to a patient.',                 mapsToConceptIri: `${SULO}Process`,        superClassName: 'MedicalProcedure' },
-  { name: 'PharmaceuticalProduct',    label: 'Pharmaceutical Product',        description: 'A drug or medicinal product used in the treatment or prevention of disease.',                   mapsToConceptIri: `${SULO}SpatialObject` },
-  { name: 'PharmaceuticalDoseForm',   label: 'Pharmaceutical Dose Form',      description: 'The physical form of a pharmaceutical product (e.g. tablet, capsule, solution).',              mapsToConceptIri: `${SULO}Quality` },
-  { name: 'DiagnosticStatement',      label: 'Diagnostic Statement',          description: 'An information object representing a diagnostic finding or clinical assertion.',                   mapsToConceptIri: `${SULO}InformationObject` },
-  { name: 'Code',             label: 'Code',              description: 'A terminology code bundling an identifier, its coding system/version, and an optional display name.',  mapsToConceptIri: `${SULO}InformationObject` },
-  { name: 'ObservableEntity', label: 'Observable Entity', description: 'A SNOMED CT observable entity — a concept that can be measured or observed in a clinical or scientific context.',  mapsToConceptIri: 'http://snomed.info/id/363787002', superClassName: 'Code' },
-  { name: 'SCT_Procedure',    label: 'SCT Procedure',    description: 'A SNOMED CT procedure concept — a clinical action or intervention performed on or for a patient.',               mapsToConceptIri: 'http://snomed.info/id/71388002',  superClassName: 'Code' },
-  // Classes adopted from the SPHN schema
-  { name: 'AdministrativeCase', label: 'Administrative Case', description: 'An administrative hospital case grouping a patient’s clinical visits.',          mapsToConceptIri: `${SULO}Process` },
-  { name: 'Sample',             label: 'Sample',              description: 'A biological specimen collected from a patient for laboratory analysis.',          mapsToConceptIri: `${SULO}SpatialObject` },
-  { name: 'Substance',          label: 'Substance',           description: 'A material substance, e.g. the active ingredient of a pharmaceutical product.',    mapsToConceptIri: `${SULO}SpatialObject` },
-  { name: 'DrugPrescription',   label: 'Drug Prescription',   description: 'An information object representing a prescription or order for a drug.',            mapsToConceptIri: `${SULO}InformationObject` },
-];
+function downloadTextFile(filename: string, text: string, mime: string) {
+  const blob = new Blob([text], { type: mime });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
 
-// ─── OMOP example schema ─────────────────────────────────────────────────────
+function ShareModal({ schema, onClose }: { schema: OntologySchema; onClose: () => void }) {
+  // The codec'd, self-contained string (schemaTransfer.ts) — the one of the
+  // three that's async and size-bounded, hence its own pending/too-large
+  // states below. Deliberately a bare string, never wrapped in a URL: it's
+  // meant to be pasted into another instance's own "paste to import" field
+  // (see SchemaListPage), not clicked. 'direct' (below) is a plain URL to
+  // this schema on this server, built synchronously.
+  const [shareString, setShareString] = useState<string | null | 'pending'>('pending');
+  const [copiedKind, setCopiedKind] = useState<'direct' | 'share' | null>(null);
+  const exportFile = useMemo(() => serializeSchema(schema), [schema]);
+  const directLink = `${window.location.origin}/ontology/${schema.id}`;
 
-const OMOP_EXAMPLE_CLASSES: { name: string; label: string; description: string; mapsToConceptIri: string; superClassName?: string }[] = [
-  // Core clinical event tables
-  { name: 'VisitOccurrence',      label: 'Visit Occurrence',       description: 'A healthcare encounter between a person and the healthcare system.',                            mapsToConceptIri: `${SULO}Process` },
-  { name: 'ConditionOccurrence',  label: 'Condition Occurrence',   description: 'A record of a disease, injury, or medical condition observed in a person.',                    mapsToConceptIri: `${SULO}Process` },
-  { name: 'DrugExposure',         label: 'Drug Exposure',          description: 'A record of a drug or vaccine administered to or ingested by a person.',                        mapsToConceptIri: `${SULO}Process` },
-  { name: 'Measurement',          label: 'Measurement',            description: 'A structured result obtained through systematic examination or testing (lab, vital signs).',    mapsToConceptIri: `${SULO}InformationObject` },
-  { name: 'ProcedureOccurrence',  label: 'Procedure Occurrence',   description: 'A record of an activity or process ordered or carried out on a person.',                        mapsToConceptIri: `${SULO}Process` },
-  { name: 'Observation',          label: 'Observation',            description: 'A clinical fact about a person not captured in other tables (e.g. smoking status, BMI).',       mapsToConceptIri: `${SULO}InformationObject` },
-  { name: 'DeviceExposure',       label: 'Device Exposure',        description: 'Exposure to a foreign physical object used for diagnostic or therapeutic purposes.',             mapsToConceptIri: `${SULO}Process` },
-  // Supporting entities
-  { name: 'Person',               label: 'Person',                 description: 'A person who is the subject of health-related data.',                                            mapsToConceptIri: `${SULO}SpatialObject` },
-  { name: 'Provider',             label: 'Provider',               description: 'A healthcare provider (clinician, nurse, etc.) who delivers care.',                              mapsToConceptIri: `${SULO}SpatialObject` },
-  { name: 'CareSite',             label: 'Care Site',              description: 'A uniquely identified healthcare delivery location or organisational unit.',                      mapsToConceptIri: `${SULO}SpatialObject` },
-  { name: 'Location',             label: 'Location',               description: 'A physical or geographic address associated with a care site or person.',                         mapsToConceptIri: `${SULO}SpatialObject` },
-  { name: 'Concept',              label: 'Concept',                description: 'A standardised vocabulary concept (SNOMED-CT, RxNorm, LOINC, etc.) used to express clinical data.', mapsToConceptIri: `${SULO}InformationObject` },
-  { name: 'DrugProduct',          label: 'Drug Product',           description: 'A pharmaceutical substance or drug formulation identified by a vocabulary concept.',              mapsToConceptIri: `${SULO}SpatialObject` },
-  { name: 'Device',               label: 'Device',                 description: 'A medical device or instrument used in diagnosis or therapy.',                                    mapsToConceptIri: `${SULO}SpatialObject` },
-  { name: 'Specimen',             label: 'Specimen',               description: 'A biological specimen collected from a person for laboratory analysis.',                          mapsToConceptIri: `${SULO}SpatialObject` },
-  // Roles (used in Pattern B participant chains)
-  { name: 'PatientRole',          label: 'Patient Role',           description: 'The role played by a person as the subject of a clinical event.',                                mapsToConceptIri: `${SULO}Role` },
-  { name: 'ProviderRole',         label: 'Provider Role',          description: 'The role played by a provider who participates in a clinical event.',                            mapsToConceptIri: `${SULO}Role` },
-  { name: 'OutputRole',           label: 'Output Role',            description: 'The role of an entity produced as an output of a clinical process.',                             mapsToConceptIri: `${SULO}Role` },
-  { name: 'InstrumentRole',       label: 'Instrument Role',        description: 'The role of a device or instrument used in a clinical process.',                                 mapsToConceptIri: `${SULO}Role` },
-  // Value carriers
-  { name: 'MeasurementValue',     label: 'Measurement Value',      description: 'A numerical or categorical value obtained from a measurement.',                                   mapsToConceptIri: `${SULO}Quantity` },
-  { name: 'Unit',                 label: 'Unit',                   description: 'A unit of measure associated with a measurement or dose.',                                        mapsToConceptIri: `${SULO}Quality` },
-  { name: 'DoseQuantity',         label: 'Dose Quantity',          description: 'The quantity of a drug dispensed or administered.',                                               mapsToConceptIri: `${SULO}Quantity` },
-];
+  useEffect(() => {
+    let cancelled = false;
+    encodeShareFragment(exportFile)
+      .then((s) => { if (!cancelled) setShareString(s.length <= SHARE_LINK_LIMIT ? s : null); })
+      .catch(() => { if (!cancelled) setShareString(null); });
+    return () => { cancelled = true; };
+  }, [exportFile]);
+
+  function copy(text: string, kind: 'direct' | 'share') {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopiedKind(kind);
+      setTimeout(() => setCopiedKind((k) => (k === kind ? null : k)), 2000);
+    });
+  }
+
+  function downloadJson() {
+    const safeTitle = schema.title.replace(/[^\w-]+/g, '_').slice(0, 60) || 'schema';
+    downloadTextFile(`${safeTitle}.sulo-schema.json`, JSON.stringify(exportFile, null, 2), 'application/json');
+  }
+
+  return (
+    <div className="fixed inset-0 bg-slate-900/40 flex items-center justify-center z-50 p-6" onClick={onClose}>
+      <div
+        className="bg-white rounded-xl shadow-xl max-w-lg w-full p-6 space-y-5"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div>
+          <h2 className="font-semibold text-slate-800 text-lg">Share “{schema.title}”</h2>
+          <p className="text-sm text-slate-500 mt-1">
+            Three ways to hand this schema to someone else, depending on whether they already have
+            access here or are working somewhere else entirely.
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <div className="text-sm font-medium text-slate-700">Direct link</div>
+          <div className="flex gap-2 items-center">
+            <input
+              readOnly
+              value={directLink}
+              onFocus={(e) => e.currentTarget.select()}
+              className="flex-1 border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-mono text-slate-600 bg-slate-50"
+            />
+            <button
+              onClick={() => copy(directLink, 'direct')}
+              className="bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium px-4 py-1.5 rounded-lg transition-colors shrink-0"
+            >
+              {copiedKind === 'direct' ? 'Copied ✓' : 'Copy'}
+            </button>
+          </div>
+          <p className="text-xs text-slate-400">
+            Opens this exact, live schema here. Only works for someone who already has access to
+            it, or once you've made it public — anyone else sees the same thing a stranger would.
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <div className="text-sm font-medium text-slate-700">Share string</div>
+          {shareString === 'pending' && <div className="text-sm text-slate-400">Preparing…</div>}
+          {shareString === null && (
+            <div className="text-sm text-slate-500 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+              This schema is too large for a share string — use the file export below instead.
+            </div>
+          )}
+          {typeof shareString === 'string' && (
+            <div className="flex gap-2 items-center">
+              <input
+                readOnly
+                value={shareString}
+                onFocus={(e) => e.currentTarget.select()}
+                className="flex-1 border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-mono text-slate-600 bg-slate-50"
+              />
+              <button
+                onClick={() => copy(shareString, 'share')}
+                className="bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium px-4 py-1.5 rounded-lg transition-colors shrink-0"
+              >
+                {copiedKind === 'share' ? 'Copied ✓' : 'Copy'}
+              </button>
+            </div>
+          )}
+          <p className="text-xs text-slate-400">
+            Carries the whole schema in the string itself — paste it into any SULO Schema Builder's
+            "Paste share string" field, local or remote, with no account or access needed there.
+            Importing always creates an independent copy, so later edits to either side stay separate.
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <div className="text-sm font-medium text-slate-700">File</div>
+          <button
+            onClick={downloadJson}
+            className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-medium px-4 py-1.5 rounded-lg transition-colors border border-slate-300"
+          >
+            Download .json
+          </button>
+          <p className="text-xs text-slate-400">
+            The same self-contained copy as the share string, as a file instead — usable on any
+            local or remote client the same way, and your backup either way.
+          </p>
+        </div>
+
+        <div className="flex justify-end">
+          <button onClick={onClose} className="text-sm text-slate-500 hover:text-slate-700 px-4 py-1.5">
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ─── List page ────────────────────────────────────────────────────────────────
 
 function SchemaListPage() {
   const [showCreate, setShowCreate] = useState(false);
-  const [isCreatingExample, setIsCreatingExample] = useState(false);
-  const [isCreatingOmopExample, setIsCreatingOmopExample] = useState(false);
-  const schemasQuery = useOntologySchemas();
+  const [isImporting, setIsImporting] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [pendingShare, setPendingShare] = useState<SchemaExport | null>(null);
+  const [showPasteShare, setShowPasteShare] = useState(false);
+  const [pasteValue, setPasteValue] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { status: authStatus } = useAuth();
+  const [scope, setScope] = useState<'mine' | 'shared' | 'public'>('mine');
+  // The desktop/SQLite build has no scope at all (undefined — the server
+  // ignores the param); a signed-in web caller gets whichever tab they
+  // picked; an anonymous one is pinned to `public`, the only scope that
+  // does not 401 without a session (see modules/schemas/routes.ts).
+  const effectiveScope: 'mine' | 'shared' | 'public' | undefined =
+    authStatus === 'disabled' ? undefined : authStatus === 'authenticated' ? scope : 'public';
+  const schemasQuery = useOntologySchemas(effectiveScope, authStatus !== 'loading');
   const createMutation = useCreateOntologySchema();
   const deleteMutation = useDeleteOntologySchema();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
-  async function handleLoadExample() {
-    setIsCreatingExample(true);
+  // A visited share link carries the schema in the URL fragment (#s=…), which
+  // never reaches the server. Decode it and offer the import explicitly —
+  // nothing is written until the user confirms.
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (!hash.startsWith(SHARE_FRAGMENT_PREFIX)) return;
+    decodeShareFragment(hash.slice(SHARE_FRAGMENT_PREFIX.length))
+      .then(setPendingShare)
+      .catch((err: unknown) => setImportError(err instanceof Error ? err.message : 'Could not read the share link.'));
+    // Consume the fragment so a refresh doesn't re-prompt.
+    window.history.replaceState(null, '', window.location.pathname + window.location.search);
+  }, []);
+
+  async function runImport(file: SchemaExport) {
+    setIsImporting(true);
+    setImportError(null);
     try {
-      const schema = await createMutation.mutateAsync({
-        title: 'Clinical Health Record Schema',
-        description: 'Example schema covering core clinical concepts: visits, lab results, procedures, conditions, severity, treatments, and drugs.',
-        upperOntologyIri: 'https://w3id.org/sulo/',
-      });
-
-      // Create all classes and index them by name.
-      // superClassName is resolved to a live ID at creation time — MedicalProcedure
-      // appears earlier in the array so its ID is already in classMap when the three
-      // subclasses (MeasurementProcess, EvaluationProcess, MedicationAdministration) are created.
-      const classMap = new Map<string, OntologyClass>();
-      for (const cls of CLINICAL_EXAMPLE_CLASSES) {
-        const { superClassName, ...rest } = cls;
-        const superCls = superClassName ? classMap.get(superClassName) : undefined;
-        const body = { ...rest, ...(superCls ? { superClassId: superCls.id } : {}) };
-        console.log('[example] POST class', cls.name, 'superClassId=', (body as { superClassId?: string }).superClassId ?? '(none)');
-        const created: OntologyClass = (await apiClient.post(`/ontology-schemas/${schema.id}/classes`, body)).data;
-        console.log('[example] created', cls.name, '→ id=', created.id, 'superClassId=', created.superClassId ?? '(none)');
-        classMap.set(cls.name, created);
-      }
-
-      // Add properties for ClinicalVisit
-      const clinicalVisit       = classMap.get('ClinicalVisit');
-      const subjectOfCareRole   = classMap.get('SubjectOfCareRole');
-      const careProviderRole    = classMap.get('CareProviderRole');
-      const person              = classMap.get('Person');
-      const careUnit            = classMap.get('CareUnit');
-      const measurementProcess  = classMap.get('MeasurementProcess');
-      const outputRole          = classMap.get('OutputRole');
-      const measurement         = classMap.get('Measurement');
-      const processStatus       = classMap.get('ProcessStatus');
-      const instrumentRole      = classMap.get('InstrumentRole');
-      const device              = classMap.get('Device');
-      const performerRole       = classMap.get('PerformerRole');
-      const clinicalCondition   = classMap.get('ClinicalCondition');
-      const anatomicalStructure = classMap.get('AnatomicalStructure');
-      const severity            = classMap.get('Severity');
-      const plan                = classMap.get('CarePlan');
-      const evaluationProcess             = classMap.get('EvaluationProcess');
-      const medicationAdministration      = classMap.get('MedicationAdministration');
-      const pharmaceuticalProduct         = classMap.get('PharmaceuticalProduct');
-      const pharmaceuticalDoseForm   = classMap.get('PharmaceuticalDoseForm');
-      const diagnosticStatement      = classMap.get('DiagnosticStatement');
-      const code                     = classMap.get('Code');
-      const observableEntity         = classMap.get('ObservableEntity');
-      const sctProcedure             = classMap.get('SCT_Procedure');
-      const medicalProcedure    = classMap.get('MedicalProcedure');
-      const administrativeCase  = classMap.get('AdministrativeCase');
-      const sample              = classMap.get('Sample');
-      const substance           = classMap.get('Substance');
-      const drugPrescription    = classMap.get('DrugPrescription');
-
-      if (clinicalVisit && subjectOfCareRole && person) {
-        await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-          name:          'hasPatient',
-          label:         'Has Patient',
-          description:   'Links a clinical visit to the patient (subject of care).',
-          propertyType:  'object',
-          domainClassId: clinicalVisit.id,
-          rangeClassIri: person.url,
-          isRequired:    false,
-          mappingPattern: [
-            { subject: '?this', predicate: 'https://w3id.org/sulo/hasParticipant',              object: '?o1' },
-            { subject: '?o1',   predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type',   object: subjectOfCareRole.url },
-            { subject: '?o1',   predicate: 'https://w3id.org/sulo/isFeatureOf',                 object: '?value' },
-          ],
-        });
-      }
-
-      if (clinicalVisit && careProviderRole && person) {
-        await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-          name:          'hasCareProvider',
-          label:         'Has Care Provider',
-          description:   'Links a clinical visit to the care provider.',
-          propertyType:  'object',
-          domainClassId: clinicalVisit.id,
-          rangeClassIri: person.url,
-          isRequired:    false,
-          mappingPattern: [
-            { subject: '?this', predicate: 'https://w3id.org/sulo/hasParticipant',              object: '?o1' },
-            { subject: '?o1',   predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type',   object: careProviderRole.url },
-            { subject: '?o1',   predicate: 'https://w3id.org/sulo/isFeatureOf',                 object: '?value' },
-          ],
-        });
-      }
-
-      if (clinicalVisit && careUnit) {
-        await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-          name:          'hasCareUnit',
-          label:         'Has Care Unit',
-          description:   'Links a clinical visit to the care unit where it takes place.',
-          propertyType:  'object',
-          domainClassId: clinicalVisit.id,
-          rangeClassIri: careUnit.url,
-          isRequired:    false,
-          mappingPattern: [
-            { subject: '?this', predicate: 'https://w3id.org/sulo/isIn', object: '?value' },
-          ],
-        });
-      }
-
-      // ── Shared properties on MedicalProcedure (inherited by subclasses) ───────
-      if (medicalProcedure && subjectOfCareRole && person) {
-        await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-          name:          'hasPatient',
-          label:         'Has Patient',
-          description:   'Links a medical procedure to the patient it is performed on.',
-          propertyType:  'object',
-          domainClassId: medicalProcedure.id,
-          rangeClassIri: person.url,
-          isRequired:    false,
-          mappingPattern: [
-            { subject: '?this', predicate: 'https://w3id.org/sulo/hasParticipant',            object: '?o1' },
-            { subject: '?o1',   predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: subjectOfCareRole.url },
-            { subject: '?o1',   predicate: 'https://w3id.org/sulo/isFeatureOf',               object: '?value' },
-          ],
-        });
-      }
-
-      if (medicalProcedure && performerRole && person) {
-        await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-          name:          'hasPerformer',
-          label:         'Has Performer',
-          description:   'Links a medical procedure to the person who performed it.',
-          propertyType:  'object',
-          domainClassId: medicalProcedure.id,
-          rangeClassIri: person.url,
-          isRequired:    false,
-          mappingPattern: [
-            { subject: '?this', predicate: 'https://w3id.org/sulo/hasParticipant',            object: '?o1' },
-            { subject: '?o1',   predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: performerRole.url },
-            { subject: '?o1',   predicate: 'https://w3id.org/sulo/isFeatureOf',               object: '?value' },
-          ],
-        });
-      }
-
-      if (medicalProcedure) {
-        await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-          name:          'hasPerformedDate',
-          label:         'Has Performed Date',
-          description:   'Links a medical procedure to the date and time it was performed.',
-          propertyType:  'datatype',
-          domainClassId: medicalProcedure.id,
-          rangeClassIri: 'http://www.w3.org/2001/XMLSchema#dateTime',
-          isRequired:    false,
-          mappingPattern: [
-            { subject: '?this', predicate: 'https://w3id.org/sulo/atTime',                    object: '?o1' },
-            { subject: '?o1',   predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: 'https://w3id.org/sulo/TimeInstant' },
-            { subject: '?o1',   predicate: 'https://w3id.org/sulo/hasValue',                  object: '?value' },
-          ],
-        });
-      }
-
-      if (medicalProcedure && processStatus) {
-        await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-          name:          'hasStatus',
-          label:         'Has Status',
-          description:   'Links a medical procedure to its current status.',
-          propertyType:  'object',
-          domainClassId: medicalProcedure.id,
-          rangeClassIri: processStatus.url,
-          isRequired:    false,
-          mappingPattern: [
-            { subject: '?this', predicate: 'https://w3id.org/sulo/hasFeature', object: '?value' },
-          ],
-        });
-      }
-
-      // ── MeasurementProcess-specific properties ────────────────────────────────
-      if (measurementProcess && instrumentRole && device) {
-        await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-          name:          'hasDevice',
-          label:         'Has Device',
-          description:   'Links a measurement process to the device used as an instrument.',
-          propertyType:  'object',
-          domainClassId: measurementProcess.id,
-          rangeClassIri: device.url,
-          isRequired:    false,
-          mappingPattern: [
-            { subject: '?this', predicate: 'https://w3id.org/sulo/hasParticipant',            object: '?o1' },
-            { subject: '?o1',   predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: instrumentRole.url },
-            { subject: '?o1',   predicate: 'https://w3id.org/sulo/isFeatureOf',               object: '?value' },
-          ],
-        });
-      }
-
-      if (measurement) {
-        await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-          name:          'hasMeasuredDate',
-          label:         'Has Measured Date',
-          description:   'Links a measurement to the date and time it was recorded.',
-          propertyType:  'datatype',
-          domainClassId: measurement.id,
-          rangeClassIri: 'http://www.w3.org/2001/XMLSchema#dateTime',
-          isRequired:    false,
-          mappingPattern: [
-            { subject: '?this', predicate: 'https://w3id.org/sulo/atTime',                    object: '?o1' },
-            { subject: '?o1',   predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: 'https://w3id.org/sulo/TimeInstant' },
-            { subject: '?o1',   predicate: 'https://w3id.org/sulo/hasValue',                  object: '?value' },
-          ],
-        });
-      }
-
-      if (measurement) {
-        await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-          name:          'hasUnit',
-          label:         'Has Unit',
-          description:   'Links a measurement to its unit of measure.',
-          propertyType:  'object',
-          domainClassId: measurement.id,
-          rangeClassIri: 'https://w3id.org/sulo/Unit',
-          isRequired:    false,
-          mappingPattern: [
-            { subject: '?this', predicate: 'https://w3id.org/sulo/hasPart', object: '?value' },
-          ],
-        });
-      }
-
-      if (measurement) {
-        await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-          name:          'hasQuantityValue',
-          label:         'Has Quantity Value',
-          description:   'Links a measurement to its numeric quantity value.',
-          propertyType:  'datatype',
-          domainClassId: measurement.id,
-          rangeClassIri: 'http://www.w3.org/2001/XMLSchema#float',
-          isRequired:    false,
-          mappingPattern: [
-            { subject: '?this', predicate: 'https://w3id.org/sulo/hasValue', object: '?value' },
-          ],
-        });
-      }
-
-      if (measurementProcess && outputRole && measurement) {
-        await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-          name:          'hasResult',
-          label:         'Has Result',
-          description:   'Links a measurement process to its result via an output role.',
-          propertyType:  'object',
-          domainClassId: measurementProcess.id,
-          rangeClassIri: measurement.url,
-          isRequired:    false,
-          mappingPattern: [
-            { subject: '?this', predicate: 'https://w3id.org/sulo/hasParticipant',            object: '?o1' },
-            { subject: '?o1',   predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: outputRole.url },
-            { subject: '?o1',   predicate: 'https://w3id.org/sulo/isFeatureOf',               object: '?value' },
-          ],
-        });
-      }
-
-      if (clinicalCondition) {
-        await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-          name:          'hasRecordDate',
-          label:         'Has Record Date',
-          description:   'Links a clinical condition to the date and time it was recorded.',
-          propertyType:  'datatype',
-          domainClassId: clinicalCondition.id,
-          rangeClassIri: 'http://www.w3.org/2001/XMLSchema#dateTime',
-          isRequired:    false,
-          mappingPattern: [
-            { subject: '?this', predicate: 'https://w3id.org/sulo/atTime',                    object: '?o1' },
-            { subject: '?o1',   predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: 'https://w3id.org/sulo/TimeInstant' },
-            { subject: '?o1',   predicate: 'https://w3id.org/sulo/hasValue',                  object: '?value' },
-          ],
-        });
-      }
-
-      if (clinicalCondition) {
-        await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-          name:          'hasConditionEndDate',
-          label:         'Has Condition End Date',
-          description:   'Links a clinical condition to the date and time it ended.',
-          propertyType:  'datatype',
-          domainClassId: clinicalCondition.id,
-          rangeClassIri: 'http://www.w3.org/2001/XMLSchema#dateTime',
-          isRequired:    false,
-          mappingPattern: [
-            { subject: '?this', predicate: 'https://w3id.org/sulo/atTime',                    object: '?o1' },
-            { subject: '?o1',   predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: 'https://w3id.org/sulo/EndTime' },
-            { subject: '?o1',   predicate: 'https://w3id.org/sulo/hasValue',                  object: '?value' },
-          ],
-        });
-      }
-
-      if (clinicalCondition && anatomicalStructure) {
-        await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-          name:          'hasLocatedIn',
-          label:         'Has Located In',
-          description:   'Links a clinical condition to the anatomical structure where it is located.',
-          propertyType:  'object',
-          domainClassId: clinicalCondition.id,
-          rangeClassIri: anatomicalStructure.url,
-          isRequired:    false,
-          mappingPattern: [
-            { subject: '?this', predicate: 'https://w3id.org/sulo/isIn', object: '?value' },
-          ],
-        });
-      }
-
-      if (clinicalCondition && severity) {
-        await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-          name:          'hasSeverity',
-          label:         'Has Severity',
-          description:   'Links a clinical condition to its severity.',
-          propertyType:  'object',
-          domainClassId: clinicalCondition.id,
-          rangeClassIri: severity.url,
-          isRequired:    false,
-          mappingPattern: [
-            { subject: '?this', predicate: 'https://w3id.org/sulo/hasFeature', object: '?value' },
-          ],
-        });
-      }
-
-      if (plan && medicalProcedure) {
-        await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-          name:          'hasMedicalProcedure',
-          label:         'Has Medical Procedure',
-          description:   'Links a plan to the medical procedure it refers to.',
-          propertyType:  'object',
-          domainClassId: plan.id,
-          rangeClassIri: medicalProcedure.url,
-          isRequired:    false,
-          mappingPattern: [
-            { subject: '?this', predicate: 'https://w3id.org/sulo/refersTo', object: '?value' },
-          ],
-        });
-      }
-
-      // ── EvaluationProcess-specific properties ─────────────────────────────────
-      if (evaluationProcess && outputRole && diagnosticStatement) {
-        await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-          name:          'hasObservation',
-          label:         'Has Observation',
-          description:   'Links an evaluation process to the diagnostic statement produced as its output.',
-          propertyType:  'object',
-          domainClassId: evaluationProcess.id,
-          rangeClassIri: diagnosticStatement.url,
-          isRequired:    false,
-          mappingPattern: [
-            { subject: '?this', predicate: 'https://w3id.org/sulo/hasParticipant',            object: '?o1' },
-            { subject: '?o1',   predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: outputRole.url },
-            { subject: '?o1',   predicate: 'https://w3id.org/sulo/isFeatureOf',               object: '?value' },
-          ],
-        });
-      }
-
-      // ── PharmaceuticalProduct properties ──────────────────────────────────────
-      if (pharmaceuticalProduct) {
-        const pharmaceuticalDose = classMap.get('PharmaceuticalDose');
-        if (pharmaceuticalDose) {
-          await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-            name:          'hasDoseQuantity',
-            label:         'Has Dose Quantity',
-            description:   'Links a pharmaceutical product to its dose quantity.',
-            propertyType:  'object',
-            domainClassId: pharmaceuticalProduct.id,
-            rangeClassIri: pharmaceuticalDose.url,
-            isRequired:    false,
-            mappingPattern: [
-              { subject: '?this', predicate: 'https://w3id.org/sulo/hasFeature', object: '?value' },
-            ],
-          });
-        }
-      }
-
-      if (pharmaceuticalProduct && pharmaceuticalDoseForm) {
-        await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-          name:          'hasDoseForm',
-          label:         'Has Dose Form',
-          description:   'Links a pharmaceutical product to its dose form.',
-          propertyType:  'object',
-          domainClassId: pharmaceuticalProduct.id,
-          rangeClassIri: pharmaceuticalDoseForm.url,
-          isRequired:    false,
-          mappingPattern: [
-            { subject: '?this', predicate: 'https://w3id.org/sulo/hasFeature', object: '?value' },
-          ],
-        });
-      }
-
-      // ── MedicationAdministration-specific properties ──────────────────────────
-      if (medicationAdministration && pharmaceuticalProduct) {
-        await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-          name:          'hasPharmaceuticalProduct',
-          label:         'Has Pharmaceutical Product',
-          description:   'Links a medication administration to the pharmaceutical product being administered.',
-          propertyType:  'object',
-          domainClassId: medicationAdministration.id,
-          rangeClassIri: pharmaceuticalProduct.url,
-          isRequired:    false,
-          mappingPattern: [
-            { subject: '?this', predicate: 'https://w3id.org/sulo/hasParticipant', object: '?value' },
-          ],
-        });
-      }
-
-      // ── Code class properties (AIDAVA pattern) ───────────────────────────────
-      if (code) {
-        await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-          name:          'hasIdentifier',
-          label:         'Has Identifier',
-          description:   'The code string itself (e.g. "73211009" for SNOMED CT, "J18.9" for ICD-10).',
-          propertyType:  'datatype',
-          domainClassId: code.id,
-          rangeClassIri: 'http://www.w3.org/2001/XMLSchema#string',
-          isRequired:    true,
-          mappingPattern: [
-            { subject: '?this', predicate: 'https://w3id.org/sulo/hasValue', object: '?value' },
-          ],
-        });
-        await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-          name:          'hasCodingSystemAndVersion',
-          label:         'Has Coding System And Version',
-          description:   'Name and version of the coding system (e.g. "SNOMED CT 2024-03", "ICD-10-CM 2024", "LOINC 2.76").',
-          propertyType:  'datatype',
-          domainClassId: code.id,
-          rangeClassIri: 'http://www.w3.org/2001/XMLSchema#string',
-          isRequired:    true,
-          mappingPattern: [
-            { subject: '?this', predicate: 'https://w3id.org/sulo/hasLabel', object: '?value' },
-          ],
-        });
-        await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-          name:          'hasName',
-          label:         'Has Name',
-          description:   'Human-readable display name for the code (e.g. "Pneumonia, unspecified organism").',
-          propertyType:  'datatype',
-          domainClassId: code.id,
-          rangeClassIri: 'http://www.w3.org/2001/XMLSchema#string',
-          isRequired:    false,
-          mappingPattern: [
-            { subject: '?this', predicate: 'https://w3id.org/sulo/hasLabel', object: '?value' },
-          ],
-        });
-      }
-
-      // ── hasCode links from clinical classes → Code ────────────────────────────
-      for (const [domainClass, domainLabel] of [
-        [clinicalCondition,        'Clinical Condition'],
-        [clinicalVisit,            'Clinical Visit'],
-        [medicalProcedure,         'Medical Procedure'],
-        [measurement,              'Measurement'],
-        [medicationAdministration, 'Medication Administration'],
-        [anatomicalStructure,      'Anatomical Structure'],
-        [severity,                 'Severity'],
-        [pharmaceuticalProduct,    'Pharmaceutical Product'],
-      ] as const) {
-        if (domainClass && code) {
-          await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-            name:          'hasCode',
-            label:         'Has Code',
-            description:   `Links a ${domainLabel} instance to its terminology code (SNOMED CT, ICD-10, LOINC, ATC, etc.).`,
-            propertyType:  'object',
-            domainClassId: domainClass.id,
-            rangeClassIri: code.url,
-            isRequired:    false,
-            mappingPattern: [
-              { subject: '?this', predicate: 'https://w3id.org/sulo/hasFeature', object: '?value' },
-            ],
-          });
-        }
-      }
-
-      // ── MedicalProcedure hasCode → SCT_Procedure ─────────────────────────────
-      if (medicalProcedure && sctProcedure) {
-        await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-          name:          'hasCode',
-          label:         'Has Code',
-          description:   'Links a MedicalProcedure to its SNOMED CT procedure code.',
-          propertyType:  'object',
-          domainClassId: medicalProcedure.id,
-          rangeClassIri: sctProcedure.url,
-          isRequired:    false,
-          mappingPattern: [
-            { subject: '?this', predicate: 'https://w3id.org/sulo/hasFeature', object: '?value' },
-          ],
-        });
-      }
-
-      // ── Measurement hasCode → ObservableEntity (additional range) ───────────
-      if (measurement && observableEntity) {
-        await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-          name:          'hasCode',
-          label:         'Has Code',
-          description:   'Links a Measurement to its SNOMED CT observable entity code (e.g. body weight, blood pressure).',
-          propertyType:  'object',
-          domainClassId: measurement.id,
-          rangeClassIri: observableEntity.url,
-          isRequired:    false,
-          mappingPattern: [
-            { subject: '?this', predicate: 'https://w3id.org/sulo/hasFeature', object: '?value' },
-          ],
-        });
-      }
-
-      // ── Properties for the SPHN-adopted classes ──────────────────────────────
-      // A clinical visit is part of the administrative case grouping it.
-      if (clinicalVisit && administrativeCase) {
-        await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-          name: 'hasAdministrativeCase', label: 'Has Administrative Case',
-          description: 'Links a clinical visit to the administrative case it belongs to.',
-          propertyType: 'object', domainClassId: clinicalVisit.id, rangeClassIri: administrativeCase.url, isRequired: false,
-          mappingPattern: [
-            { subject: '?this', predicate: 'https://w3id.org/sulo/isPartOf', object: '?value' },
-          ],
-        });
-      }
-      // The administrative case has the patient as a participant (subject-of-care role).
-      if (administrativeCase && subjectOfCareRole && person) {
-        await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-          name: 'hasPatient', label: 'Has Patient',
-          description: 'Links an administrative case to the patient it concerns.',
-          propertyType: 'object', domainClassId: administrativeCase.id, rangeClassIri: person.url, isRequired: false,
-          mappingPattern: [
-            { subject: '?this', predicate: 'https://w3id.org/sulo/hasParticipant',            object: '?o1' },
-            { subject: '?o1',   predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: subjectOfCareRole.url },
-            { subject: '?o1',   predicate: 'https://w3id.org/sulo/isFeatureOf',               object: '?value' },
-          ],
-        });
-      }
-      // A measurement process is performed on a sample (a participant).
-      if (measurementProcess && sample) {
-        await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-          name: 'hasSample', label: 'Has Sample',
-          description: 'Links a measurement process to the sample it is performed on.',
-          propertyType: 'object', domainClassId: measurementProcess.id, rangeClassIri: sample.url, isRequired: false,
-          mappingPattern: [
-            { subject: '?this', predicate: 'https://w3id.org/sulo/hasParticipant', object: '?value' },
-          ],
-        });
-      }
-      // A sample is physically part of the patient it was collected from.
-      if (sample && person) {
-        await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-          name: 'collectedFrom', label: 'Collected From',
-          description: 'Links a sample to the patient it was collected from.',
-          propertyType: 'object', domainClassId: sample.id, rangeClassIri: person.url, isRequired: false,
-          mappingPattern: [
-            { subject: '?this', predicate: 'https://w3id.org/sulo/isPartOf', object: '?value' },
-          ],
-        });
-      }
-      // A pharmaceutical product has an active substance as a part.
-      if (pharmaceuticalProduct && substance) {
-        await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-          name: 'hasSubstance', label: 'Has Substance',
-          description: 'Links a pharmaceutical product to its active substance.',
-          propertyType: 'object', domainClassId: pharmaceuticalProduct.id, rangeClassIri: substance.url, isRequired: false,
-          mappingPattern: [
-            { subject: '?this', predicate: 'https://w3id.org/sulo/hasPart', object: '?value' },
-          ],
-        });
-      }
-      // A drug prescription refers to the prescribed product …
-      if (drugPrescription && pharmaceuticalProduct) {
-        await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-          name: 'prescribesDrug', label: 'Prescribes Drug',
-          description: 'Links a drug prescription to the pharmaceutical product it prescribes.',
-          propertyType: 'object', domainClassId: drugPrescription.id, rangeClassIri: pharmaceuticalProduct.url, isRequired: false,
-          mappingPattern: [
-            { subject: '?this', predicate: 'https://w3id.org/sulo/refersTo', object: '?value' },
-          ],
-        });
-      }
-      // … and is a feature of the patient it is written for.
-      if (drugPrescription && person) {
-        await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-          name: 'hasSubject', label: 'Has Subject',
-          description: 'Records that the drug prescription (an information object) is about its patient.',
-          propertyType: 'object', domainClassId: drugPrescription.id, rangeClassIri: person.url, isRequired: false,
-          mappingPattern: [
-            { subject: '?this', predicate: 'https://w3id.org/sulo/isFeatureOf', object: '?value' },
-          ],
-        });
-      }
-
-      // Debug: fetch the schema back and log superClassId for all classes
-      const fetchedSchema = await apiClient.get(`/ontology-schemas/${schema.id}`).then((r) => r.data as { classes: OntologyClass[] });
-      console.log('[example] fetched schema classes with superClassId:');
-      for (const c of fetchedSchema.classes) {
-        if (c.superClassId) console.log(`  ${c.name} → superClassId=${c.superClassId}`);
-      }
-
-      navigate(`/ontology/${schema.id}`);
+      const { id } = await importSchemaExport(file);
+      await queryClient.invalidateQueries({ queryKey: ['ontology-schemas'] });
+      setPendingShare(null);
+      navigate(`/ontology/${id}`);
+    } catch (err) {
+      setImportError(err instanceof Error ? err.message : 'Import failed.');
     } finally {
-      setIsCreatingExample(false);
+      setIsImporting(false);
     }
   }
 
-  async function handleLoadOmopExample() {
-    setIsCreatingOmopExample(true);
+  async function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // allow re-selecting the same file
+    if (!file) return;
+    setImportError(null);
     try {
-      const schema = await createMutation.mutateAsync({
-        title: 'OMOP CDM Schema',
-        description: 'OMOP Common Data Model schema with core clinical tables (VisitOccurrence, ConditionOccurrence, DrugExposure, Measurement, ProcedureOccurrence, Observation, DeviceExposure) mapped to SULO.',
-        upperOntologyIri: 'https://w3id.org/sulo/',
-      });
+      await runImport(parseSchemaExport(await file.text()));
+    } catch (err) {
+      setImportError(err instanceof Error ? err.message : 'Import failed.');
+    }
+  }
 
-      // Create all 20 OMOP classes
-      const classMap = new Map<string, OntologyClass>();
-      for (const cls of OMOP_EXAMPLE_CLASSES) {
-        const { superClassName, ...rest } = cls;
-        const superCls = superClassName ? classMap.get(superClassName) : undefined;
-        const body = { ...rest, ...(superCls ? { superClassId: superCls.id } : {}) };
-        const created: OntologyClass = (await apiClient.post(`/ontology-schemas/${schema.id}/classes`, body)).data;
-        classMap.set(cls.name, created);
-      }
-
-      const visitOccurrence     = classMap.get('VisitOccurrence')!;
-      const conditionOccurrence = classMap.get('ConditionOccurrence')!;
-      const drugExposure        = classMap.get('DrugExposure')!;
-      const measurement         = classMap.get('Measurement')!;
-      const procedureOccurrence = classMap.get('ProcedureOccurrence')!;
-      const observation         = classMap.get('Observation')!;
-      const deviceExposure      = classMap.get('DeviceExposure')!;
-      const person              = classMap.get('Person')!;
-      const provider            = classMap.get('Provider')!;
-      const careSite            = classMap.get('CareSite')!;
-      const location            = classMap.get('Location')!;
-      const concept             = classMap.get('Concept')!;
-      const drugProduct         = classMap.get('DrugProduct')!;
-      const device              = classMap.get('Device')!;
-      const specimen            = classMap.get('Specimen')!;
-      const patientRole         = classMap.get('PatientRole')!;
-      const providerRole        = classMap.get('ProviderRole')!;
-      const outputRole          = classMap.get('OutputRole')!;
-      const instrumentRole      = classMap.get('InstrumentRole')!;
-      const measurementValue    = classMap.get('MeasurementValue')!;
-      const unit                = classMap.get('Unit')!;
-      const doseQuantity        = classMap.get('DoseQuantity')!;
-
-      // ── Concept properties ────────────────────────────────────────────────────
-      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-        name: 'concept_id', label: 'Concept ID',
-        description: 'The unique integer identifier of the concept in the vocabulary.',
-        propertyType: 'datatype', domainClassId: concept.id, rangeClassIri: 'http://www.w3.org/2001/XMLSchema#integer', isRequired: true,
-        mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/hasValue', object: '?value' },
-        ],
-      });
-      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-        name: 'concept_name', label: 'Concept Name',
-        description: 'The human-readable name or label of the concept.',
-        propertyType: 'datatype', domainClassId: concept.id, rangeClassIri: 'http://www.w3.org/2001/XMLSchema#string', isRequired: true,
-        mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/hasLabel', object: '?value' },
-        ],
-      });
-
-      // ── VisitOccurrence properties ─────────────────────────────────────────────
-      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-        name: 'person_id', label: 'Person ID',
-        description: 'Links a visit occurrence to the patient (subject of care).',
-        propertyType: 'object', domainClassId: visitOccurrence.id, rangeClassIri: person.url, isRequired: false,
-        mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/hasParticipant',            object: '?o1' },
-          { subject: '?o1',   predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: patientRole.url },
-          { subject: '?o1',   predicate: 'https://w3id.org/sulo/isFeatureOf',               object: '?value' },
-        ],
-      });
-      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-        name: 'provider_id', label: 'Provider ID',
-        description: 'Links a visit occurrence to the attending healthcare provider.',
-        propertyType: 'object', domainClassId: visitOccurrence.id, rangeClassIri: provider.url, isRequired: false,
-        mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/hasParticipant',            object: '?o1' },
-          { subject: '?o1',   predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: providerRole.url },
-          { subject: '?o1',   predicate: 'https://w3id.org/sulo/isFeatureOf',               object: '?value' },
-        ],
-      });
-      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-        name: 'care_site_id', label: 'Care Site ID',
-        description: 'Links a visit occurrence to the care site where it took place.',
-        propertyType: 'object', domainClassId: visitOccurrence.id, rangeClassIri: careSite.url, isRequired: false,
-        mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/isIn', object: '?value' },
-        ],
-      });
-      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-        name: 'visit_concept_id', label: 'Visit Concept ID',
-        description: 'Links a visit occurrence to its standardised vocabulary concept (visit type).',
-        propertyType: 'object', domainClassId: visitOccurrence.id, rangeClassIri: concept.url, isRequired: false,
-        mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/hasFeature', object: '?value' },
-        ],
-      });
-      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-        name: 'visit_start_datetime', label: 'Visit Start Datetime',
-        description: 'Date and time when the visit started.',
-        propertyType: 'datatype', domainClassId: visitOccurrence.id, rangeClassIri: 'http://www.w3.org/2001/XMLSchema#dateTime', isRequired: false,
-        mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/atTime',                    object: '?o1' },
-          { subject: '?o1',   predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: 'https://w3id.org/sulo/StartTime' },
-          { subject: '?o1',   predicate: 'https://w3id.org/sulo/hasValue',                  object: '?value' },
-        ],
-      });
-      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-        name: 'visit_end_datetime', label: 'Visit End Datetime',
-        description: 'Date and time when the visit ended.',
-        propertyType: 'datatype', domainClassId: visitOccurrence.id, rangeClassIri: 'http://www.w3.org/2001/XMLSchema#dateTime', isRequired: false,
-        mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/atTime',                    object: '?o1' },
-          { subject: '?o1',   predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: 'https://w3id.org/sulo/EndTime' },
-          { subject: '?o1',   predicate: 'https://w3id.org/sulo/hasValue',                  object: '?value' },
-        ],
-      });
-      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-        name: 'admitting_source_concept_id', label: 'Admitting Source Concept ID',
-        description: 'Concept for the place of service or type of provider from which the patient was admitted.',
-        propertyType: 'object', domainClassId: visitOccurrence.id, rangeClassIri: concept.url, isRequired: false,
-        mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/hasFeature', object: '?value' },
-        ],
-      });
-      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-        name: 'discharge_to_concept_id', label: 'Discharge To Concept ID',
-        description: 'Concept for the place of service or type of provider to which the patient was discharged.',
-        propertyType: 'object', domainClassId: visitOccurrence.id, rangeClassIri: concept.url, isRequired: false,
-        mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/hasFeature', object: '?value' },
-        ],
-      });
-      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-        name: 'preceding_visit_occurrence_id', label: 'Preceding Visit Occurrence ID',
-        description: 'Links a visit to the immediately preceding visit occurrence for the same patient.',
-        propertyType: 'object', domainClassId: visitOccurrence.id, rangeClassIri: visitOccurrence.url, isRequired: false,
-        mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/isPartOf', object: '?value' },
-        ],
-      });
-
-      // ── ConditionOccurrence properties ─────────────────────────────────────────
-      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-        name: 'person_id', label: 'Person ID',
-        description: 'Links a condition occurrence to the patient.',
-        propertyType: 'object', domainClassId: conditionOccurrence.id, rangeClassIri: person.url, isRequired: false,
-        mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/hasParticipant',            object: '?o1' },
-          { subject: '?o1',   predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: patientRole.url },
-          { subject: '?o1',   predicate: 'https://w3id.org/sulo/isFeatureOf',               object: '?value' },
-        ],
-      });
-      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-        name: 'condition_concept_id', label: 'Condition Concept ID',
-        description: 'Links a condition occurrence to its standardised diagnosis concept (e.g. SNOMED-CT code).',
-        propertyType: 'object', domainClassId: conditionOccurrence.id, rangeClassIri: concept.url, isRequired: false,
-        mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/hasFeature', object: '?value' },
-        ],
-      });
-      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-        name: 'visit_occurrence_id', label: 'Visit Occurrence ID',
-        description: 'Links a condition occurrence to the enclosing visit occurrence.',
-        propertyType: 'object', domainClassId: conditionOccurrence.id, rangeClassIri: visitOccurrence.url, isRequired: false,
-        mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/isPartOf', object: '?value' },
-        ],
-      });
-      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-        name: 'condition_start_datetime', label: 'Condition Start Datetime',
-        description: 'Date and time when the condition started.',
-        propertyType: 'datatype', domainClassId: conditionOccurrence.id, rangeClassIri: 'http://www.w3.org/2001/XMLSchema#dateTime', isRequired: false,
-        mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/atTime',                    object: '?o1' },
-          { subject: '?o1',   predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: 'https://w3id.org/sulo/StartTime' },
-          { subject: '?o1',   predicate: 'https://w3id.org/sulo/hasValue',                  object: '?value' },
-        ],
-      });
-      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-        name: 'condition_end_datetime', label: 'Condition End Datetime',
-        description: 'Date and time when the condition ended.',
-        propertyType: 'datatype', domainClassId: conditionOccurrence.id, rangeClassIri: 'http://www.w3.org/2001/XMLSchema#dateTime', isRequired: false,
-        mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/atTime',                    object: '?o1' },
-          { subject: '?o1',   predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: 'https://w3id.org/sulo/EndTime' },
-          { subject: '?o1',   predicate: 'https://w3id.org/sulo/hasValue',                  object: '?value' },
-        ],
-      });
-      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-        name: 'condition_status_concept_id', label: 'Condition Status Concept ID',
-        description: 'Standardised concept reflecting the current status of the condition (e.g. active, inactive, resolved).',
-        propertyType: 'object', domainClassId: conditionOccurrence.id, rangeClassIri: concept.url, isRequired: false,
-        mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/hasFeature', object: '?value' },
-        ],
-      });
-      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-        name: 'stop_reason', label: 'Stop Reason',
-        description: 'The reason the condition was no longer present, as indicated in the source data.',
-        propertyType: 'datatype', domainClassId: conditionOccurrence.id, rangeClassIri: 'http://www.w3.org/2001/XMLSchema#string', isRequired: false,
-        mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/hasValue', object: '?value' },
-        ],
-      });
-
-      // ── DrugExposure properties ────────────────────────────────────────────────
-      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-        name: 'person_id', label: 'Person ID',
-        description: 'Links a drug exposure to the patient who received the drug.',
-        propertyType: 'object', domainClassId: drugExposure.id, rangeClassIri: person.url, isRequired: false,
-        mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/hasParticipant',            object: '?o1' },
-          { subject: '?o1',   predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: patientRole.url },
-          { subject: '?o1',   predicate: 'https://w3id.org/sulo/isFeatureOf',               object: '?value' },
-        ],
-      });
-      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-        name: 'provider_id', label: 'Provider ID',
-        description: 'Links a drug exposure to the prescribing or administering provider.',
-        propertyType: 'object', domainClassId: drugExposure.id, rangeClassIri: provider.url, isRequired: false,
-        mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/hasParticipant',            object: '?o1' },
-          { subject: '?o1',   predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: providerRole.url },
-          { subject: '?o1',   predicate: 'https://w3id.org/sulo/isFeatureOf',               object: '?value' },
-        ],
-      });
-      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-        name: 'drug_concept_id', label: 'Drug Concept ID',
-        description: 'Links a drug exposure to the drug concept (RxNorm or ATC code).',
-        propertyType: 'object', domainClassId: drugExposure.id, rangeClassIri: concept.url, isRequired: false,
-        mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/refersTo', object: '?value' },
-        ],
-      });
-      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-        name: 'hasDrugProduct', label: 'Has Drug Product',
-        description: 'Links a drug exposure to the dispensed or administered drug product.',
-        propertyType: 'object', domainClassId: drugExposure.id, rangeClassIri: drugProduct.url, isRequired: false,
-        mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/hasParticipant', object: '?value' },
-        ],
-      });
-      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-        name: 'hasDoseQuantity', label: 'Has Dose Quantity',
-        description: 'Links a drug exposure to the administered dose quantity.',
-        propertyType: 'object', domainClassId: drugExposure.id, rangeClassIri: doseQuantity.url, isRequired: false,
-        mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/hasPart', object: '?value' },
-        ],
-      });
-      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-        name: 'visit_occurrence_id', label: 'Visit Occurrence ID',
-        description: 'Links a drug exposure to the enclosing visit occurrence.',
-        propertyType: 'object', domainClassId: drugExposure.id, rangeClassIri: visitOccurrence.url, isRequired: false,
-        mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/isPartOf', object: '?value' },
-        ],
-      });
-      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-        name: 'drug_exposure_start_datetime', label: 'Drug Exposure Start Datetime',
-        description: 'Date and time when the drug exposure started.',
-        propertyType: 'datatype', domainClassId: drugExposure.id, rangeClassIri: 'http://www.w3.org/2001/XMLSchema#dateTime', isRequired: false,
-        mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/atTime',                    object: '?o1' },
-          { subject: '?o1',   predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: 'https://w3id.org/sulo/StartTime' },
-          { subject: '?o1',   predicate: 'https://w3id.org/sulo/hasValue',                  object: '?value' },
-        ],
-      });
-      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-        name: 'drug_exposure_end_datetime', label: 'Drug Exposure End Datetime',
-        description: 'Date and time when the drug exposure ended.',
-        propertyType: 'datatype', domainClassId: drugExposure.id, rangeClassIri: 'http://www.w3.org/2001/XMLSchema#dateTime', isRequired: false,
-        mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/atTime',                    object: '?o1' },
-          { subject: '?o1',   predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: 'https://w3id.org/sulo/EndTime' },
-          { subject: '?o1',   predicate: 'https://w3id.org/sulo/hasValue',                  object: '?value' },
-        ],
-      });
-      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-        name: 'stop_reason', label: 'Stop Reason',
-        description: 'The reason the drug was discontinued (e.g. regimen completed, side effects, changed).',
-        propertyType: 'datatype', domainClassId: drugExposure.id, rangeClassIri: 'http://www.w3.org/2001/XMLSchema#string', isRequired: false,
-        mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/hasValue', object: '?value' },
-        ],
-      });
-      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-        name: 'quantity', label: 'Quantity',
-        description: 'The quantity of the drug as recorded in the original prescription or dispensing record.',
-        propertyType: 'datatype', domainClassId: drugExposure.id, rangeClassIri: 'http://www.w3.org/2001/XMLSchema#decimal', isRequired: false,
-        mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/hasValue', object: '?value' },
-        ],
-      });
-      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-        name: 'days_supply', label: 'Days Supply',
-        description: 'Number of days of supply as recorded in the original prescription or dispensing record.',
-        propertyType: 'datatype', domainClassId: drugExposure.id, rangeClassIri: 'http://www.w3.org/2001/XMLSchema#integer', isRequired: false,
-        mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/hasValue', object: '?value' },
-        ],
-      });
-      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-        name: 'refills', label: 'Refills',
-        description: 'The number of refills after the initial prescription, starting at 0.',
-        propertyType: 'datatype', domainClassId: drugExposure.id, rangeClassIri: 'http://www.w3.org/2001/XMLSchema#integer', isRequired: false,
-        mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/hasValue', object: '?value' },
-        ],
-      });
-
-      // ── Measurement properties ─────────────────────────────────────────────────
-      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-        name: 'person_id', label: 'Person ID',
-        description: 'Links a measurement to the patient it was taken from.',
-        propertyType: 'object', domainClassId: measurement.id, rangeClassIri: person.url, isRequired: false,
-        mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/hasParticipant',            object: '?o1' },
-          { subject: '?o1',   predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: patientRole.url },
-          { subject: '?o1',   predicate: 'https://w3id.org/sulo/isFeatureOf',               object: '?value' },
-        ],
-      });
-      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-        name: 'provider_id', label: 'Provider ID',
-        description: 'Links a measurement to the provider who ordered or performed it.',
-        propertyType: 'object', domainClassId: measurement.id, rangeClassIri: provider.url, isRequired: false,
-        mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/hasParticipant',            object: '?o1' },
-          { subject: '?o1',   predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: providerRole.url },
-          { subject: '?o1',   predicate: 'https://w3id.org/sulo/isFeatureOf',               object: '?value' },
-        ],
-      });
-      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-        name: 'hasMeasurementResult', label: 'Has Measurement Result',
-        description: 'Links a measurement to its output result value via an output role.',
-        propertyType: 'object', domainClassId: measurement.id, rangeClassIri: measurementValue.url, isRequired: false,
-        mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/hasParticipant',            object: '?o1' },
-          { subject: '?o1',   predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: outputRole.url },
-          { subject: '?o1',   predicate: 'https://w3id.org/sulo/isFeatureOf',               object: '?value' },
-        ],
-      });
-      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-        name: 'measurement_concept_id', label: 'Measurement Concept ID',
-        description: 'Links a measurement to its LOINC or SNOMED concept (what was measured).',
-        propertyType: 'object', domainClassId: measurement.id, rangeClassIri: concept.url, isRequired: false,
-        mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/hasFeature', object: '?value' },
-        ],
-      });
-      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-        name: 'value_as_number', label: 'Value As Number',
-        description: 'Numeric result of the measurement.',
-        propertyType: 'datatype', domainClassId: measurement.id, rangeClassIri: 'http://www.w3.org/2001/XMLSchema#float', isRequired: false,
-        mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/hasValue', object: '?value' },
-        ],
-      });
-      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-        name: 'unit_concept_id', label: 'Unit Concept ID',
-        description: 'Links a measurement to its unit of measure.',
-        propertyType: 'object', domainClassId: measurement.id, rangeClassIri: unit.url, isRequired: false,
-        mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/hasPart', object: '?value' },
-        ],
-      });
-      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-        name: 'visit_occurrence_id', label: 'Visit Occurrence ID',
-        description: 'Links a measurement to the enclosing visit occurrence.',
-        propertyType: 'object', domainClassId: measurement.id, rangeClassIri: visitOccurrence.url, isRequired: false,
-        mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/isPartOf', object: '?value' },
-        ],
-      });
-      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-        name: 'measurement_datetime', label: 'Measurement Datetime',
-        description: 'Date and time when the measurement was taken.',
-        propertyType: 'datatype', domainClassId: measurement.id, rangeClassIri: 'http://www.w3.org/2001/XMLSchema#dateTime', isRequired: false,
-        mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/atTime',                    object: '?o1' },
-          { subject: '?o1',   predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: 'https://w3id.org/sulo/TimeInstant' },
-          { subject: '?o1',   predicate: 'https://w3id.org/sulo/hasValue',                  object: '?value' },
-        ],
-      });
-      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-        name: 'operator_concept_id', label: 'Operator Concept ID',
-        description: 'Comparison operator applied to the numeric result (e.g. <, <=, =, >=, >).',
-        propertyType: 'object', domainClassId: measurement.id, rangeClassIri: concept.url, isRequired: false,
-        mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/hasFeature', object: '?value' },
-        ],
-      });
-      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-        name: 'range_low', label: 'Range Low',
-        description: 'Lower bound of the normal reference range for this measurement.',
-        propertyType: 'datatype', domainClassId: measurement.id, rangeClassIri: 'http://www.w3.org/2001/XMLSchema#decimal', isRequired: false,
-        mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/hasValue', object: '?value' },
-        ],
-      });
-      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-        name: 'range_high', label: 'Range High',
-        description: 'Upper bound of the normal reference range for this measurement.',
-        propertyType: 'datatype', domainClassId: measurement.id, rangeClassIri: 'http://www.w3.org/2001/XMLSchema#decimal', isRequired: false,
-        mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/hasValue', object: '?value' },
-        ],
-      });
-
-      // ── ProcedureOccurrence properties ─────────────────────────────────────────
-      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-        name: 'person_id', label: 'Person ID',
-        description: 'Links a procedure occurrence to the patient it was performed on.',
-        propertyType: 'object', domainClassId: procedureOccurrence.id, rangeClassIri: person.url, isRequired: false,
-        mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/hasParticipant',            object: '?o1' },
-          { subject: '?o1',   predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: patientRole.url },
-          { subject: '?o1',   predicate: 'https://w3id.org/sulo/isFeatureOf',               object: '?value' },
-        ],
-      });
-      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-        name: 'provider_id', label: 'Provider ID',
-        description: 'Links a procedure occurrence to the provider who performed it.',
-        propertyType: 'object', domainClassId: procedureOccurrence.id, rangeClassIri: provider.url, isRequired: false,
-        mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/hasParticipant',            object: '?o1' },
-          { subject: '?o1',   predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: providerRole.url },
-          { subject: '?o1',   predicate: 'https://w3id.org/sulo/isFeatureOf',               object: '?value' },
-        ],
-      });
-      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-        name: 'procedure_concept_id', label: 'Procedure Concept ID',
-        description: 'Links a procedure occurrence to its standardised procedure concept.',
-        propertyType: 'object', domainClassId: procedureOccurrence.id, rangeClassIri: concept.url, isRequired: false,
-        mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/hasFeature', object: '?value' },
-        ],
-      });
-      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-        name: 'visit_occurrence_id', label: 'Visit Occurrence ID',
-        description: 'Links a procedure occurrence to the enclosing visit occurrence.',
-        propertyType: 'object', domainClassId: procedureOccurrence.id, rangeClassIri: visitOccurrence.url, isRequired: false,
-        mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/isPartOf', object: '?value' },
-        ],
-      });
-      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-        name: 'procedure_datetime', label: 'Procedure Datetime',
-        description: 'Date and time when the procedure was performed.',
-        propertyType: 'datatype', domainClassId: procedureOccurrence.id, rangeClassIri: 'http://www.w3.org/2001/XMLSchema#dateTime', isRequired: false,
-        mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/atTime',                    object: '?o1' },
-          { subject: '?o1',   predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: 'https://w3id.org/sulo/TimeInstant' },
-          { subject: '?o1',   predicate: 'https://w3id.org/sulo/hasValue',                  object: '?value' },
-        ],
-      });
-      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-        name: 'procedure_end_datetime', label: 'Procedure End Datetime',
-        description: 'Date and time when the procedure ended.',
-        propertyType: 'datatype', domainClassId: procedureOccurrence.id, rangeClassIri: 'http://www.w3.org/2001/XMLSchema#dateTime', isRequired: false,
-        mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/atTime',                    object: '?o1' },
-          { subject: '?o1',   predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: 'https://w3id.org/sulo/EndTime' },
-          { subject: '?o1',   predicate: 'https://w3id.org/sulo/hasValue',                  object: '?value' },
-        ],
-      });
-
-      // ── Observation properties ─────────────────────────────────────────────────
-      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-        name: 'person_id', label: 'Person ID',
-        description: 'Links a clinical observation to the patient it concerns.',
-        propertyType: 'object', domainClassId: observation.id, rangeClassIri: person.url, isRequired: false,
-        mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/hasParticipant',            object: '?o1' },
-          { subject: '?o1',   predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: patientRole.url },
-          { subject: '?o1',   predicate: 'https://w3id.org/sulo/isFeatureOf',               object: '?value' },
-        ],
-      });
-      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-        name: 'observation_concept_id', label: 'Observation Concept ID',
-        description: 'Links an observation to its standardised concept (e.g. smoking status, BMI).',
-        propertyType: 'object', domainClassId: observation.id, rangeClassIri: concept.url, isRequired: false,
-        mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/hasFeature', object: '?value' },
-        ],
-      });
-      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-        name: 'value_as_string', label: 'Value As String',
-        description: 'Textual or categorical value of the observation.',
-        propertyType: 'datatype', domainClassId: observation.id, rangeClassIri: 'http://www.w3.org/2001/XMLSchema#string', isRequired: false,
-        mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/hasValue', object: '?value' },
-        ],
-      });
-      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-        name: 'visit_occurrence_id', label: 'Visit Occurrence ID',
-        description: 'Links an observation to the enclosing visit occurrence.',
-        propertyType: 'object', domainClassId: observation.id, rangeClassIri: visitOccurrence.url, isRequired: false,
-        mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/isPartOf', object: '?value' },
-        ],
-      });
-      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-        name: 'observation_datetime', label: 'Observation Datetime',
-        description: 'Date and time of the observation.',
-        propertyType: 'datatype', domainClassId: observation.id, rangeClassIri: 'http://www.w3.org/2001/XMLSchema#dateTime', isRequired: false,
-        mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/atTime',                    object: '?o1' },
-          { subject: '?o1',   predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: 'https://w3id.org/sulo/TimeInstant' },
-          { subject: '?o1',   predicate: 'https://w3id.org/sulo/hasValue',                  object: '?value' },
-        ],
-      });
-      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-        name: 'value_as_number', label: 'Value As Number',
-        description: 'Numeric result when the observation is expressed as a quantitative value.',
-        propertyType: 'datatype', domainClassId: observation.id, rangeClassIri: 'http://www.w3.org/2001/XMLSchema#decimal', isRequired: false,
-        mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/hasValue', object: '?value' },
-        ],
-      });
-      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-        name: 'value_as_concept_id', label: 'Value As Concept ID',
-        description: 'Categorical result when the observation is expressed as a standardised concept.',
-        propertyType: 'object', domainClassId: observation.id, rangeClassIri: concept.url, isRequired: false,
-        mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/hasFeature', object: '?value' },
-        ],
-      });
-      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-        name: 'unit_concept_id', label: 'Unit Concept ID',
-        description: 'Links an observation to its unit of measure (for numeric observations).',
-        propertyType: 'object', domainClassId: observation.id, rangeClassIri: unit.url, isRequired: false,
-        mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/hasPart', object: '?value' },
-        ],
-      });
-      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-        name: 'qualifier_concept_id', label: 'Qualifier Concept ID',
-        description: 'Qualifier concept characterising the observation (e.g. severity, certainty, laterality).',
-        propertyType: 'object', domainClassId: observation.id, rangeClassIri: concept.url, isRequired: false,
-        mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/hasFeature', object: '?value' },
-        ],
-      });
-      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-        name: 'provider_id', label: 'Provider ID',
-        description: 'Links an observation to the provider responsible for documenting it.',
-        propertyType: 'object', domainClassId: observation.id, rangeClassIri: provider.url, isRequired: false,
-        mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/hasParticipant',            object: '?o1' },
-          { subject: '?o1',   predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: providerRole.url },
-          { subject: '?o1',   predicate: 'https://w3id.org/sulo/isFeatureOf',               object: '?value' },
-        ],
-      });
-
-      // ── DeviceExposure properties ──────────────────────────────────────────────
-      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-        name: 'person_id', label: 'Person ID',
-        description: 'Links a device exposure to the patient.',
-        propertyType: 'object', domainClassId: deviceExposure.id, rangeClassIri: person.url, isRequired: false,
-        mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/hasParticipant',            object: '?o1' },
-          { subject: '?o1',   predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: patientRole.url },
-          { subject: '?o1',   predicate: 'https://w3id.org/sulo/isFeatureOf',               object: '?value' },
-        ],
-      });
-      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-        name: 'provider_id', label: 'Provider ID',
-        description: 'Links a device exposure to the provider who applied the device.',
-        propertyType: 'object', domainClassId: deviceExposure.id, rangeClassIri: provider.url, isRequired: false,
-        mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/hasParticipant',            object: '?o1' },
-          { subject: '?o1',   predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: providerRole.url },
-          { subject: '?o1',   predicate: 'https://w3id.org/sulo/isFeatureOf',               object: '?value' },
-        ],
-      });
-      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-        name: 'device_concept_id', label: 'Device Concept ID',
-        description: 'Links a device exposure to its standardised device concept.',
-        propertyType: 'object', domainClassId: deviceExposure.id, rangeClassIri: concept.url, isRequired: false,
-        mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/hasFeature', object: '?value' },
-        ],
-      });
-      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-        name: 'hasDevice', label: 'Has Device',
-        description: 'Links a device exposure to the physical device via an instrument role.',
-        propertyType: 'object', domainClassId: deviceExposure.id, rangeClassIri: device.url, isRequired: false,
-        mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/hasParticipant',            object: '?o1' },
-          { subject: '?o1',   predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: instrumentRole.url },
-          { subject: '?o1',   predicate: 'https://w3id.org/sulo/isFeatureOf',               object: '?value' },
-        ],
-      });
-      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-        name: 'visit_occurrence_id', label: 'Visit Occurrence ID',
-        description: 'Links a device exposure to the enclosing visit occurrence.',
-        propertyType: 'object', domainClassId: deviceExposure.id, rangeClassIri: visitOccurrence.url, isRequired: false,
-        mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/isPartOf', object: '?value' },
-        ],
-      });
-      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-        name: 'device_exposure_start_datetime', label: 'Device Exposure Start Datetime',
-        description: 'Date and time when the device exposure started.',
-        propertyType: 'datatype', domainClassId: deviceExposure.id, rangeClassIri: 'http://www.w3.org/2001/XMLSchema#dateTime', isRequired: false,
-        mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/atTime',                    object: '?o1' },
-          { subject: '?o1',   predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: 'https://w3id.org/sulo/StartTime' },
-          { subject: '?o1',   predicate: 'https://w3id.org/sulo/hasValue',                  object: '?value' },
-        ],
-      });
-      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-        name: 'device_exposure_end_datetime', label: 'Device Exposure End Datetime',
-        description: 'Date and time when the device exposure ended.',
-        propertyType: 'datatype', domainClassId: deviceExposure.id, rangeClassIri: 'http://www.w3.org/2001/XMLSchema#dateTime', isRequired: false,
-        mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/atTime',                    object: '?o1' },
-          { subject: '?o1',   predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: 'https://w3id.org/sulo/EndTime' },
-          { subject: '?o1',   predicate: 'https://w3id.org/sulo/hasValue',                  object: '?value' },
-        ],
-      });
-
-      // ── #1: *_type_concept_id on all 7 core event tables + Specimen ──────────
-      for (const [domainClass, propName, tableLabel] of [
-        [visitOccurrence,     'visit_type_concept_id',        'visit'],
-        [conditionOccurrence, 'condition_type_concept_id',    'condition'],
-        [drugExposure,        'drug_type_concept_id',         'drug exposure'],
-        [measurement,         'measurement_type_concept_id',  'measurement'],
-        [procedureOccurrence, 'procedure_type_concept_id',    'procedure'],
-        [observation,         'observation_type_concept_id',  'observation'],
-        [deviceExposure,      'device_type_concept_id',       'device exposure'],
-        [specimen,            'specimen_type_concept_id',     'specimen'],
-      ] as const) {
-        await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-          name: propName, label: 'Type Concept ID',
-          description: `Provenance concept reflecting the source and origin of the ${tableLabel} record (e.g. EHR entry, claim, lab result).`,
-          propertyType: 'object', domainClassId: domainClass.id, rangeClassIri: concept.url, isRequired: true,
-          mappingPattern: [
-            { subject: '?this', predicate: 'https://w3id.org/sulo/hasFeature', object: '?value' },
-          ],
-        });
-      }
-
-      // ── #4: *_source_concept_id on all 7 core event tables ───────────────────
-      for (const [domainClass, propName, tableLabel] of [
-        [visitOccurrence,     'visit_source_concept_id',        'visit'],
-        [conditionOccurrence, 'condition_source_concept_id',    'condition'],
-        [drugExposure,        'drug_source_concept_id',         'drug exposure'],
-        [measurement,         'measurement_source_concept_id',  'measurement'],
-        [procedureOccurrence, 'procedure_source_concept_id',    'procedure'],
-        [observation,         'observation_source_concept_id',  'observation'],
-        [deviceExposure,      'device_source_concept_id',       'device exposure'],
-      ] as const) {
-        await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-          name: propName, label: 'Source Concept ID',
-          description: `Links a ${tableLabel} to the original source vocabulary concept before mapping to a standard concept.`,
-          propertyType: 'object', domainClassId: domainClass.id, rangeClassIri: concept.url, isRequired: false,
-          mappingPattern: [
-            { subject: '?this', predicate: 'https://w3id.org/sulo/refersTo', object: '?value' },
-          ],
-        });
-      }
-
-      // ── #5: valueAsConcept on Measurement ─────────────────────────────────────
-      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-        name: 'value_as_concept_id', label: 'Value As Concept ID',
-        description: 'Categorical result of the measurement expressed as a standardised concept (e.g. Positive, Negative, Present).',
-        propertyType: 'object', domainClassId: measurement.id, rangeClassIri: concept.url, isRequired: false,
-        mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/hasFeature', object: '?value' },
-        ],
-      });
-
-      // ── #7: hasRouteConcept on DrugExposure ───────────────────────────────────
-      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-        name: 'route_concept_id', label: 'Route Concept ID',
-        description: 'Links a drug exposure to the route of administration concept (e.g. oral, intravenous, topical).',
-        propertyType: 'object', domainClassId: drugExposure.id, rangeClassIri: concept.url, isRequired: false,
-        mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/hasFeature', object: '?value' },
-        ],
-      });
-
-      // ── #10: Location class + CareSite.hasLocation ────────────────────────────
-      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-        name: 'location_id', label: 'Location ID',
-        description: 'Links a care site to its physical or geographic location.',
-        propertyType: 'object', domainClassId: careSite.id, rangeClassIri: location.url, isRequired: false,
-        mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/isIn', object: '?value' },
-        ],
-      });
-
-      // ── #11: Specimen properties ───────────────────────────────────────────────
-      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-        name: 'person_id', label: 'Person ID',
-        description: 'Links a specimen to the person it was collected from.',
-        propertyType: 'object', domainClassId: specimen.id, rangeClassIri: person.url, isRequired: false,
-        mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/hasParticipant',            object: '?o1' },
-          { subject: '?o1',   predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: patientRole.url },
-          { subject: '?o1',   predicate: 'https://w3id.org/sulo/isFeatureOf',               object: '?value' },
-        ],
-      });
-      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-        name: 'specimen_concept_id', label: 'Specimen Concept ID',
-        description: 'Links a specimen to its standardised type concept (e.g. blood, urine, tissue).',
-        propertyType: 'object', domainClassId: specimen.id, rangeClassIri: concept.url, isRequired: false,
-        mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/hasFeature', object: '?value' },
-        ],
-      });
-      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-        name: 'anatomic_site_concept_id', label: 'Anatomic Site Concept ID',
-        description: 'Links a specimen to the anatomical site from which it was collected.',
-        propertyType: 'object', domainClassId: specimen.id, rangeClassIri: concept.url, isRequired: false,
-        mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/isIn', object: '?value' },
-        ],
-      });
-      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-        name: 'specimen_datetime', label: 'Specimen Datetime',
-        description: 'Date and time when the specimen was collected.',
-        propertyType: 'datatype', domainClassId: specimen.id, rangeClassIri: 'http://www.w3.org/2001/XMLSchema#dateTime', isRequired: false,
-        mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/atTime',                    object: '?o1' },
-          { subject: '?o1',   predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: 'https://w3id.org/sulo/TimeInstant' },
-          { subject: '?o1',   predicate: 'https://w3id.org/sulo/hasValue',                  object: '?value' },
-        ],
-      });
-      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-        name: 'specimen_source_concept_id', label: 'Specimen Source Concept ID',
-        description: 'Links a specimen to its original source vocabulary concept before mapping.',
-        propertyType: 'object', domainClassId: specimen.id, rangeClassIri: concept.url, isRequired: false,
-        mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/refersTo', object: '?value' },
-        ],
-      });
-      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-        name: 'quantity', label: 'Quantity',
-        description: 'The volume or amount of the specimen collected.',
-        propertyType: 'datatype', domainClassId: specimen.id, rangeClassIri: 'http://www.w3.org/2001/XMLSchema#decimal', isRequired: false,
-        mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/hasValue', object: '?value' },
-        ],
-      });
-      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-        name: 'unit_concept_id', label: 'Unit Concept ID',
-        description: 'Links a specimen to the unit of measure for its collected quantity.',
-        propertyType: 'object', domainClassId: specimen.id, rangeClassIri: unit.url, isRequired: false,
-        mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/hasPart', object: '?value' },
-        ],
-      });
-      await apiClient.post(`/ontology-schemas/${schema.id}/properties`, {
-        name: 'disease_status_concept_id', label: 'Disease Status Concept ID',
-        description: 'Standardised concept reflecting the disease status of the patient at the time of specimen collection.',
-        propertyType: 'object', domainClassId: specimen.id, rangeClassIri: concept.url, isRequired: false,
-        mappingPattern: [
-          { subject: '?this', predicate: 'https://w3id.org/sulo/hasFeature', object: '?value' },
-        ],
-      });
-
-      navigate(`/ontology/${schema.id}`);
-    } finally {
-      setIsCreatingOmopExample(false);
+  // The counterpart to ShareModal's "Share string": that one is deliberately
+  // a bare string rather than a URL (see schemaTransfer.ts's own header), so
+  // this is the only way to actually consume one. Tolerant of a caller
+  // pasting an old-style full share link by mistake — strip everything up to
+  // and including SHARE_FRAGMENT_PREFIX if it's present, otherwise treat the
+  // whole trimmed input as the fragment itself.
+  async function handlePasteShareString() {
+    const trimmed = pasteValue.trim();
+    if (!trimmed) return;
+    setImportError(null);
+    const prefixIndex = trimmed.indexOf(SHARE_FRAGMENT_PREFIX);
+    const fragment = prefixIndex === -1 ? trimmed : trimmed.slice(prefixIndex + SHARE_FRAGMENT_PREFIX.length);
+    try {
+      setPendingShare(await decodeShareFragment(fragment));
+      setPasteValue('');
+      setShowPasteShare(false);
+    } catch (err) {
+      setImportError(err instanceof Error ? err.message : 'Could not read that share string.');
     }
   }
 
   const form = useForm<NewSchemaForm>({
     resolver: zodResolver(NewSchemaFormSchema),
-    defaultValues: { title: '', description: '', upperOntologyIri: '', baseUri: '' },
+    defaultValues: { title: '', description: '', upperOntologyIri: 'https://w3id.org/sulo/', baseUri: '' },
   });
 
   async function onSubmit(values: NewSchemaForm) {
@@ -2918,21 +1719,27 @@ function SchemaListPage() {
           </p>
         </div>
         <div className="flex gap-2 shrink-0">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".json,application/json"
+            className="hidden"
+            onChange={handleImportFile}
+          />
           <button
-            onClick={handleLoadExample}
-            disabled={isCreatingExample || isCreatingOmopExample}
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isImporting}
             className="bg-slate-100 hover:bg-slate-200 disabled:opacity-50 text-slate-700 text-sm font-medium px-4 py-2 rounded-lg transition-colors border border-slate-300"
-            title="Create a pre-populated clinical schema with 7 example classes"
+            title="Import a schema from a .sulo-schema.json export"
           >
-            {isCreatingExample ? 'Creating…' : 'Load Example'}
+            {isImporting ? 'Importing…' : 'Import'}
           </button>
           <button
-            onClick={handleLoadOmopExample}
-            disabled={isCreatingExample || isCreatingOmopExample}
-            className="bg-slate-100 hover:bg-slate-200 disabled:opacity-50 text-slate-700 text-sm font-medium px-4 py-2 rounded-lg transition-colors border border-slate-300"
-            title="Create a pre-populated OMOP CDM schema with 20 classes mapped to SULO"
+            onClick={() => setShowPasteShare(!showPasteShare)}
+            className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-medium px-4 py-2 rounded-lg transition-colors border border-slate-300"
+            title="Import a schema from a share string someone sent you"
           >
-            {isCreatingOmopExample ? 'Creating…' : 'Load OMOP Example'}
+            Paste share string
           </button>
           <button
             onClick={() => setShowCreate(!showCreate)}
@@ -2942,6 +1749,73 @@ function SchemaListPage() {
           </button>
         </div>
       </div>
+
+      {/* Counterpart to ShareModal's "Share string" row — that value is
+          deliberately a bare string rather than a URL, so this is the only
+          way to actually consume one. */}
+      {showPasteShare && (
+        <div className="bg-violet-50 border border-violet-200 rounded-xl shadow-sm p-6 space-y-3">
+          <div>
+            <h2 className="font-semibold text-slate-800 text-lg">Import a share string</h2>
+            <p className="text-sm text-slate-500 mt-0.5">
+              Paste the string someone copied from their Share dialog.
+            </p>
+          </div>
+          <Textarea
+            value={pasteValue}
+            onChange={(e) => setPasteValue(e.target.value)}
+            placeholder="Paste the share string here…"
+            className="font-mono text-xs"
+          />
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={handlePasteShareString}
+              disabled={!pasteValue.trim() || isImporting}
+              className="bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white text-sm font-medium px-5 py-2 rounded-lg transition-colors"
+            >
+              {isImporting ? 'Importing…' : 'Load'}
+            </button>
+            <button
+              type="button"
+              onClick={() => { setShowPasteShare(false); setPasteValue(''); setImportError(null); }}
+              className="text-sm text-slate-500 hover:text-slate-700 px-5 py-2 rounded-lg border border-slate-200 hover:bg-white transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Shared-link import prompt */}
+      {pendingShare && (
+        <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-5 py-4 flex items-center justify-between gap-4">
+          <div className="text-sm text-slate-700">
+            Someone shared the schema <span className="font-semibold">“{pendingShare.schema.title}”</span> with
+            you ({pendingShare.schema.classes.length} classes, {pendingShare.schema.properties.length} properties).
+          </div>
+          <div className="flex gap-2 shrink-0">
+            <button
+              onClick={() => runImport(pendingShare)}
+              disabled={isImporting}
+              className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-sm font-medium px-4 py-1.5 rounded-lg transition-colors"
+            >
+              {isImporting ? 'Importing…' : 'Import'}
+            </button>
+            <button
+              onClick={() => setPendingShare(null)}
+              className="text-sm text-slate-500 hover:text-slate-700 px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-white transition-colors"
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
+      {importError && (
+        <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-600">
+          {importError}
+        </div>
+      )}
 
       {/* Create form */}
       {showCreate && (
@@ -2999,7 +1873,28 @@ function SchemaListPage() {
         </div>
       )}
 
-      {/* Schema list */}
+      {/* Scope tabs — hidden entirely on the desktop/SQLite build, which has
+          no notion of scope at all. An anonymous visitor gets one,
+          non-interactive "Public" tab rather than three where two would
+          only ever 401 (see the SCOPE_TABS comment above). */}
+      {authStatus !== 'disabled' && (
+        <div className="flex gap-1 border-b border-slate-200">
+          {SCOPE_TABS.filter((t) => authStatus === 'authenticated' || t.value === 'public').map((t) => (
+            <button
+              key={t.value}
+              onClick={() => authStatus === 'authenticated' && setScope(t.value)}
+              className={`px-5 py-2.5 text-sm font-medium rounded-t-lg transition-colors ${
+                effectiveScope === t.value
+                  ? 'bg-white border border-b-white border-slate-200 text-violet-700 -mb-px'
+                  : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+              } ${authStatus === 'authenticated' ? '' : 'cursor-default'}`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      )}
+
       {schemasQuery.isLoading && (
         <div className="flex items-center justify-center py-20 text-slate-400 text-sm">Loading…</div>
       )}
@@ -3035,25 +1930,39 @@ function SchemaListPage() {
                 </div>
               )}
             </Link>
-            <button
-              onClick={() => {
-                if (confirm(`Delete "${schema.title}"?`)) deleteMutation.mutate(schema.id);
-              }}
-              className="text-slate-400 hover:text-red-500 text-sm ml-4 shrink-0 transition-colors"
-              title="Delete schema"
-            >
-              ✕
-            </button>
+            {/* Only in scopes where every listed schema is guaranteed to be
+                one the caller owns — a delete attempt on a shared/public
+                entry would only 403/404 (see modules/schemas/routes.ts). */}
+            {(effectiveScope === undefined || effectiveScope === 'mine') && (
+              <button
+                onClick={() => {
+                  if (confirm(`Delete "${schema.title}"?`)) deleteMutation.mutate(schema.id);
+                }}
+                className="text-slate-400 hover:text-red-500 text-sm ml-4 shrink-0 transition-colors"
+                title="Delete schema"
+              >
+                ✕
+              </button>
+            )}
           </div>
         ))}
       </div>
 
       {schemasQuery.data?.length === 0 && !showCreate && (
         <div className="text-center py-20 text-slate-400 text-sm">
-          No ontology schemas yet.{' '}
-          <button onClick={() => setShowCreate(true)} className="text-violet-600 hover:underline">
-            Create one
-          </button>
+          {authStatus === 'anonymous' ? (
+            // POST /ontology-schemas is 401 without a session (routes.auth.test.ts),
+            // so an anonymous visitor who lands here with no public schemas must
+            // not be invited into a form that can only fail.
+            <>No public ontologies yet. Sign in to create one.</>
+          ) : (
+            <>
+              No ontology schemas yet.{' '}
+              <button onClick={() => setShowCreate(true)} className="text-violet-600 hover:underline">
+                Create one
+              </button>
+            </>
+          )}
         </div>
       )}
     </div>
@@ -3063,6 +1972,9 @@ function SchemaListPage() {
 // ─── Detail / Builder page ────────────────────────────────────────────────────
 
 function SchemaDetailPage({ id }: { id: string }) {
+  const { status: authStatus } = useAuth();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const schemaQuery    = useOntologySchema(id);
   const updateSchema   = useUpdateOntologySchema(id);
   const addClass       = useAddOntologyClass(id);
@@ -3080,6 +1992,9 @@ function SchemaDetailPage({ id }: { id: string }) {
   const [showExport, setShowExport]   = useState(false);
   const [showConsistency, setShowConsistency] = useState(false);
   const [showDiagram, setShowDiagram] = useState(false);
+  const [showShare, setShowShare] = useState(false);
+  const [showAccess, setShowAccess] = useState(false);
+  const [isForking, setIsForking] = useState(false);
   const [editingClassId, setEditingClassId] = useState<string | null>(null);
   const [editingPropId, setEditingPropId] = useState<string | null>(null);
 
@@ -3125,6 +2040,27 @@ function SchemaDetailPage({ id }: { id: string }) {
       baseUri: values.baseUri || undefined,
     });
     setEditingMeta(false);
+  }
+
+  // Reuses the exact same pipeline as importing a shared schema — see
+  // schemaTransfer.ts's own header — because forking IS that operation: the
+  // live schema, serialized, re-created (fresh ids, every reference remapped)
+  // under the caller's own account. Not a server-side "clone" endpoint: the
+  // client already has everything an import needs, and this way a fork gets
+  // ACL enforcement for free (serializeSchema only ever sees what GET
+  // /ontology-schemas/:id already returned this caller, so a fork can never
+  // exfiltrate more than the caller could already read).
+  async function handleFork() {
+    const schema = schemaQuery.data;
+    if (!schema) return;
+    setIsForking(true);
+    try {
+      const { id: forkedId } = await importSchemaExport(serializeSchema(schema));
+      await queryClient.invalidateQueries({ queryKey: ['ontology-schemas'] });
+      navigate(`/ontology/${forkedId}`);
+    } finally {
+      setIsForking(false);
+    }
   }
 
   async function onAddClass(values: NewClassForm) {
@@ -3214,18 +2150,67 @@ function SchemaDetailPage({ id }: { id: string }) {
               >
                 Generate ↓
               </button>
+              {/* The mirror image of the badge above: this modal reasons
+                  over client-supplied Turtle via POST /reason, which plan 4
+                  task 6 deliberately un-registers in postgres mode (spec §7
+                  — the server must not spawn a JVM over bytes a caller
+                  chose there). Desktop-only, where that route still exists
+                  because the reasoner is the user's own machine. */}
+              {authStatus === 'disabled' && (
+                <button
+                  onClick={() => setShowConsistency(true)}
+                  className="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium px-4 py-1.5 rounded-lg transition-colors"
+                >
+                  Check consistency
+                </button>
+              )}
               <button
-                onClick={() => setShowConsistency(true)}
-                className="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium px-4 py-1.5 rounded-lg transition-colors"
+                onClick={() => setShowShare(true)}
+                className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-medium px-4 py-1.5 rounded-lg transition-colors border border-slate-300"
+                title="Share this schema as a link, a share string, or a .json file"
               >
-                Check consistency
+                Share
               </button>
-              <button
-                onClick={() => setEditingMeta(true)}
-                className="text-sm text-slate-400 hover:text-violet-600 border border-slate-200 hover:border-violet-300 px-3 py-1.5 rounded-lg transition-colors"
-              >
-                Edit info
-              </button>
+              {/* Forking needs an account to own the copy it creates — hidden
+                  for an anonymous visitor and on the desktop build (which has
+                  no notion of "your own copy" to fork into; import already
+                  covers that case there). */}
+              {authStatus === 'authenticated' && (
+                <button
+                  onClick={handleFork}
+                  disabled={isForking}
+                  className="bg-slate-100 hover:bg-slate-200 disabled:opacity-50 text-slate-700 text-sm font-medium px-4 py-1.5 rounded-lg transition-colors border border-slate-300"
+                  title="Create your own independent copy of this schema"
+                >
+                  {isForking ? 'Forking…' : 'Fork'}
+                </button>
+              )}
+              {/* Sharing/ACL is a Postgres-only feature (see modules/acl) —
+                  hidden on the desktop build and for an anonymous visitor,
+                  who could never reach `own` to use it. */}
+              {authStatus === 'authenticated' && (
+                <button
+                  onClick={() => setShowAccess(true)}
+                  className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-medium px-4 py-1.5 rounded-lg transition-colors border border-slate-300"
+                  title="Manage who can view, edit or own this schema"
+                >
+                  Manage access
+                </button>
+              )}
+              {/* Faded-looking by design (it's a quiet, secondary action),
+                  but that must not be confused with actually disabled: an
+                  anonymous visitor can never hold `edit`, so the control is
+                  hidden outright rather than left clickable-but-doomed —
+                  the PATCH would 403 anyway, but a visible, clickable button
+                  that always fails is worse than no button. */}
+              {authStatus !== 'anonymous' && (
+                <button
+                  onClick={() => setEditingMeta(true)}
+                  className="text-sm text-slate-400 hover:text-violet-600 border border-slate-200 hover:border-violet-300 px-3 py-1.5 rounded-lg transition-colors"
+                >
+                  Edit info
+                </button>
+              )}
             </div>
           </div>
         ) : (
@@ -3276,6 +2261,18 @@ function SchemaDetailPage({ id }: { id: string }) {
           </div>
         )}
       </div>
+
+      {/* Consistency overview — full width, not squeezed into the header's
+          title column: this is the schema's single most important status
+          line, and it needs room for a whole clash explanation once expanded.
+          The automatic, server-side badge needs GET/POST .../report, which
+          exist only in postgres mode (plan 4 task 6) — `authStatus ===
+          'disabled'` is that mode's own signal (config/auth.ts: auth is
+          enabled if and only if storage === 'postgres'), so this must not
+          render in the desktop build, where those routes 404. */}
+      {authStatus !== 'disabled' && (
+        <ConsistencyBadge schemaId={schema.id} authStatus={authStatus} />
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
@@ -3524,6 +2521,8 @@ function SchemaDetailPage({ id }: { id: string }) {
       {/* ── Properties tab ── */}
       {showExport  && <ExportModal    schema={schema} onClose={() => setShowExport(false)}  />}
       {showConsistency && <ConsistencyModal schema={schema} onClose={() => setShowConsistency(false)} />}
+      {showShare   && <ShareModal     schema={schema} onClose={() => setShowShare(false)}   />}
+      {showAccess  && <ShareDialog    schema={schema} onClose={() => setShowAccess(false)}  />}
       {showDiagram && <UmlDiagramView schema={schema} onClose={() => setShowDiagram(false)} />}
 
       {activeTab === 'properties' && (

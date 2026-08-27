@@ -1,0 +1,182 @@
+// The server-side consistency verdict for a schema: fetching the latest
+// report and asking for a fresh one. Mirrors the shape the reasoning
+// pipeline fixes (see plan 04's report cache and queue) — read that plan's
+// contract before changing these types.
+//
+// Every bit of fetching lives here, not in the component, because plan 5
+// swaps this polling for server-sent events: that swap touches only this
+// file, exactly as planned — see useSchemaReport below. `ConsistencyBadge.tsx`
+// only ever calls the two hooks in this file.
+
+import { useEffect, useRef } from 'react';
+import axios from 'axios';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { apiClient } from './client.js';
+import { subscribeToSchema } from './events.js';
+import type { ConsistencyReport } from '@sulo/schema-core';
+
+export type { ConsistencyReport };
+
+export type ReportState = 'stale' | 'queued' | 'running' | 'fresh' | 'failed';
+
+export interface SchemaReport {
+  state: ReportState;
+  /** Present once a verdict has ever been computed — absent for a schema that has never been checked. */
+  report?: ConsistencyReport;
+  cacheKey: string;
+  computedAt: string | null;
+  stale: boolean;
+}
+
+async function fetchReport(schemaId: string): Promise<SchemaReport> {
+  return apiClient.get(`/ontology-schemas/${schemaId}/report`).then((r) => r.data);
+}
+
+/**
+ * How often to poll while a verdict could still change on its own AND no
+ * live stream is doing the job instead (see `useSchemaReport` below).
+ * `refetchInterval` turns itself off only at `fresh`/`failed` — the two
+ * genuinely terminal states — an open tab must not keep hammering this
+ * endpoint forever, which is exactly the load the hourly refresh quota
+ * (POST .../report/refresh) exists to bound. 4 seconds is fast enough that
+ * someone watching the badge sees it move within a handful of polls, and
+ * slow enough that a reasoner run lasting tens of seconds costs single-digit
+ * requests rather than dozens.
+ *
+ * `stale` polls too, not just `queued`/`running` — found by e2e proof
+ * (frontend/e2e/reasoning-flow.spec.ts): every mutation schedules a
+ * debounced check (modules/reasoning/pipeline.ts's `scheduleCheck`,
+ * REASON_DEBOUNCE_MS=5s idle / 30s max wait), so a client that mounts in the
+ * few seconds between "just edited" and "debounce fired" sees `stale` with
+ * no job queued *yet* — not `queued` itself. Polling only queued/running
+ * missed exactly that window: the check ran and settled fresh entirely
+ * server-side while this tab's query sat with polling switched off forever,
+ * showing "not yet checked" past the point where it plainly had been.
+ */
+export const REPORT_POLL_INTERVAL_MS = 4000;
+
+const reportKey = (schemaId: string) => ['schema-report', schemaId];
+
+/**
+ * Readable by anyone who may read the schema — including an anonymous
+ * viewer of a public one (grants.routes.ts's `own`-only pattern does not
+ * apply here; the report endpoint is gated at read level). No `retry:
+ * false` here: a transient failure fetching the verdict is worth retrying
+ * the way any other read is, unlike grants.ts's ownership probe where a 403
+ * is itself the answer.
+ *
+ * Plan 5: change publication replaces the polling interval above with a
+ * live SSE subscription (events.ts) whenever one is connected — `liveRef`
+ * is what `refetchInterval` below consults to stand down while a stream is
+ * doing the job. A ref rather than component state on purpose: flipping it
+ * needs no re-render of its own — `refetchInterval` is re-consulted by
+ * react-query after every fetch settles regardless of what triggered it, so
+ * the *next* fetch to complete (the initial one, or one an event below
+ * forces) always sees the current value.
+ *
+ * `onOpen` only flips the ref; it does NOT also force a refetch. Doing so
+ * raced the connection's own async handshake against the query's initial
+ * fetch — both start at mount, and `invalidateQueries`/`refetchQueries`
+ * called while a fetch is already in flight for that key is a deliberate
+ * no-op in react-query (it will not start a redundant concurrent fetch).
+ * That race cost nothing to lose: the initial fetch already reflects
+ * current reality by the time IT resolves, and `refetchInterval`'s own
+ * post-fetch re-evaluation is what stops polling from there — no forced
+ * refetch was ever needed for that part.
+ *
+ * `onEvent`, by contrast, fires well after mount, so no such race applies —
+ * `invalidateQueries` reliably forces the refetch spec §8 promises: the
+ * payload is a hint only, and this is what turns "something changed" into
+ * an actual read through the ACL-checked endpoint, never trusting the
+ * payload's own contents.
+ *
+ * The subscription degrades to the interval on ANY failure to connect or
+ * stay connected — a corporate proxy blocking SSE outright must fall back
+ * to exactly plan 4's polling, not to a page that silently never updates
+ * again, which is why `onError` (never connected, or the stream later
+ * dropped) unconditionally clears `liveRef` and re-checks.
+ */
+export function useSchemaReport(schemaId: string) {
+  const queryClient = useQueryClient();
+  const liveRef = useRef(false);
+
+  useEffect(() => {
+    if (!schemaId) return undefined;
+    liveRef.current = false;
+
+    const unsubscribe = subscribeToSchema(schemaId, {
+      onOpen: () => {
+        liveRef.current = true;
+      },
+      onEvent: () => {
+        // The payload is a hint only (spec §8) — refetch through the
+        // ACL-checked endpoint rather than trusting anything in it.
+        queryClient.invalidateQueries({ queryKey: reportKey(schemaId) });
+      },
+      onError: () => {
+        liveRef.current = false;
+        queryClient.invalidateQueries({ queryKey: reportKey(schemaId) });
+      },
+    });
+
+    return () => {
+      liveRef.current = false;
+      unsubscribe();
+    };
+  }, [schemaId, queryClient]);
+
+  return useQuery<SchemaReport>({
+    queryKey: reportKey(schemaId),
+    queryFn: () => fetchReport(schemaId),
+    enabled: !!schemaId,
+    refetchInterval: (query) => {
+      if (liveRef.current) return false; // the SSE subscription is doing the job
+      const state = query.state.data?.state;
+      if (state === undefined) return false; // no data yet — the initial fetch, not a poll
+      return state === 'fresh' || state === 'failed' ? false : REPORT_POLL_INTERVAL_MS;
+    },
+  });
+}
+
+/**
+ * A human-readable outcome for POST .../report/refresh, mirroring
+ * grants.ts#LookupOutcome: a 403 (caller lacks `edit`) and a 429 (over the
+ * hourly quota) are both routine, expected responses to react to, not raw
+ * errors to decode. `retryAfter` is in seconds, as the refresh endpoint
+ * reports it.
+ */
+export type RefreshOutcome =
+  | { kind: 'ok' }
+  | { kind: 'forbidden' }
+  | { kind: 'rate_limited'; retryAfter: number }
+  | { kind: 'error' };
+
+async function refreshReport(schemaId: string): Promise<RefreshOutcome> {
+  try {
+    await apiClient.post(`/ontology-schemas/${schemaId}/report/refresh`);
+    return { kind: 'ok' };
+  } catch (err) {
+    if (!axios.isAxiosError(err)) return { kind: 'error' };
+    const status = err.response?.status;
+    if (status === 403) return { kind: 'forbidden' };
+    if (status === 429) {
+      const retryAfter = Number(err.response?.data?.retryAfter ?? 0);
+      return { kind: 'rate_limited', retryAfter };
+    }
+    return { kind: 'error' };
+  }
+}
+
+/** A mutation rather than a query: refresh is triggered by a button click, not rendered on mount. */
+export function useRefreshReport(schemaId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => refreshReport(schemaId),
+    onSuccess: (outcome) => {
+      // A successful queue-admission means the state is about to change
+      // (to `queued`) — refetch now instead of waiting for the next poll so
+      // the badge reacts immediately to the caller's own click.
+      if (outcome.kind === 'ok') qc.invalidateQueries({ queryKey: reportKey(schemaId) });
+    },
+  });
+}

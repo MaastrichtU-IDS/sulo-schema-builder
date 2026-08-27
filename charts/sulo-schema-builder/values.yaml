@@ -1,0 +1,163 @@
+# Default values for sulo-schema-builder.
+# See this chart's README.md for the full picture — in particular, what this
+# chart deliberately does NOT deploy (Postgres, Keycloak) and why.
+
+replicaCount: 2
+
+image:
+  # No image is published by this repo's CI yet (docker/api/Dockerfile,
+  # `target: production`, is built and smoke-tested in CI but not pushed
+  # anywhere) — this MUST be set to wherever you build/push it.
+  repository: ""
+  pullPolicy: IfNotPresent
+  # Defaults to .Chart.AppVersion when empty.
+  tag: ""
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext:
+  runAsNonRoot: true
+  fsGroup: 1000
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: false
+  capabilities:
+    drop: ["ALL"]
+
+service:
+  type: ClusterIP
+  port: 80
+  # The container's own listening port — matches HOST=0.0.0.0/PORT=3000
+  # baked into docker/api/Dockerfile. Only change this if the image changes.
+  targetPort: 3000
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: schema-builder.example.org
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+  # - secretName: sulo-schema-builder-tls
+  #   hosts:
+  #     - schema-builder.example.org
+
+# Reasoning (ROBOT + HermiT, see api/src/services/robot.service.ts) runs a
+# JVM with a 2g heap per api/src/config/reasoner.ts's REASONER_MAX_CONCURRENT
+# default of 1 concurrent job — size limits with that floor in mind, or a
+# reasoning request will OOM-kill the pod instead of failing the one request.
+resources:
+  requests:
+    cpu: 250m
+    memory: 512Mi
+  limits:
+    memory: 2560Mi
+
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 6
+  targetCPUUtilizationPercentage: 70
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+probes:
+  # Unauthenticated, checks process liveness only — it does not verify DB or
+  # Keycloak connectivity (api/src/routes/v1/health.ts). Good enough for
+  # liveness; treat readiness-during-a-dependency-outage as best-effort.
+  path: /api/v1/health
+  livenessProbe:
+    initialDelaySeconds: 10
+    periodSeconds: 15
+    timeoutSeconds: 3
+    failureThreshold: 3
+  readinessProbe:
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 3
+    failureThreshold: 3
+
+# ── App config ───────────────────────────────────────────────────────────
+# Mirrors .env.example / docker-compose.yml's api service. Full description
+# of each variable lives in README.md at the repo root ("Authentication" /
+# "Storage" / "Observability") — this is deliberately a bare list, same
+# rationale as .env.example, so the two cannot drift into contradiction.
+config:
+  schemaStorage: postgres
+  databasePoolMax: 10
+  rateLimitEnabled: true
+
+  # REQUIRED for auth to work — the browser-facing issuer URL, e.g.
+  # https://auth.example.org/realms/sulo. Must exactly match the `iss` claim
+  # Keycloak stamps into every token (i.e. Keycloak's own KC_HOSTNAME).
+  authIssuer: ""
+  # REQUIRED — in-cluster JWKS URL, e.g.
+  # http://keycloak.identity.svc.cluster.local/realms/sulo/protocol/openid-connect/certs.
+  # Deliberately different from authIssuer above: this one is never sent to
+  # a browser, so it can (and for a ClusterIP Keycloak, must) point
+  # in-cluster instead of at the public issuer host. See the long comment
+  # above AUTH_JWKS_URI in docker-compose.yml for the full argument.
+  authJwksUri: ""
+  authAudience: sulo-api
+  authClientId: sulo-spa
+  # Unset (default) disables Keycloak-group-based admin promotion; admins are
+  # then granted by hand via PATCH /admin/users/:id. See README's
+  # "Authentication" section before setting this to a real group name.
+  authAdminGroup: ""
+  authUserCacheTtlMs: 60000
+  # true (default) refuses to boot if the JWKS endpoint is unreachable at
+  # startup. Consider false here specifically because Kubernetes' own
+  # readiness gate (this chart's probes.readinessProbe) already keeps an
+  # unready pod out of Service rotation — false avoids a CrashLoopBackOff
+  # racing Keycloak's own rollout, degrading to per-request JWKS resolution
+  # instead. See api/src/plugins/auth.ts.
+  authRequireJwksAtBoot: true
+
+  # Unset disables OpenTelemetry entirely (no SDK started). Point it at a
+  # collector, e.g. http://otel-collector.observability.svc.cluster.local:4318.
+  otelExporterOtlpEndpoint: ""
+
+  # Escape hatch for anything above that isn't worth its own value (the
+  # REASONER_*/REASON_*/EVENTS_* tuning knobs api/src/config/reasoner.ts and
+  # friends read directly from the environment) — same {name, value} shape
+  # Kubernetes itself uses.
+  extraEnv: []
+  # - name: REASON_DEBOUNCE_MS
+  #   value: "5000"
+
+# DATABASE_URL carries credentials — never put it in plain values.
+# Either point at a Secret you already manage (existingSecret), or set `url`
+# directly from a values file kept out of git / injected by your secrets
+# tooling, and the chart creates the Secret for you.
+database:
+  url: ""
+  existingSecret: ""
+  existingSecretKey: "DATABASE_URL"
+
+# One-shot schema migration, run via a Helm hook (pre-install/pre-upgrade) so
+# it always completes before any new api Pod starts — mirrors docker-
+# compose.yml's `migrate` service and its "N replicas must never race
+# applying the same migration" rationale.
+migrate:
+  enabled: true
+  image:
+    repository: ""
+    tag: ""
+  backoffLimit: 3
+  activeDeadlineSeconds: 300

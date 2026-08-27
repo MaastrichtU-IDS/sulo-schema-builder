@@ -27,7 +27,7 @@ struct SidecarHandle(Mutex<Option<CommandChild>>);
 /// Per-user app-data directory holding the log, and — written by the sidecar
 /// rather than here — sulo.db and robot.jar.
 ///
-/// Must stay in step with `appDataDir()` in api/src/config.ts: the sidecar is a
+/// Must stay in step with `appDataDir()` in api/src/paths.ts: the sidecar is a
 /// separate process and computes this independently, so the two rules have to
 /// agree or the log lands somewhere other than the data it describes.
 fn app_data_dir() -> Option<PathBuf> {
