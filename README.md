@@ -263,15 +263,46 @@ to the `jose`-signed unit tests):
   origin the browser loads the SPA from must be in that list.
 - **`check-sso` silently fails** — `AuthProvider` uses `onLoad: 'check-sso'`
   with a hidden iframe at `/silent-check-sso.html`. Third-party-cookie
-  blocking (common in headless/incognito contexts) or a missing/broken
-  silent-check page makes `check-sso` fail closed to `'disabled'` rather
-  than error loudly — check the browser console and confirm
-  `frontend/public/silent-check-sso.html` made it into the build.
+  blocking (common in headless/incognito contexts), a missing/broken
+  silent-check page, or a Content-Security-Policy `frame-src` that doesn't
+  include `AUTH_ISSUER`'s origin (`api/src/plugins/helmet.ts` — this is
+  exactly what a from-scratch CSP forgets first) makes `check-sso` fail
+  closed to `'disabled'` rather than error loudly — check the browser
+  console and confirm `frontend/public/silent-check-sso.html` made it into
+  the build.
 - **`VERIFY_PROFILE` required action blocking a seeded user** — the realm
   requires email verification and email-as-username. A user created without
   `emailVerified`, `firstName` and `lastName` gets stuck behind Keycloak's
   own profile-completion step instead of ever reaching the app; this is
   exactly what `seed-test-user.sh` sets explicitly.
+
+## Observability
+
+Set `OTEL_EXPORTER_OTLP_ENDPOINT` (e.g. `http://otel-collector:4318`) to get
+distributed traces for every request — HTTP, Fastify routing, Postgres
+queries, and outbound `undici`/`fetch` calls, all auto-instrumented via
+[`@opentelemetry/auto-instrumentations-node`](https://github.com/open-telemetry/opentelemetry-js-contrib/tree/main/metapackages/auto-instrumentations-node).
+Pino log lines gain `trace_id`/`span_id` fields for free once a trace is
+active, so a request's logs and its trace correlate without any extra work.
+
+Unset (the default), this costs nothing: `api/src/instrumentation.ts` never
+starts the SDK at all. Every other standard OpenTelemetry variable —
+`OTEL_SERVICE_NAME`, `OTEL_TRACES_SAMPLER`, `OTEL_EXPORTER_OTLP_HEADERS`,
+and the rest of the [SDK environment variable
+spec](https://opentelemetry.io/docs/languages/sdk-configuration/) — is read
+directly by the SDK/exporter; there is no app-specific config to set beyond
+the endpoint.
+
+This is wired in via `node --import ./dist/instrumentation.js dist/index.js`
+(`docker/api/Dockerfile`'s production `CMD`), not a plain import inside
+`index.ts` — auto-instrumentation has to patch `fastify`/`pg`/`http` before
+this process first imports them, which `--import` guarantees and a
+top-level import inside `index.ts` would already be too late for. That
+split also means the **packaged desktop binary never sees any of this at
+all**: `scripts/package-desktop.mjs` packages `dist/index.js` directly, and
+`instrumentation.ts` is not on that file's import graph — the desktop app
+stays single-user, loopback-bound, and free of both the OTel dependency
+tree and any runtime instrumentation overhead, exactly as intended.
 
 ## Local development
 

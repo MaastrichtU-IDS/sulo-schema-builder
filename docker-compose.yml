@@ -74,6 +74,15 @@ services:
       # api/src/modules/users/service.ts's withGroupAdminOverride for the
       # exact (additive, never-demoting) rule.
       AUTH_ADMIN_GROUP: ${AUTH_ADMIN_GROUP:-}
+      # Unset by default — src/instrumentation.ts never starts the
+      # OpenTelemetry SDK at all without an endpoint to send to, so a local
+      # stack with no collector pays nothing for this. Point it at one
+      # (e.g. http://otel-collector:4318) to get traces for this service;
+      # every other OTEL_* variable (OTEL_SERVICE_NAME, OTEL_TRACES_SAMPLER,
+      # OTEL_EXPORTER_OTLP_HEADERS, ...) is read directly from the
+      # environment by the SDK/exporter themselves, so there is nothing else
+      # to wire through here.
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
     depends_on:
       db:
         condition: service_healthy

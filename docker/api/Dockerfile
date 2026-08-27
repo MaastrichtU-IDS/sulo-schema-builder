@@ -110,7 +110,15 @@ COPY api/migrations ./api/migrations
 COPY --from=frontend-builder /app/frontend/dist ./api/public
 
 EXPOSE 3000
-CMD ["node", "api/dist/index.js"]
+# --import, not a plain import inside index.js: OpenTelemetry's
+# auto-instrumentation (src/instrumentation.ts) has to patch fastify/pg/http
+# before this process ever imports them, and this flag is exactly what runs
+# it first. A no-op — the SDK is never started — unless
+# OTEL_EXPORTER_OTLP_ENDPOINT is set; see src/instrumentation.ts's own
+# header for why this lives here rather than in index.ts, and why the
+# packaged desktop binary (built from dist/index.js directly, never through
+# this CMD) never sees it at all.
+CMD ["node", "--import", "./api/dist/instrumentation.js", "api/dist/index.js"]
 
 # ── Stage 4: Development (used by docker-compose.override.yml) ──────────────
 FROM node:22-alpine AS development
