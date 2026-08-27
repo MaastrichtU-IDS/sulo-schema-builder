@@ -18,13 +18,18 @@
 //    hostname and drops every private/reserved address; if none survive, the
 //    connection fails. Because the *connection itself* uses the filtered
 //    result, rebinding and exotic IP encodings are covered.
+//  - the port allowlist is enforced by a custom connector (portCheckedConnector,
+//    below), not just publicUrlProblem's one-time pre-check — a redirect to a
+//    public host on a non-80/443 port (e.g. probing an internal service that
+//    happens to have a public IP) is refused at connect time on *every* hop,
+//    the same layer the private-address check already lives at
 //  - redirects are followed by undici's fetch through the same Agent, so every
-//    hop re-enters the validating lookup
+//    hop re-enters both the port check and the validating lookup
 //  - the response body is read incrementally and aborted past maxBytes
 
 import { lookup as dnsLookup } from 'node:dns';
 import { isIP } from 'node:net';
-import { Agent, fetch as undiciFetch } from 'undici';
+import { Agent, buildConnector, fetch as undiciFetch } from 'undici';
 
 // ─── Address classification (pure — unit-tested) ────────────────────────────────
 
@@ -137,6 +142,12 @@ class PrivateAddressError extends Error {
   }
 }
 
+class DisallowedPortError extends Error {
+  constructor(port: string) {
+    super(`Refusing to connect: port ${port} is not 80 or 443`);
+  }
+}
+
 type LookupCallback = (
   err: NodeJS.ErrnoException | null,
   addresses: Array<{ address: string; family: number }>,
@@ -153,17 +164,41 @@ function safeLookup(hostname: string, options: unknown, callback: LookupCallback
   });
 }
 
+// undici resolves the target port (defaulting per scheme) before invoking the
+// connector, so `options.port` here is always the port this specific
+// connection attempt is about to use — the initial request AND every
+// redirect hop alike, unlike publicUrlProblem's one-time pre-check on the
+// original URL.
+const baseConnector = buildConnector({
+  // undici's types don't expose `lookup`, but it is forwarded to
+  // net/tls.connect, which honours it.
+  lookup: safeLookup,
+  timeout: 10_000,
+} as Parameters<typeof buildConnector>[0]);
+
+/**
+ * Exported for a direct, network-free unit test — the port check itself is a
+ * pure decision over `options`, and asserting it here is far more reliable
+ * than trying to force a real redirect-to-a-bad-port through an actual
+ * socket in a test. The delegation to `baseConnector` for an allowed port is
+ * what actually opens a connection, and is exercised only indirectly, via
+ * every real fetch this module makes.
+ */
+export function portCheckedConnector(
+  options: Parameters<typeof baseConnector>[0],
+  callback: Parameters<typeof baseConnector>[1],
+): void {
+  if (options.port !== '80' && options.port !== '443') {
+    callback(new DisallowedPortError(options.port), null);
+    return;
+  }
+  baseConnector(options, callback);
+}
+
 // One agent for the process: connections (and every redirect hop fetched
-// through it) resolve through safeLookup, so the socket can only ever be
-// opened to an address that passed isPrivateAddress.
-const publicOnlyAgent = new Agent({
-  connect: {
-    // undici's types don't expose `lookup`, but it is forwarded to
-    // net/tls.connect, which honours it.
-    lookup: safeLookup,
-    timeout: 10_000,
-  } as ConstructorParameters<typeof Agent>[0] extends { connect?: infer C } ? C : never,
-});
+// through it) go through portCheckedConnector, so the socket can only ever
+// be opened on port 80/443 to an address that passed isPrivateAddress.
+const publicOnlyAgent = new Agent({ connect: portCheckedConnector });
 
 // ─── Guarded fetch ──────────────────────────────────────────────────────────────
 
@@ -201,10 +236,12 @@ export async function safeFetchText(
       dispatcher: publicOnlyAgent,
     });
   } catch (err) {
-    // Surface deliberate policy rejections; collapse network noise to null.
-    if (err instanceof Error && /private addresses/.test(String((err as Error).cause ?? err.message))) {
-      throw new Error('The IRI resolves to a private address.');
-    }
+    // Surface deliberate policy rejections (from either the connector or the
+    // lookup, on the initial request or any redirect hop); collapse network
+    // noise to null.
+    const cause = String(err instanceof Error ? (err.cause ?? err.message) : err);
+    if (/private addresses/.test(cause)) throw new Error('The IRI resolves to a private address.');
+    if (/is not 80 or 443/.test(cause)) throw new Error('A redirect pointed at a port other than 80 or 443.');
     return null;
   }
   if (!res.ok || !res.body) return null;

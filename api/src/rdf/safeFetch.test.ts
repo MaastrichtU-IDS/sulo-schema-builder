@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { isPrivateAddress, publicUrlProblem } from './safeFetch.js';
+import { describe, it, expect, vi } from 'vitest';
+import { isPrivateAddress, publicUrlProblem, portCheckedConnector } from './safeFetch.js';
 
 describe('isPrivateAddress', () => {
   it.each([
@@ -62,5 +62,37 @@ describe('publicUrlProblem', () => {
   it('rejects credentials and garbage', () => {
     expect(publicUrlProblem('http://user:pass@example.org/')).toMatch(/redentials/);
     expect(publicUrlProblem('not a url')).toMatch(/valid URL/);
+  });
+});
+
+// Fix for: publicUrlProblem's port check only ever ran once, against the
+// original URL — a redirect to a public host on a non-80/443 port sailed
+// through, since only the private-address check re-ran on every hop. This is
+// the connector every real connection attempt (initial request AND every
+// redirect) goes through, so testing it directly is the actual proof the gap
+// is closed, not just that the one-time pre-check still works.
+describe('portCheckedConnector', () => {
+  function fakeOptions(protocol: string, port: string) {
+    return { hostname: 'example.org', protocol, port } as Parameters<typeof portCheckedConnector>[0];
+  }
+
+  it.each(['22', '3000', '6379', '8080', ''])('refuses port %s without reaching the network', (port) => {
+    const callback = vi.fn();
+    portCheckedConnector(fakeOptions('http:', port), callback);
+    expect(callback).toHaveBeenCalledOnce();
+    const [err, socket] = callback.mock.calls[0];
+    expect(err).toBeInstanceOf(Error);
+    expect((err as Error).message).toMatch(/not 80 or 443/);
+    expect(socket).toBeNull();
+  });
+
+  it('rejects synchronously, before any async DNS/connect work could start', () => {
+    // If this ever delegated to the real connector for a bad port, the
+    // callback would fire on a later microtask (after a real dns.lookup),
+    // not before this line — a synchronous callback is direct evidence the
+    // check short-circuits rather than merely running in parallel with it.
+    const callback = vi.fn();
+    portCheckedConnector(fakeOptions('http:', '22'), callback);
+    expect(callback).toHaveBeenCalledOnce();
   });
 });
