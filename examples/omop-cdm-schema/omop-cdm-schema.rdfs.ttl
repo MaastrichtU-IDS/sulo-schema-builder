@@ -1,0 +1,754 @@
+@prefix : <https://w3id.org/sulo/schema-builder/omop-cdm-schema/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix dct: <http://purl.org/dc/terms/> .
+@prefix sulo: <https://w3id.org/sulo/> .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema>
+    dct:title "OMOP CDM Schema" ;
+    dct:description "OMOP Common Data Model schema with core clinical tables (VisitOccurrence, ConditionOccurrence, DrugExposure, Measurement, ProcedureOccurrence, Observation, DeviceExposure) mapped to SULO. Intentionally contains SULO domain/range violations (see docs/omop-consistency-issues.md and docs/omop-modeling-error-examples.md) — HermiT reports 44 unsatisfiable classes." ;
+    rdfs:seeAlso <https://w3id.org/sulo/> .
+
+# ── Classes ──────────────────────────────────────────────────────────────
+
+:VisitOccurrence
+    a rdfs:Class ;
+    rdfs:label "Visit Occurrence" ;
+    rdfs:comment "A healthcare encounter between a person and the healthcare system." .
+
+:ConditionOccurrence
+    a rdfs:Class ;
+    rdfs:label "Condition Occurrence" ;
+    rdfs:comment "A record of a disease, injury, or medical condition observed in a person." .
+
+:DrugExposure
+    a rdfs:Class ;
+    rdfs:label "Drug Exposure" ;
+    rdfs:comment "A record of a drug or vaccine administered to or ingested by a person." .
+
+:Measurement
+    a rdfs:Class ;
+    rdfs:label "Measurement" ;
+    rdfs:comment "A structured result obtained through systematic examination or testing (lab, vital signs)." .
+
+:ProcedureOccurrence
+    a rdfs:Class ;
+    rdfs:label "Procedure Occurrence" ;
+    rdfs:comment "A record of an activity or process ordered or carried out on a person." .
+
+:Observation
+    a rdfs:Class ;
+    rdfs:label "Observation" ;
+    rdfs:comment "A clinical fact about a person not captured in other tables (e.g. smoking status, BMI)." .
+
+:DeviceExposure
+    a rdfs:Class ;
+    rdfs:label "Device Exposure" ;
+    rdfs:comment "Exposure to a foreign physical object used for diagnostic or therapeutic purposes." .
+
+:Person
+    a rdfs:Class ;
+    rdfs:label "Person" ;
+    rdfs:comment "A person who is the subject of health-related data." .
+
+:Provider
+    a rdfs:Class ;
+    rdfs:label "Provider" ;
+    rdfs:comment "A healthcare provider (clinician, nurse, etc.) who delivers care." .
+
+:CareSite
+    a rdfs:Class ;
+    rdfs:label "Care Site" ;
+    rdfs:comment "A uniquely identified healthcare delivery location or organisational unit." .
+
+:Location
+    a rdfs:Class ;
+    rdfs:label "Location" ;
+    rdfs:comment "A physical or geographic address associated with a care site or person." .
+
+:Concept
+    a rdfs:Class ;
+    rdfs:label "Concept" ;
+    rdfs:comment "A standardised vocabulary concept (SNOMED-CT, RxNorm, LOINC, etc.) used to express clinical data." .
+
+:DrugProduct
+    a rdfs:Class ;
+    rdfs:label "Drug Product" ;
+    rdfs:comment "A pharmaceutical substance or drug formulation identified by a vocabulary concept." .
+
+:Device
+    a rdfs:Class ;
+    rdfs:label "Device" ;
+    rdfs:comment "A medical device or instrument used in diagnosis or therapy." .
+
+:Specimen
+    a rdfs:Class ;
+    rdfs:label "Specimen" ;
+    rdfs:comment "A biological specimen collected from a person for laboratory analysis." .
+
+:PatientRole
+    a rdfs:Class ;
+    rdfs:label "Patient Role" ;
+    rdfs:comment "The role played by a person as the subject of a clinical event." .
+
+:ProviderRole
+    a rdfs:Class ;
+    rdfs:label "Provider Role" ;
+    rdfs:comment "The role played by a provider who participates in a clinical event." .
+
+:OutputRole
+    a rdfs:Class ;
+    rdfs:label "Output Role" ;
+    rdfs:comment "The role of an entity produced as an output of a clinical process." .
+
+:InstrumentRole
+    a rdfs:Class ;
+    rdfs:label "Instrument Role" ;
+    rdfs:comment "The role of a device or instrument used in a clinical process." .
+
+:MeasurementValue
+    a rdfs:Class ;
+    rdfs:label "Measurement Value" ;
+    rdfs:comment "A numerical or categorical value obtained from a measurement." .
+
+:Unit
+    a rdfs:Class ;
+    rdfs:label "Unit" ;
+    rdfs:comment "A unit of measure associated with a measurement or dose." .
+
+:DoseQuantity
+    a rdfs:Class ;
+    rdfs:label "Dose Quantity" ;
+    rdfs:comment "The quantity of a drug dispensed or administered." .
+
+# ── Properties ───────────────────────────────────────────────────────────
+
+:concept_id
+    a rdfs:Property ;
+    rdfs:label "Concept ID" ;
+    rdfs:comment "The unique integer identifier of the concept in the vocabulary." ;
+    rdfs:domain :Concept ;
+    rdfs:range xsd:integer .
+
+:concept_name
+    a rdfs:Property ;
+    rdfs:label "Concept Name" ;
+    rdfs:comment "The human-readable name or label of the concept." ;
+    rdfs:domain :Concept ;
+    rdfs:range xsd:string .
+
+:person_id
+    a rdfs:Property ;
+    rdfs:label "Person ID" ;
+    rdfs:comment "Links a visit occurrence to the patient (subject of care)." ;
+    rdfs:domain :VisitOccurrence ;
+    rdfs:range :Person .
+
+:provider_id
+    a rdfs:Property ;
+    rdfs:label "Provider ID" ;
+    rdfs:comment "Links a visit occurrence to the attending healthcare provider." ;
+    rdfs:domain :VisitOccurrence ;
+    rdfs:range :Provider .
+
+:care_site_id
+    a rdfs:Property ;
+    rdfs:label "Care Site ID" ;
+    rdfs:comment "Links a visit occurrence to the care site where it took place." ;
+    rdfs:domain :VisitOccurrence ;
+    rdfs:range :CareSite .
+
+:visit_concept_id
+    a rdfs:Property ;
+    rdfs:label "Visit Concept ID" ;
+    rdfs:comment "Links a visit occurrence to its standardised vocabulary concept (visit type)." ;
+    rdfs:domain :VisitOccurrence ;
+    rdfs:range :Concept .
+
+:visit_start_datetime
+    a rdfs:Property ;
+    rdfs:label "Visit Start Datetime" ;
+    rdfs:comment "Date and time when the visit started." ;
+    rdfs:domain :VisitOccurrence ;
+    rdfs:range xsd:dateTime .
+
+:visit_end_datetime
+    a rdfs:Property ;
+    rdfs:label "Visit End Datetime" ;
+    rdfs:comment "Date and time when the visit ended." ;
+    rdfs:domain :VisitOccurrence ;
+    rdfs:range xsd:dateTime .
+
+:admitting_source_concept_id
+    a rdfs:Property ;
+    rdfs:label "Admitting Source Concept ID" ;
+    rdfs:comment "Concept for the place of service or type of provider from which the patient was admitted." ;
+    rdfs:domain :VisitOccurrence ;
+    rdfs:range :Concept .
+
+:discharge_to_concept_id
+    a rdfs:Property ;
+    rdfs:label "Discharge To Concept ID" ;
+    rdfs:comment "Concept for the place of service or type of provider to which the patient was discharged." ;
+    rdfs:domain :VisitOccurrence ;
+    rdfs:range :Concept .
+
+:preceding_visit_occurrence_id
+    a rdfs:Property ;
+    rdfs:label "Preceding Visit Occurrence ID" ;
+    rdfs:comment "Links a visit to the immediately preceding visit occurrence for the same patient." ;
+    rdfs:domain :VisitOccurrence ;
+    rdfs:range :VisitOccurrence .
+
+:person_id
+    a rdfs:Property ;
+    rdfs:label "Person ID" ;
+    rdfs:comment "Links a condition occurrence to the patient." ;
+    rdfs:domain :ConditionOccurrence ;
+    rdfs:range :Person .
+
+:condition_concept_id
+    a rdfs:Property ;
+    rdfs:label "Condition Concept ID" ;
+    rdfs:comment "Links a condition occurrence to its standardised diagnosis concept (e.g. SNOMED-CT code)." ;
+    rdfs:domain :ConditionOccurrence ;
+    rdfs:range :Concept .
+
+:visit_occurrence_id
+    a rdfs:Property ;
+    rdfs:label "Visit Occurrence ID" ;
+    rdfs:comment "Links a condition occurrence to the enclosing visit occurrence." ;
+    rdfs:domain :ConditionOccurrence ;
+    rdfs:range :VisitOccurrence .
+
+:condition_start_datetime
+    a rdfs:Property ;
+    rdfs:label "Condition Start Datetime" ;
+    rdfs:comment "Date and time when the condition started." ;
+    rdfs:domain :ConditionOccurrence ;
+    rdfs:range xsd:dateTime .
+
+:condition_end_datetime
+    a rdfs:Property ;
+    rdfs:label "Condition End Datetime" ;
+    rdfs:comment "Date and time when the condition ended." ;
+    rdfs:domain :ConditionOccurrence ;
+    rdfs:range xsd:dateTime .
+
+:condition_status_concept_id
+    a rdfs:Property ;
+    rdfs:label "Condition Status Concept ID" ;
+    rdfs:comment "Standardised concept reflecting the current status of the condition (e.g. active, inactive, resolved)." ;
+    rdfs:domain :ConditionOccurrence ;
+    rdfs:range :Concept .
+
+:stop_reason
+    a rdfs:Property ;
+    rdfs:label "Stop Reason" ;
+    rdfs:comment "The reason the condition was no longer present, as indicated in the source data." ;
+    rdfs:domain :ConditionOccurrence ;
+    rdfs:range xsd:string .
+
+:person_id
+    a rdfs:Property ;
+    rdfs:label "Person ID" ;
+    rdfs:comment "Links a drug exposure to the patient who received the drug." ;
+    rdfs:domain :DrugExposure ;
+    rdfs:range :Person .
+
+:provider_id
+    a rdfs:Property ;
+    rdfs:label "Provider ID" ;
+    rdfs:comment "Links a drug exposure to the prescribing or administering provider." ;
+    rdfs:domain :DrugExposure ;
+    rdfs:range :Provider .
+
+:drug_concept_id
+    a rdfs:Property ;
+    rdfs:label "Drug Concept ID" ;
+    rdfs:comment "Links a drug exposure to the drug concept (RxNorm or ATC code)." ;
+    rdfs:domain :DrugExposure ;
+    rdfs:range :Concept .
+
+:hasDrugProduct
+    a rdfs:Property ;
+    rdfs:label "Has Drug Product" ;
+    rdfs:comment "Links a drug exposure to the dispensed or administered drug product." ;
+    rdfs:domain :DrugExposure ;
+    rdfs:range :DrugProduct .
+
+:hasDoseQuantity
+    a rdfs:Property ;
+    rdfs:label "Has Dose Quantity" ;
+    rdfs:comment "Links a drug exposure to the administered dose quantity." ;
+    rdfs:domain :DrugExposure ;
+    rdfs:range :DoseQuantity .
+
+:visit_occurrence_id
+    a rdfs:Property ;
+    rdfs:label "Visit Occurrence ID" ;
+    rdfs:comment "Links a drug exposure to the enclosing visit occurrence." ;
+    rdfs:domain :DrugExposure ;
+    rdfs:range :VisitOccurrence .
+
+:drug_exposure_start_datetime
+    a rdfs:Property ;
+    rdfs:label "Drug Exposure Start Datetime" ;
+    rdfs:comment "Date and time when the drug exposure started." ;
+    rdfs:domain :DrugExposure ;
+    rdfs:range xsd:dateTime .
+
+:drug_exposure_end_datetime
+    a rdfs:Property ;
+    rdfs:label "Drug Exposure End Datetime" ;
+    rdfs:comment "Date and time when the drug exposure ended." ;
+    rdfs:domain :DrugExposure ;
+    rdfs:range xsd:dateTime .
+
+:stop_reason
+    a rdfs:Property ;
+    rdfs:label "Stop Reason" ;
+    rdfs:comment "The reason the drug was discontinued (e.g. regimen completed, side effects, changed)." ;
+    rdfs:domain :DrugExposure ;
+    rdfs:range xsd:string .
+
+:quantity
+    a rdfs:Property ;
+    rdfs:label "Quantity" ;
+    rdfs:comment "The quantity of the drug as recorded in the original prescription or dispensing record." ;
+    rdfs:domain :DrugExposure ;
+    rdfs:range xsd:decimal .
+
+:days_supply
+    a rdfs:Property ;
+    rdfs:label "Days Supply" ;
+    rdfs:comment "Number of days of supply as recorded in the original prescription or dispensing record." ;
+    rdfs:domain :DrugExposure ;
+    rdfs:range xsd:integer .
+
+:refills
+    a rdfs:Property ;
+    rdfs:label "Refills" ;
+    rdfs:comment "The number of refills after the initial prescription, starting at 0." ;
+    rdfs:domain :DrugExposure ;
+    rdfs:range xsd:integer .
+
+:person_id
+    a rdfs:Property ;
+    rdfs:label "Person ID" ;
+    rdfs:comment "Links a measurement to the patient it was taken from." ;
+    rdfs:domain :Measurement ;
+    rdfs:range :Person .
+
+:provider_id
+    a rdfs:Property ;
+    rdfs:label "Provider ID" ;
+    rdfs:comment "Links a measurement to the provider who ordered or performed it." ;
+    rdfs:domain :Measurement ;
+    rdfs:range :Provider .
+
+:hasMeasurementResult
+    a rdfs:Property ;
+    rdfs:label "Has Measurement Result" ;
+    rdfs:comment "Links a measurement to its output result value via an output role." ;
+    rdfs:domain :Measurement ;
+    rdfs:range :MeasurementValue .
+
+:measurement_concept_id
+    a rdfs:Property ;
+    rdfs:label "Measurement Concept ID" ;
+    rdfs:comment "Links a measurement to its LOINC or SNOMED concept (what was measured)." ;
+    rdfs:domain :Measurement ;
+    rdfs:range :Concept .
+
+:value_as_number
+    a rdfs:Property ;
+    rdfs:label "Value As Number" ;
+    rdfs:comment "Numeric result of the measurement." ;
+    rdfs:domain :Measurement ;
+    rdfs:range xsd:float .
+
+:unit_concept_id
+    a rdfs:Property ;
+    rdfs:label "Unit Concept ID" ;
+    rdfs:comment "Links a measurement to its unit of measure." ;
+    rdfs:domain :Measurement ;
+    rdfs:range :Unit .
+
+:visit_occurrence_id
+    a rdfs:Property ;
+    rdfs:label "Visit Occurrence ID" ;
+    rdfs:comment "Links a measurement to the enclosing visit occurrence." ;
+    rdfs:domain :Measurement ;
+    rdfs:range :VisitOccurrence .
+
+:measurement_datetime
+    a rdfs:Property ;
+    rdfs:label "Measurement Datetime" ;
+    rdfs:comment "Date and time when the measurement was taken." ;
+    rdfs:domain :Measurement ;
+    rdfs:range xsd:dateTime .
+
+:operator_concept_id
+    a rdfs:Property ;
+    rdfs:label "Operator Concept ID" ;
+    rdfs:comment "Comparison operator applied to the numeric result (e.g. <, <=, =, >=, >)." ;
+    rdfs:domain :Measurement ;
+    rdfs:range :Concept .
+
+:range_low
+    a rdfs:Property ;
+    rdfs:label "Range Low" ;
+    rdfs:comment "Lower bound of the normal reference range for this measurement." ;
+    rdfs:domain :Measurement ;
+    rdfs:range xsd:decimal .
+
+:range_high
+    a rdfs:Property ;
+    rdfs:label "Range High" ;
+    rdfs:comment "Upper bound of the normal reference range for this measurement." ;
+    rdfs:domain :Measurement ;
+    rdfs:range xsd:decimal .
+
+:person_id
+    a rdfs:Property ;
+    rdfs:label "Person ID" ;
+    rdfs:comment "Links a procedure occurrence to the patient it was performed on." ;
+    rdfs:domain :ProcedureOccurrence ;
+    rdfs:range :Person .
+
+:provider_id
+    a rdfs:Property ;
+    rdfs:label "Provider ID" ;
+    rdfs:comment "Links a procedure occurrence to the provider who performed it." ;
+    rdfs:domain :ProcedureOccurrence ;
+    rdfs:range :Provider .
+
+:procedure_concept_id
+    a rdfs:Property ;
+    rdfs:label "Procedure Concept ID" ;
+    rdfs:comment "Links a procedure occurrence to its standardised procedure concept." ;
+    rdfs:domain :ProcedureOccurrence ;
+    rdfs:range :Concept .
+
+:visit_occurrence_id
+    a rdfs:Property ;
+    rdfs:label "Visit Occurrence ID" ;
+    rdfs:comment "Links a procedure occurrence to the enclosing visit occurrence." ;
+    rdfs:domain :ProcedureOccurrence ;
+    rdfs:range :VisitOccurrence .
+
+:procedure_datetime
+    a rdfs:Property ;
+    rdfs:label "Procedure Datetime" ;
+    rdfs:comment "Date and time when the procedure was performed." ;
+    rdfs:domain :ProcedureOccurrence ;
+    rdfs:range xsd:dateTime .
+
+:procedure_end_datetime
+    a rdfs:Property ;
+    rdfs:label "Procedure End Datetime" ;
+    rdfs:comment "Date and time when the procedure ended." ;
+    rdfs:domain :ProcedureOccurrence ;
+    rdfs:range xsd:dateTime .
+
+:person_id
+    a rdfs:Property ;
+    rdfs:label "Person ID" ;
+    rdfs:comment "Links a clinical observation to the patient it concerns." ;
+    rdfs:domain :Observation ;
+    rdfs:range :Person .
+
+:observation_concept_id
+    a rdfs:Property ;
+    rdfs:label "Observation Concept ID" ;
+    rdfs:comment "Links an observation to its standardised concept (e.g. smoking status, BMI)." ;
+    rdfs:domain :Observation ;
+    rdfs:range :Concept .
+
+:value_as_string
+    a rdfs:Property ;
+    rdfs:label "Value As String" ;
+    rdfs:comment "Textual or categorical value of the observation." ;
+    rdfs:domain :Observation ;
+    rdfs:range xsd:string .
+
+:visit_occurrence_id
+    a rdfs:Property ;
+    rdfs:label "Visit Occurrence ID" ;
+    rdfs:comment "Links an observation to the enclosing visit occurrence." ;
+    rdfs:domain :Observation ;
+    rdfs:range :VisitOccurrence .
+
+:observation_datetime
+    a rdfs:Property ;
+    rdfs:label "Observation Datetime" ;
+    rdfs:comment "Date and time of the observation." ;
+    rdfs:domain :Observation ;
+    rdfs:range xsd:dateTime .
+
+:value_as_number
+    a rdfs:Property ;
+    rdfs:label "Value As Number" ;
+    rdfs:comment "Numeric result when the observation is expressed as a quantitative value." ;
+    rdfs:domain :Observation ;
+    rdfs:range xsd:decimal .
+
+:value_as_concept_id
+    a rdfs:Property ;
+    rdfs:label "Value As Concept ID" ;
+    rdfs:comment "Categorical result when the observation is expressed as a standardised concept." ;
+    rdfs:domain :Observation ;
+    rdfs:range :Concept .
+
+:unit_concept_id
+    a rdfs:Property ;
+    rdfs:label "Unit Concept ID" ;
+    rdfs:comment "Links an observation to its unit of measure (for numeric observations)." ;
+    rdfs:domain :Observation ;
+    rdfs:range :Unit .
+
+:qualifier_concept_id
+    a rdfs:Property ;
+    rdfs:label "Qualifier Concept ID" ;
+    rdfs:comment "Qualifier concept characterising the observation (e.g. severity, certainty, laterality)." ;
+    rdfs:domain :Observation ;
+    rdfs:range :Concept .
+
+:provider_id
+    a rdfs:Property ;
+    rdfs:label "Provider ID" ;
+    rdfs:comment "Links an observation to the provider responsible for documenting it." ;
+    rdfs:domain :Observation ;
+    rdfs:range :Provider .
+
+:person_id
+    a rdfs:Property ;
+    rdfs:label "Person ID" ;
+    rdfs:comment "Links a device exposure to the patient." ;
+    rdfs:domain :DeviceExposure ;
+    rdfs:range :Person .
+
+:provider_id
+    a rdfs:Property ;
+    rdfs:label "Provider ID" ;
+    rdfs:comment "Links a device exposure to the provider who applied the device." ;
+    rdfs:domain :DeviceExposure ;
+    rdfs:range :Provider .
+
+:device_concept_id
+    a rdfs:Property ;
+    rdfs:label "Device Concept ID" ;
+    rdfs:comment "Links a device exposure to its standardised device concept." ;
+    rdfs:domain :DeviceExposure ;
+    rdfs:range :Concept .
+
+:hasDevice
+    a rdfs:Property ;
+    rdfs:label "Has Device" ;
+    rdfs:comment "Links a device exposure to the physical device via an instrument role." ;
+    rdfs:domain :DeviceExposure ;
+    rdfs:range :Device .
+
+:visit_occurrence_id
+    a rdfs:Property ;
+    rdfs:label "Visit Occurrence ID" ;
+    rdfs:comment "Links a device exposure to the enclosing visit occurrence." ;
+    rdfs:domain :DeviceExposure ;
+    rdfs:range :VisitOccurrence .
+
+:device_exposure_start_datetime
+    a rdfs:Property ;
+    rdfs:label "Device Exposure Start Datetime" ;
+    rdfs:comment "Date and time when the device exposure started." ;
+    rdfs:domain :DeviceExposure ;
+    rdfs:range xsd:dateTime .
+
+:device_exposure_end_datetime
+    a rdfs:Property ;
+    rdfs:label "Device Exposure End Datetime" ;
+    rdfs:comment "Date and time when the device exposure ended." ;
+    rdfs:domain :DeviceExposure ;
+    rdfs:range xsd:dateTime .
+
+:visit_type_concept_id
+    a rdfs:Property ;
+    rdfs:label "Type Concept ID" ;
+    rdfs:comment "Provenance concept reflecting the source and origin of the visit record (e.g. EHR entry, claim, lab result)." ;
+    rdfs:domain :VisitOccurrence ;
+    rdfs:range :Concept .
+
+:condition_type_concept_id
+    a rdfs:Property ;
+    rdfs:label "Type Concept ID" ;
+    rdfs:comment "Provenance concept reflecting the source and origin of the condition record (e.g. EHR entry, claim, lab result)." ;
+    rdfs:domain :ConditionOccurrence ;
+    rdfs:range :Concept .
+
+:drug_type_concept_id
+    a rdfs:Property ;
+    rdfs:label "Type Concept ID" ;
+    rdfs:comment "Provenance concept reflecting the source and origin of the drug exposure record (e.g. EHR entry, claim, lab result)." ;
+    rdfs:domain :DrugExposure ;
+    rdfs:range :Concept .
+
+:measurement_type_concept_id
+    a rdfs:Property ;
+    rdfs:label "Type Concept ID" ;
+    rdfs:comment "Provenance concept reflecting the source and origin of the measurement record (e.g. EHR entry, claim, lab result)." ;
+    rdfs:domain :Measurement ;
+    rdfs:range :Concept .
+
+:procedure_type_concept_id
+    a rdfs:Property ;
+    rdfs:label "Type Concept ID" ;
+    rdfs:comment "Provenance concept reflecting the source and origin of the procedure record (e.g. EHR entry, claim, lab result)." ;
+    rdfs:domain :ProcedureOccurrence ;
+    rdfs:range :Concept .
+
+:observation_type_concept_id
+    a rdfs:Property ;
+    rdfs:label "Type Concept ID" ;
+    rdfs:comment "Provenance concept reflecting the source and origin of the observation record (e.g. EHR entry, claim, lab result)." ;
+    rdfs:domain :Observation ;
+    rdfs:range :Concept .
+
+:device_type_concept_id
+    a rdfs:Property ;
+    rdfs:label "Type Concept ID" ;
+    rdfs:comment "Provenance concept reflecting the source and origin of the device exposure record (e.g. EHR entry, claim, lab result)." ;
+    rdfs:domain :DeviceExposure ;
+    rdfs:range :Concept .
+
+:specimen_type_concept_id
+    a rdfs:Property ;
+    rdfs:label "Type Concept ID" ;
+    rdfs:comment "Provenance concept reflecting the source and origin of the specimen record (e.g. EHR entry, claim, lab result)." ;
+    rdfs:domain :Specimen ;
+    rdfs:range :Concept .
+
+:visit_source_concept_id
+    a rdfs:Property ;
+    rdfs:label "Source Concept ID" ;
+    rdfs:comment "Links a visit to the original source vocabulary concept before mapping to a standard concept." ;
+    rdfs:domain :VisitOccurrence ;
+    rdfs:range :Concept .
+
+:condition_source_concept_id
+    a rdfs:Property ;
+    rdfs:label "Source Concept ID" ;
+    rdfs:comment "Links a condition to the original source vocabulary concept before mapping to a standard concept." ;
+    rdfs:domain :ConditionOccurrence ;
+    rdfs:range :Concept .
+
+:drug_source_concept_id
+    a rdfs:Property ;
+    rdfs:label "Source Concept ID" ;
+    rdfs:comment "Links a drug exposure to the original source vocabulary concept before mapping to a standard concept." ;
+    rdfs:domain :DrugExposure ;
+    rdfs:range :Concept .
+
+:measurement_source_concept_id
+    a rdfs:Property ;
+    rdfs:label "Source Concept ID" ;
+    rdfs:comment "Links a measurement to the original source vocabulary concept before mapping to a standard concept." ;
+    rdfs:domain :Measurement ;
+    rdfs:range :Concept .
+
+:procedure_source_concept_id
+    a rdfs:Property ;
+    rdfs:label "Source Concept ID" ;
+    rdfs:comment "Links a procedure to the original source vocabulary concept before mapping to a standard concept." ;
+    rdfs:domain :ProcedureOccurrence ;
+    rdfs:range :Concept .
+
+:observation_source_concept_id
+    a rdfs:Property ;
+    rdfs:label "Source Concept ID" ;
+    rdfs:comment "Links a observation to the original source vocabulary concept before mapping to a standard concept." ;
+    rdfs:domain :Observation ;
+    rdfs:range :Concept .
+
+:device_source_concept_id
+    a rdfs:Property ;
+    rdfs:label "Source Concept ID" ;
+    rdfs:comment "Links a device exposure to the original source vocabulary concept before mapping to a standard concept." ;
+    rdfs:domain :DeviceExposure ;
+    rdfs:range :Concept .
+
+:value_as_concept_id
+    a rdfs:Property ;
+    rdfs:label "Value As Concept ID" ;
+    rdfs:comment "Categorical result of the measurement expressed as a standardised concept (e.g. Positive, Negative, Present)." ;
+    rdfs:domain :Measurement ;
+    rdfs:range :Concept .
+
+:route_concept_id
+    a rdfs:Property ;
+    rdfs:label "Route Concept ID" ;
+    rdfs:comment "Links a drug exposure to the route of administration concept (e.g. oral, intravenous, topical)." ;
+    rdfs:domain :DrugExposure ;
+    rdfs:range :Concept .
+
+:location_id
+    a rdfs:Property ;
+    rdfs:label "Location ID" ;
+    rdfs:comment "Links a care site to its physical or geographic location." ;
+    rdfs:domain :CareSite ;
+    rdfs:range :Location .
+
+:person_id
+    a rdfs:Property ;
+    rdfs:label "Person ID" ;
+    rdfs:comment "Links a specimen to the person it was collected from." ;
+    rdfs:domain :Specimen ;
+    rdfs:range :Person .
+
+:specimen_concept_id
+    a rdfs:Property ;
+    rdfs:label "Specimen Concept ID" ;
+    rdfs:comment "Links a specimen to its standardised type concept (e.g. blood, urine, tissue)." ;
+    rdfs:domain :Specimen ;
+    rdfs:range :Concept .
+
+:anatomic_site_concept_id
+    a rdfs:Property ;
+    rdfs:label "Anatomic Site Concept ID" ;
+    rdfs:comment "Links a specimen to the anatomical site from which it was collected." ;
+    rdfs:domain :Specimen ;
+    rdfs:range :Concept .
+
+:specimen_datetime
+    a rdfs:Property ;
+    rdfs:label "Specimen Datetime" ;
+    rdfs:comment "Date and time when the specimen was collected." ;
+    rdfs:domain :Specimen ;
+    rdfs:range xsd:dateTime .
+
+:specimen_source_concept_id
+    a rdfs:Property ;
+    rdfs:label "Specimen Source Concept ID" ;
+    rdfs:comment "Links a specimen to its original source vocabulary concept before mapping." ;
+    rdfs:domain :Specimen ;
+    rdfs:range :Concept .
+
+:quantity
+    a rdfs:Property ;
+    rdfs:label "Quantity" ;
+    rdfs:comment "The volume or amount of the specimen collected." ;
+    rdfs:domain :Specimen ;
+    rdfs:range xsd:decimal .
+
+:unit_concept_id
+    a rdfs:Property ;
+    rdfs:label "Unit Concept ID" ;
+    rdfs:comment "Links a specimen to the unit of measure for its collected quantity." ;
+    rdfs:domain :Specimen ;
+    rdfs:range :Unit .
+
+:disease_status_concept_id
+    a rdfs:Property ;
+    rdfs:label "Disease Status Concept ID" ;
+    rdfs:comment "Standardised concept reflecting the disease status of the patient at the time of specimen collection." ;
+    rdfs:domain :Specimen ;
+    rdfs:range :Concept .
