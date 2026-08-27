@@ -1,0 +1,81 @@
+name: Publish Docker image
+
+# Builds docker/api/Dockerfile's `production` target (the same image
+# docker-compose.yml's `api`/`migrate` services run, and the one
+# charts/sulo-schema-builder points `image.repository`/`tag` at) and
+# publishes it to GHCR on every `v*` tag push — no external registry
+# credentials needed, GITHUB_TOKEN is enough.
+#
+# Tag-vs-version check and workflow_dispatch escape hatch mirror
+# release.yml's own desktop-bundle workflow.
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+concurrency:
+  group: docker-publish-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  build-and-push:
+    name: Build and push
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      # api/package.json's version is the source of truth (docker-compose.yml
+      # and this image both ship whatever that says), NOT the tag itself —
+      # without this check a `v0.2.0` tag would silently publish an image
+      # still labelled 0.1.1.
+      - name: Check the tag matches api/package.json
+        if: github.ref_type == 'tag'
+        run: |
+          pkg=$(node -p "require('./api/package.json').version")
+          tag="${GITHUB_REF_NAME#v}"
+          if [ "$pkg" != "$tag" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME implies version $tag, but api/package.json says $pkg. Bump the version or retag."
+            exit 1
+          fi
+          echo "Version $pkg matches tag $GITHUB_REF_NAME."
+
+      # GHCR (like Docker generally) rejects uppercase in image names;
+      # github.repository preserves this repo's actual casing
+      # ("MaastrichtU-IDS/..."), so it can't be used as-is.
+      - name: Compute a lowercase image name
+        run: echo "IMAGE_NAME=$(echo '${{ github.repository }}/api' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_ENV"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable=${{ github.ref_type == 'tag' }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/api/Dockerfile
+          target: production
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

@@ -21,10 +21,12 @@ If your environment doesn't have either yet, provision them as their own
 ArgoCD Applications (or via `docker/keycloak/realm-sulo.json` as a starting
 realm import) alongside this chart, not inside it.
 
-No image is published by this repo's CI yet — `docker/api/Dockerfile`'s
-`production` stage is built and smoke-tested in CI but never pushed to a
-registry. `image.repository`/`image.tag` **must** be set to wherever you
-build and push it.
+`.github/workflows/docker-publish.yml` builds `docker/api/Dockerfile`'s
+`production` stage and pushes it to `ghcr.io/maastrichtu-ids/sulo-schema-
+builder/api` on every `v*` tag push — `values.yaml`'s `image.repository`
+already points there. A newly created GHCR package defaults to **private**;
+either make it public or set `imagePullSecrets` with credentials that can
+pull it before relying on this default.
 
 ## Required values
 
@@ -32,8 +34,7 @@ At minimum, fill in:
 
 ```yaml
 image:
-  repository: your-registry/sulo-schema-builder-api
-  tag: "0.1.1"
+  tag: "0.1.1"   # a tag actually published by docker-publish.yml
 
 config:
   authIssuer: https://auth.example.org/realms/sulo
