@@ -1,1212 +1,1215 @@
 {
-  "id": "clinical-health-record",
-  "url": "https://w3id.org/sulo/schema-builder/clinical-health-record",
-  "title": "Clinical Health Record Schema",
-  "description": "Example schema covering core clinical concepts: visits, lab results, procedures, conditions, severity, treatments, and drugs (the case study from the SULO Schema Builder paper).",
-  "upperOntologyIri": "https://w3id.org/sulo/",
-  "classes": [
-    {
-      "id": "ClinicalVisit",
-      "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/ClinicalVisit",
-      "name": "ClinicalVisit",
-      "label": "Clinical Visit",
-      "description": "A healthcare encounter between a patient and a provider.",
-      "mapsToConceptIri": "https://w3id.org/sulo/Process"
-    },
-    {
-      "id": "Measurement",
-      "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/Measurement",
-      "name": "Measurement",
-      "label": "Measurement",
-      "description": "The outcome of a laboratory test or diagnostic analysis.",
-      "mapsToConceptIri": "https://w3id.org/sulo/InformationObject"
-    },
-    {
-      "id": "MedicalProcedure",
-      "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/MedicalProcedure",
-      "name": "MedicalProcedure",
-      "label": "Medical Procedure",
-      "description": "A clinical action or intervention performed on a patient.",
-      "mapsToConceptIri": "https://w3id.org/sulo/Process"
-    },
-    {
-      "id": "ClinicalCondition",
-      "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/ClinicalCondition",
-      "name": "ClinicalCondition",
-      "label": "Clinical Condition",
-      "description": "A medical condition, disease, or disorder affecting a patient.",
-      "mapsToConceptIri": "https://w3id.org/sulo/Process"
-    },
-    {
-      "id": "Severity",
-      "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/Severity",
-      "name": "Severity",
-      "label": "Severity",
-      "description": "The degree of seriousness of a condition, symptom, or finding.",
-      "mapsToConceptIri": "https://w3id.org/sulo/Quality"
-    },
-    {
-      "id": "TreatmentPlan",
-      "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/TreatmentPlan",
-      "name": "TreatmentPlan",
-      "label": "Treatment / Treatment Plan",
-      "description": "A drug administration event or planned course of treatment.",
-      "mapsToConceptIri": "https://w3id.org/sulo/Process"
-    },
-    {
-      "id": "SubjectOfCareRole",
-      "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/SubjectOfCareRole",
-      "name": "SubjectOfCareRole",
-      "label": "Subject of Care Role",
-      "description": "The role played by a person who is the subject of a care activity.",
-      "mapsToConceptIri": "https://w3id.org/sulo/Role"
-    },
-    {
-      "id": "CareProviderRole",
-      "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/CareProviderRole",
-      "name": "CareProviderRole",
-      "label": "Care Provider Role",
-      "description": "The role played by a person or organisation providing care.",
-      "mapsToConceptIri": "https://w3id.org/sulo/Role"
-    },
-    {
-      "id": "Person",
-      "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/Person",
-      "name": "Person",
-      "label": "Person",
-      "description": "A human being, either as a patient or a care participant.",
-      "mapsToConceptIri": "https://w3id.org/sulo/SpatialObject"
-    },
-    {
-      "id": "AnatomicalStructure",
-      "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/AnatomicalStructure",
-      "name": "AnatomicalStructure",
-      "label": "Anatomical Structure",
-      "description": "A body part or anatomical site relevant to a clinical finding or procedure.",
-      "mapsToConceptIri": "https://w3id.org/sulo/SpatialObject"
-    },
-    {
-      "id": "PerformerRole",
-      "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/PerformerRole",
-      "name": "PerformerRole",
-      "label": "Performer Role",
-      "description": "The role of an agent who performs a clinical action or procedure.",
-      "mapsToConceptIri": "https://w3id.org/sulo/Role"
-    },
-    {
-      "id": "ProcessStatus",
-      "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/ProcessStatus",
-      "name": "ProcessStatus",
-      "label": "Process Status",
-      "description": "The state or status of a clinical process or workflow step.",
-      "mapsToConceptIri": "https://w3id.org/sulo/Quality"
-    },
-    {
-      "id": "PharmaceuticalDose",
-      "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/PharmaceuticalDose",
-      "name": "PharmaceuticalDose",
-      "label": "Pharmaceutical Dose",
-      "description": "The quantity and form of a drug administered in a single instance.",
-      "mapsToConceptIri": "https://w3id.org/sulo/Quantity"
-    },
-    {
-      "id": "OutputRole",
-      "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/OutputRole",
-      "name": "OutputRole",
-      "label": "Output Role",
-      "description": "The role of an entity produced as an output of a clinical process.",
-      "mapsToConceptIri": "https://w3id.org/sulo/Role"
-    },
-    {
-      "id": "InstrumentRole",
-      "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/InstrumentRole",
-      "name": "InstrumentRole",
-      "label": "Instrument Role",
-      "description": "The role of a device or tool used in a clinical procedure.",
-      "mapsToConceptIri": "https://w3id.org/sulo/Role"
-    },
-    {
-      "id": "CareUnit",
-      "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/CareUnit",
-      "name": "CareUnit",
-      "label": "Care Unit",
-      "description": "An organisational unit responsible for delivering a type of care.",
-      "mapsToConceptIri": "https://w3id.org/sulo/SpatialObject"
-    },
-    {
-      "id": "MeasurementProcess",
-      "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/MeasurementProcess",
-      "name": "MeasurementProcess",
-      "label": "Measurement Process",
-      "description": "A process of measuring or quantifying a clinical observable or parameter.",
-      "mapsToConceptIri": "https://w3id.org/sulo/Process",
-      "superClassId": "MedicalProcedure"
-    },
-    {
-      "id": "Device",
-      "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/Device",
-      "name": "Device",
-      "label": "Device",
-      "description": "A physical instrument or medical device used in a clinical or diagnostic process.",
-      "mapsToConceptIri": "https://w3id.org/sulo/SpatialObject"
-    },
-    {
-      "id": "CarePlan",
-      "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/CarePlan",
-      "name": "CarePlan",
-      "label": "Care Plan",
-      "description": "A structured set of intended actions or treatments for a patient.",
-      "mapsToConceptIri": "https://w3id.org/sulo/InformationObject"
-    },
-    {
-      "id": "Occupation",
-      "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/Occupation",
-      "name": "Occupation",
-      "label": "Occupation",
-      "description": "A job, profession, or occupational role held by a person.",
-      "mapsToConceptIri": "https://w3id.org/sulo/SpatialObject"
-    },
-    {
-      "id": "EvaluationProcess",
-      "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/EvaluationProcess",
-      "name": "EvaluationProcess",
-      "label": "Evaluation Process",
-      "description": "A process of assessing or evaluating a clinical finding, condition, or patient state.",
-      "mapsToConceptIri": "https://w3id.org/sulo/Process",
-      "superClassId": "MedicalProcedure"
-    },
-    {
-      "id": "MedicationAdministration",
-      "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/MedicationAdministration",
-      "name": "MedicationAdministration",
-      "label": "Medication Administration",
-      "description": "A process of administering a drug or pharmaceutical substance to a patient.",
-      "mapsToConceptIri": "https://w3id.org/sulo/Process",
-      "superClassId": "MedicalProcedure"
-    },
-    {
-      "id": "PharmaceuticalProduct",
-      "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/PharmaceuticalProduct",
-      "name": "PharmaceuticalProduct",
-      "label": "Pharmaceutical Product",
-      "description": "A drug or medicinal product used in the treatment or prevention of disease.",
-      "mapsToConceptIri": "https://w3id.org/sulo/SpatialObject"
-    },
-    {
-      "id": "PharmaceuticalDoseForm",
-      "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/PharmaceuticalDoseForm",
-      "name": "PharmaceuticalDoseForm",
-      "label": "Pharmaceutical Dose Form",
-      "description": "The physical form of a pharmaceutical product (e.g. tablet, capsule, solution).",
-      "mapsToConceptIri": "https://w3id.org/sulo/Quality"
-    },
-    {
-      "id": "DiagnosticStatement",
-      "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/DiagnosticStatement",
-      "name": "DiagnosticStatement",
-      "label": "Diagnostic Statement",
-      "description": "An information object representing a diagnostic finding or clinical assertion.",
-      "mapsToConceptIri": "https://w3id.org/sulo/InformationObject"
-    },
-    {
-      "id": "Code",
-      "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/Code",
-      "name": "Code",
-      "label": "Code",
-      "description": "A terminology code bundling an identifier, its coding system/version, and an optional display name.",
-      "mapsToConceptIri": "https://w3id.org/sulo/InformationObject"
-    },
-    {
-      "id": "ObservableEntity",
-      "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/ObservableEntity",
-      "name": "ObservableEntity",
-      "label": "Observable Entity",
-      "description": "A SNOMED CT observable entity — a concept that can be measured or observed in a clinical or scientific context.",
-      "mapsToConceptIri": "http://snomed.info/id/363787002",
-      "superClassId": "Code"
-    },
-    {
-      "id": "SCT_Procedure",
-      "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/SCT_Procedure",
-      "name": "SCT_Procedure",
-      "label": "SCT Procedure",
-      "description": "A SNOMED CT procedure concept — a clinical action or intervention performed on or for a patient.",
-      "mapsToConceptIri": "http://snomed.info/id/71388002",
-      "superClassId": "Code"
-    },
-    {
-      "id": "AdministrativeCase",
-      "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/AdministrativeCase",
-      "name": "AdministrativeCase",
-      "label": "Administrative Case",
-      "description": "An administrative hospital case grouping a patient’s clinical visits.",
-      "mapsToConceptIri": "https://w3id.org/sulo/Process"
-    },
-    {
-      "id": "Sample",
-      "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/Sample",
-      "name": "Sample",
-      "label": "Sample",
-      "description": "A biological specimen collected from a patient for laboratory analysis.",
-      "mapsToConceptIri": "https://w3id.org/sulo/SpatialObject"
-    },
-    {
-      "id": "Substance",
-      "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/Substance",
-      "name": "Substance",
-      "label": "Substance",
-      "description": "A material substance, e.g. the active ingredient of a pharmaceutical product.",
-      "mapsToConceptIri": "https://w3id.org/sulo/SpatialObject"
-    },
-    {
-      "id": "DrugPrescription",
-      "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/DrugPrescription",
-      "name": "DrugPrescription",
-      "label": "Drug Prescription",
-      "description": "An information object representing a prescription or order for a drug.",
-      "mapsToConceptIri": "https://w3id.org/sulo/InformationObject"
-    }
-  ],
-  "properties": [
-    {
-      "id": "p0",
-      "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p0",
-      "name": "hasPatient",
-      "label": "Has Patient",
-      "description": "Links a clinical visit to the patient (subject of care).",
-      "propertyType": "object",
-      "domainClassId": "ClinicalVisit",
-      "rangeClassIri": "https://w3id.org/sulo/schema-builder/clinical-health-record/Person",
-      "mappingPattern": [
-        {
-          "subject": "?this",
-          "predicate": "https://w3id.org/sulo/hasParticipant",
-          "object": "?o1"
-        },
-        {
-          "subject": "?o1",
-          "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
-          "object": "https://w3id.org/sulo/schema-builder/clinical-health-record/SubjectOfCareRole"
-        },
-        {
-          "subject": "?o1",
-          "predicate": "https://w3id.org/sulo/isFeatureOf",
-          "object": "?value"
-        }
-      ],
-      "isRequired": false,
-      "propertyFeatures": [],
-      "disjointPropertyIris": []
-    },
-    {
-      "id": "p1",
-      "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p1",
-      "name": "hasCareProvider",
-      "label": "Has Care Provider",
-      "description": "Links a clinical visit to the care provider.",
-      "propertyType": "object",
-      "domainClassId": "ClinicalVisit",
-      "rangeClassIri": "https://w3id.org/sulo/schema-builder/clinical-health-record/Person",
-      "mappingPattern": [
-        {
-          "subject": "?this",
-          "predicate": "https://w3id.org/sulo/hasParticipant",
-          "object": "?o1"
-        },
-        {
-          "subject": "?o1",
-          "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
-          "object": "https://w3id.org/sulo/schema-builder/clinical-health-record/CareProviderRole"
-        },
-        {
-          "subject": "?o1",
-          "predicate": "https://w3id.org/sulo/isFeatureOf",
-          "object": "?value"
-        }
-      ],
-      "isRequired": false,
-      "propertyFeatures": [],
-      "disjointPropertyIris": []
-    },
-    {
-      "id": "p2",
-      "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p2",
-      "name": "hasCareUnit",
-      "label": "Has Care Unit",
-      "description": "Links a clinical visit to the care unit where it takes place.",
-      "propertyType": "object",
-      "domainClassId": "ClinicalVisit",
-      "rangeClassIri": "https://w3id.org/sulo/schema-builder/clinical-health-record/CareUnit",
-      "mappingPattern": [
-        {
-          "subject": "?this",
-          "predicate": "https://w3id.org/sulo/isIn",
-          "object": "?value"
-        }
-      ],
-      "isRequired": false,
-      "propertyFeatures": [],
-      "disjointPropertyIris": []
-    },
-    {
-      "id": "p3",
-      "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p3",
-      "name": "hasPatient",
-      "label": "Has Patient",
-      "description": "Links a medical procedure to the patient it is performed on.",
-      "propertyType": "object",
-      "domainClassId": "MedicalProcedure",
-      "rangeClassIri": "https://w3id.org/sulo/schema-builder/clinical-health-record/Person",
-      "mappingPattern": [
-        {
-          "subject": "?this",
-          "predicate": "https://w3id.org/sulo/hasParticipant",
-          "object": "?o1"
-        },
-        {
-          "subject": "?o1",
-          "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
-          "object": "https://w3id.org/sulo/schema-builder/clinical-health-record/SubjectOfCareRole"
-        },
-        {
-          "subject": "?o1",
-          "predicate": "https://w3id.org/sulo/isFeatureOf",
-          "object": "?value"
-        }
-      ],
-      "isRequired": false,
-      "propertyFeatures": [],
-      "disjointPropertyIris": []
-    },
-    {
-      "id": "p4",
-      "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p4",
-      "name": "hasPerformer",
-      "label": "Has Performer",
-      "description": "Links a medical procedure to the person who performed it.",
-      "propertyType": "object",
-      "domainClassId": "MedicalProcedure",
-      "rangeClassIri": "https://w3id.org/sulo/schema-builder/clinical-health-record/Person",
-      "mappingPattern": [
-        {
-          "subject": "?this",
-          "predicate": "https://w3id.org/sulo/hasParticipant",
-          "object": "?o1"
-        },
-        {
-          "subject": "?o1",
-          "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
-          "object": "https://w3id.org/sulo/schema-builder/clinical-health-record/PerformerRole"
-        },
-        {
-          "subject": "?o1",
-          "predicate": "https://w3id.org/sulo/isFeatureOf",
-          "object": "?value"
-        }
-      ],
-      "isRequired": false,
-      "propertyFeatures": [],
-      "disjointPropertyIris": []
-    },
-    {
-      "id": "p5",
-      "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p5",
-      "name": "hasPerformedDate",
-      "label": "Has Performed Date",
-      "description": "Links a medical procedure to the date and time it was performed.",
-      "propertyType": "datatype",
-      "domainClassId": "MedicalProcedure",
-      "rangeClassIri": "http://www.w3.org/2001/XMLSchema#dateTime",
-      "mappingPattern": [
-        {
-          "subject": "?this",
-          "predicate": "https://w3id.org/sulo/atTime",
-          "object": "?o1"
-        },
-        {
-          "subject": "?o1",
-          "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
-          "object": "https://w3id.org/sulo/TimeInstant"
-        },
-        {
-          "subject": "?o1",
-          "predicate": "https://w3id.org/sulo/hasValue",
-          "object": "?value"
-        }
-      ],
-      "isRequired": false,
-      "propertyFeatures": [],
-      "disjointPropertyIris": []
-    },
-    {
-      "id": "p6",
-      "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p6",
-      "name": "hasStatus",
-      "label": "Has Status",
-      "description": "Links a medical procedure to its current status.",
-      "propertyType": "object",
-      "domainClassId": "MedicalProcedure",
-      "rangeClassIri": "https://w3id.org/sulo/schema-builder/clinical-health-record/ProcessStatus",
-      "mappingPattern": [
-        {
-          "subject": "?this",
-          "predicate": "https://w3id.org/sulo/hasFeature",
-          "object": "?value"
-        }
-      ],
-      "isRequired": false,
-      "propertyFeatures": [],
-      "disjointPropertyIris": []
-    },
-    {
-      "id": "p7",
-      "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p7",
-      "name": "hasDevice",
-      "label": "Has Device",
-      "description": "Links a measurement process to the device used as an instrument.",
-      "propertyType": "object",
-      "domainClassId": "MeasurementProcess",
-      "rangeClassIri": "https://w3id.org/sulo/schema-builder/clinical-health-record/Device",
-      "mappingPattern": [
-        {
-          "subject": "?this",
-          "predicate": "https://w3id.org/sulo/hasParticipant",
-          "object": "?o1"
-        },
-        {
-          "subject": "?o1",
-          "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
-          "object": "https://w3id.org/sulo/schema-builder/clinical-health-record/InstrumentRole"
-        },
-        {
-          "subject": "?o1",
-          "predicate": "https://w3id.org/sulo/isFeatureOf",
-          "object": "?value"
-        }
-      ],
-      "isRequired": false,
-      "propertyFeatures": [],
-      "disjointPropertyIris": []
-    },
-    {
-      "id": "p8",
-      "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p8",
-      "name": "hasMeasuredDate",
-      "label": "Has Measured Date",
-      "description": "Links a measurement to the date and time it was recorded.",
-      "propertyType": "datatype",
-      "domainClassId": "Measurement",
-      "rangeClassIri": "http://www.w3.org/2001/XMLSchema#dateTime",
-      "mappingPattern": [
-        {
-          "subject": "?this",
-          "predicate": "https://w3id.org/sulo/atTime",
-          "object": "?o1"
-        },
-        {
-          "subject": "?o1",
-          "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
-          "object": "https://w3id.org/sulo/TimeInstant"
-        },
-        {
-          "subject": "?o1",
-          "predicate": "https://w3id.org/sulo/hasValue",
-          "object": "?value"
-        }
-      ],
-      "isRequired": false,
-      "propertyFeatures": [],
-      "disjointPropertyIris": []
-    },
-    {
-      "id": "p9",
-      "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p9",
-      "name": "hasUnit",
-      "label": "Has Unit",
-      "description": "Links a measurement to its unit of measure.",
-      "propertyType": "object",
-      "domainClassId": "Measurement",
-      "rangeClassIri": "https://w3id.org/sulo/Unit",
-      "mappingPattern": [
-        {
-          "subject": "?this",
-          "predicate": "https://w3id.org/sulo/hasPart",
-          "object": "?value"
-        }
-      ],
-      "isRequired": false,
-      "propertyFeatures": [],
-      "disjointPropertyIris": []
-    },
-    {
-      "id": "p10",
-      "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p10",
-      "name": "hasQuantityValue",
-      "label": "Has Quantity Value",
-      "description": "Links a measurement to its numeric quantity value.",
-      "propertyType": "datatype",
-      "domainClassId": "Measurement",
-      "rangeClassIri": "http://www.w3.org/2001/XMLSchema#float",
-      "mappingPattern": [
-        {
-          "subject": "?this",
-          "predicate": "https://w3id.org/sulo/hasValue",
-          "object": "?value"
-        }
-      ],
-      "isRequired": false,
-      "propertyFeatures": [],
-      "disjointPropertyIris": []
-    },
-    {
-      "id": "p11",
-      "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p11",
-      "name": "hasResult",
-      "label": "Has Result",
-      "description": "Links a measurement process to its result via an output role.",
-      "propertyType": "object",
-      "domainClassId": "MeasurementProcess",
-      "rangeClassIri": "https://w3id.org/sulo/schema-builder/clinical-health-record/Measurement",
-      "mappingPattern": [
-        {
-          "subject": "?this",
-          "predicate": "https://w3id.org/sulo/hasParticipant",
-          "object": "?o1"
-        },
-        {
-          "subject": "?o1",
-          "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
-          "object": "https://w3id.org/sulo/schema-builder/clinical-health-record/OutputRole"
-        },
-        {
-          "subject": "?o1",
-          "predicate": "https://w3id.org/sulo/isFeatureOf",
-          "object": "?value"
-        }
-      ],
-      "isRequired": false,
-      "propertyFeatures": [],
-      "disjointPropertyIris": []
-    },
-    {
-      "id": "p12",
-      "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p12",
-      "name": "hasRecordDate",
-      "label": "Has Record Date",
-      "description": "Links a clinical condition to the date and time it was recorded.",
-      "propertyType": "datatype",
-      "domainClassId": "ClinicalCondition",
-      "rangeClassIri": "http://www.w3.org/2001/XMLSchema#dateTime",
-      "mappingPattern": [
-        {
-          "subject": "?this",
-          "predicate": "https://w3id.org/sulo/atTime",
-          "object": "?o1"
-        },
-        {
-          "subject": "?o1",
-          "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
-          "object": "https://w3id.org/sulo/TimeInstant"
-        },
-        {
-          "subject": "?o1",
-          "predicate": "https://w3id.org/sulo/hasValue",
-          "object": "?value"
-        }
-      ],
-      "isRequired": false,
-      "propertyFeatures": [],
-      "disjointPropertyIris": []
-    },
-    {
-      "id": "p13",
-      "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p13",
-      "name": "hasConditionEndDate",
-      "label": "Has Condition End Date",
-      "description": "Links a clinical condition to the date and time it ended.",
-      "propertyType": "datatype",
-      "domainClassId": "ClinicalCondition",
-      "rangeClassIri": "http://www.w3.org/2001/XMLSchema#dateTime",
-      "mappingPattern": [
-        {
-          "subject": "?this",
-          "predicate": "https://w3id.org/sulo/atTime",
-          "object": "?o1"
-        },
-        {
-          "subject": "?o1",
-          "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
-          "object": "https://w3id.org/sulo/EndTime"
-        },
-        {
-          "subject": "?o1",
-          "predicate": "https://w3id.org/sulo/hasValue",
-          "object": "?value"
-        }
-      ],
-      "isRequired": false,
-      "propertyFeatures": [],
-      "disjointPropertyIris": []
-    },
-    {
-      "id": "p14",
-      "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p14",
-      "name": "hasLocatedIn",
-      "label": "Has Located In",
-      "description": "Links a clinical condition to the anatomical structure where it is located.",
-      "propertyType": "object",
-      "domainClassId": "ClinicalCondition",
-      "rangeClassIri": "https://w3id.org/sulo/schema-builder/clinical-health-record/AnatomicalStructure",
-      "mappingPattern": [
-        {
-          "subject": "?this",
-          "predicate": "https://w3id.org/sulo/isIn",
-          "object": "?value"
-        }
-      ],
-      "isRequired": false,
-      "propertyFeatures": [],
-      "disjointPropertyIris": []
-    },
-    {
-      "id": "p15",
-      "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p15",
-      "name": "hasSeverity",
-      "label": "Has Severity",
-      "description": "Links a clinical condition to its severity.",
-      "propertyType": "object",
-      "domainClassId": "ClinicalCondition",
-      "rangeClassIri": "https://w3id.org/sulo/schema-builder/clinical-health-record/Severity",
-      "mappingPattern": [
-        {
-          "subject": "?this",
-          "predicate": "https://w3id.org/sulo/hasFeature",
-          "object": "?value"
-        }
-      ],
-      "isRequired": false,
-      "propertyFeatures": [],
-      "disjointPropertyIris": []
-    },
-    {
-      "id": "p16",
-      "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p16",
-      "name": "hasMedicalProcedure",
-      "label": "Has Medical Procedure",
-      "description": "Links a plan to the medical procedure it refers to.",
-      "propertyType": "object",
-      "domainClassId": "CarePlan",
-      "rangeClassIri": "https://w3id.org/sulo/schema-builder/clinical-health-record/MedicalProcedure",
-      "mappingPattern": [
-        {
-          "subject": "?this",
-          "predicate": "https://w3id.org/sulo/refersTo",
-          "object": "?value"
-        }
-      ],
-      "isRequired": false,
-      "propertyFeatures": [],
-      "disjointPropertyIris": []
-    },
-    {
-      "id": "p17",
-      "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p17",
-      "name": "hasObservation",
-      "label": "Has Observation",
-      "description": "Links an evaluation process to the diagnostic statement produced as its output.",
-      "propertyType": "object",
-      "domainClassId": "EvaluationProcess",
-      "rangeClassIri": "https://w3id.org/sulo/schema-builder/clinical-health-record/DiagnosticStatement",
-      "mappingPattern": [
-        {
-          "subject": "?this",
-          "predicate": "https://w3id.org/sulo/hasParticipant",
-          "object": "?o1"
-        },
-        {
-          "subject": "?o1",
-          "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
-          "object": "https://w3id.org/sulo/schema-builder/clinical-health-record/OutputRole"
-        },
-        {
-          "subject": "?o1",
-          "predicate": "https://w3id.org/sulo/isFeatureOf",
-          "object": "?value"
-        }
-      ],
-      "isRequired": false,
-      "propertyFeatures": [],
-      "disjointPropertyIris": []
-    },
-    {
-      "id": "p18",
-      "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p18",
-      "name": "hasDoseQuantity",
-      "label": "Has Dose Quantity",
-      "description": "Links a pharmaceutical product to its dose quantity.",
-      "propertyType": "object",
-      "domainClassId": "PharmaceuticalProduct",
-      "rangeClassIri": "https://w3id.org/sulo/schema-builder/clinical-health-record/PharmaceuticalDose",
-      "mappingPattern": [
-        {
-          "subject": "?this",
-          "predicate": "https://w3id.org/sulo/hasFeature",
-          "object": "?value"
-        }
-      ],
-      "isRequired": false,
-      "propertyFeatures": [],
-      "disjointPropertyIris": []
-    },
-    {
-      "id": "p19",
-      "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p19",
-      "name": "hasDoseForm",
-      "label": "Has Dose Form",
-      "description": "Links a pharmaceutical product to its dose form.",
-      "propertyType": "object",
-      "domainClassId": "PharmaceuticalProduct",
-      "rangeClassIri": "https://w3id.org/sulo/schema-builder/clinical-health-record/PharmaceuticalDoseForm",
-      "mappingPattern": [
-        {
-          "subject": "?this",
-          "predicate": "https://w3id.org/sulo/hasFeature",
-          "object": "?value"
-        }
-      ],
-      "isRequired": false,
-      "propertyFeatures": [],
-      "disjointPropertyIris": []
-    },
-    {
-      "id": "p20",
-      "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p20",
-      "name": "hasPharmaceuticalProduct",
-      "label": "Has Pharmaceutical Product",
-      "description": "Links a medication administration to the pharmaceutical product being administered.",
-      "propertyType": "object",
-      "domainClassId": "MedicationAdministration",
-      "rangeClassIri": "https://w3id.org/sulo/schema-builder/clinical-health-record/PharmaceuticalProduct",
-      "mappingPattern": [
-        {
-          "subject": "?this",
-          "predicate": "https://w3id.org/sulo/hasParticipant",
-          "object": "?value"
-        }
-      ],
-      "isRequired": false,
-      "propertyFeatures": [],
-      "disjointPropertyIris": []
-    },
-    {
-      "id": "p21",
-      "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p21",
-      "name": "hasIdentifier",
-      "label": "Has Identifier",
-      "description": "The code string itself (e.g. \"73211009\" for SNOMED CT, \"J18.9\" for ICD-10).",
-      "propertyType": "datatype",
-      "domainClassId": "Code",
-      "rangeClassIri": "http://www.w3.org/2001/XMLSchema#string",
-      "mappingPattern": [
-        {
-          "subject": "?this",
-          "predicate": "https://w3id.org/sulo/hasValue",
-          "object": "?value"
-        }
-      ],
-      "isRequired": true,
-      "propertyFeatures": [],
-      "disjointPropertyIris": []
-    },
-    {
-      "id": "p22",
-      "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p22",
-      "name": "hasCodingSystemAndVersion",
-      "label": "Has Coding System And Version",
-      "description": "Name and version of the coding system (e.g. \"SNOMED CT 2024-03\", \"ICD-10-CM 2024\", \"LOINC 2.76\").",
-      "propertyType": "datatype",
-      "domainClassId": "Code",
-      "rangeClassIri": "http://www.w3.org/2001/XMLSchema#string",
-      "mappingPattern": [
-        {
-          "subject": "?this",
-          "predicate": "https://w3id.org/sulo/hasLabel",
-          "object": "?value"
-        }
-      ],
-      "isRequired": true,
-      "propertyFeatures": [],
-      "disjointPropertyIris": []
-    },
-    {
-      "id": "p23",
-      "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p23",
-      "name": "hasName",
-      "label": "Has Name",
-      "description": "Human-readable display name for the code (e.g. \"Pneumonia, unspecified organism\").",
-      "propertyType": "datatype",
-      "domainClassId": "Code",
-      "rangeClassIri": "http://www.w3.org/2001/XMLSchema#string",
-      "mappingPattern": [
-        {
-          "subject": "?this",
-          "predicate": "https://w3id.org/sulo/hasLabel",
-          "object": "?value"
-        }
-      ],
-      "isRequired": false,
-      "propertyFeatures": [],
-      "disjointPropertyIris": []
-    },
-    {
-      "id": "p24",
-      "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p24",
-      "name": "hasCode",
-      "label": "Has Code",
-      "description": "Links a Clinical Condition instance to its terminology code (SNOMED CT, ICD-10, LOINC, ATC, etc.).",
-      "propertyType": "object",
-      "domainClassId": "ClinicalCondition",
-      "rangeClassIri": "https://w3id.org/sulo/schema-builder/clinical-health-record/Code",
-      "mappingPattern": [
-        {
-          "subject": "?this",
-          "predicate": "https://w3id.org/sulo/hasFeature",
-          "object": "?value"
-        }
-      ],
-      "isRequired": false,
-      "propertyFeatures": [],
-      "disjointPropertyIris": []
-    },
-    {
-      "id": "p25",
-      "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p25",
-      "name": "hasCode",
-      "label": "Has Code",
-      "description": "Links a Clinical Visit instance to its terminology code (SNOMED CT, ICD-10, LOINC, ATC, etc.).",
-      "propertyType": "object",
-      "domainClassId": "ClinicalVisit",
-      "rangeClassIri": "https://w3id.org/sulo/schema-builder/clinical-health-record/Code",
-      "mappingPattern": [
-        {
-          "subject": "?this",
-          "predicate": "https://w3id.org/sulo/hasFeature",
-          "object": "?value"
-        }
-      ],
-      "isRequired": false,
-      "propertyFeatures": [],
-      "disjointPropertyIris": []
-    },
-    {
-      "id": "p26",
-      "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p26",
-      "name": "hasCode",
-      "label": "Has Code",
-      "description": "Links a Medical Procedure instance to its terminology code (SNOMED CT, ICD-10, LOINC, ATC, etc.).",
-      "propertyType": "object",
-      "domainClassId": "MedicalProcedure",
-      "rangeClassIri": "https://w3id.org/sulo/schema-builder/clinical-health-record/Code",
-      "mappingPattern": [
-        {
-          "subject": "?this",
-          "predicate": "https://w3id.org/sulo/hasFeature",
-          "object": "?value"
-        }
-      ],
-      "isRequired": false,
-      "propertyFeatures": [],
-      "disjointPropertyIris": []
-    },
-    {
-      "id": "p27",
-      "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p27",
-      "name": "hasCode",
-      "label": "Has Code",
-      "description": "Links a Measurement instance to its terminology code (SNOMED CT, ICD-10, LOINC, ATC, etc.).",
-      "propertyType": "object",
-      "domainClassId": "Measurement",
-      "rangeClassIri": "https://w3id.org/sulo/schema-builder/clinical-health-record/Code",
-      "mappingPattern": [
-        {
-          "subject": "?this",
-          "predicate": "https://w3id.org/sulo/hasFeature",
-          "object": "?value"
-        }
-      ],
-      "isRequired": false,
-      "propertyFeatures": [],
-      "disjointPropertyIris": []
-    },
-    {
-      "id": "p28",
-      "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p28",
-      "name": "hasCode",
-      "label": "Has Code",
-      "description": "Links a Medication Administration instance to its terminology code (SNOMED CT, ICD-10, LOINC, ATC, etc.).",
-      "propertyType": "object",
-      "domainClassId": "MedicationAdministration",
-      "rangeClassIri": "https://w3id.org/sulo/schema-builder/clinical-health-record/Code",
-      "mappingPattern": [
-        {
-          "subject": "?this",
-          "predicate": "https://w3id.org/sulo/hasFeature",
-          "object": "?value"
-        }
-      ],
-      "isRequired": false,
-      "propertyFeatures": [],
-      "disjointPropertyIris": []
-    },
-    {
-      "id": "p29",
-      "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p29",
-      "name": "hasCode",
-      "label": "Has Code",
-      "description": "Links a Anatomical Structure instance to its terminology code (SNOMED CT, ICD-10, LOINC, ATC, etc.).",
-      "propertyType": "object",
-      "domainClassId": "AnatomicalStructure",
-      "rangeClassIri": "https://w3id.org/sulo/schema-builder/clinical-health-record/Code",
-      "mappingPattern": [
-        {
-          "subject": "?this",
-          "predicate": "https://w3id.org/sulo/hasFeature",
-          "object": "?value"
-        }
-      ],
-      "isRequired": false,
-      "propertyFeatures": [],
-      "disjointPropertyIris": []
-    },
-    {
-      "id": "p30",
-      "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p30",
-      "name": "hasCode",
-      "label": "Has Code",
-      "description": "Links a Severity instance to its terminology code (SNOMED CT, ICD-10, LOINC, ATC, etc.).",
-      "propertyType": "object",
-      "domainClassId": "Severity",
-      "rangeClassIri": "https://w3id.org/sulo/schema-builder/clinical-health-record/Code",
-      "mappingPattern": [
-        {
-          "subject": "?this",
-          "predicate": "https://w3id.org/sulo/hasFeature",
-          "object": "?value"
-        }
-      ],
-      "isRequired": false,
-      "propertyFeatures": [],
-      "disjointPropertyIris": []
-    },
-    {
-      "id": "p31",
-      "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p31",
-      "name": "hasCode",
-      "label": "Has Code",
-      "description": "Links a Pharmaceutical Product instance to its terminology code (SNOMED CT, ICD-10, LOINC, ATC, etc.).",
-      "propertyType": "object",
-      "domainClassId": "PharmaceuticalProduct",
-      "rangeClassIri": "https://w3id.org/sulo/schema-builder/clinical-health-record/Code",
-      "mappingPattern": [
-        {
-          "subject": "?this",
-          "predicate": "https://w3id.org/sulo/hasFeature",
-          "object": "?value"
-        }
-      ],
-      "isRequired": false,
-      "propertyFeatures": [],
-      "disjointPropertyIris": []
-    },
-    {
-      "id": "p32",
-      "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p32",
-      "name": "hasCode",
-      "label": "Has Code",
-      "description": "Links a MedicalProcedure to its SNOMED CT procedure code.",
-      "propertyType": "object",
-      "domainClassId": "MedicalProcedure",
-      "rangeClassIri": "https://w3id.org/sulo/schema-builder/clinical-health-record/SCT_Procedure",
-      "mappingPattern": [
-        {
-          "subject": "?this",
-          "predicate": "https://w3id.org/sulo/hasFeature",
-          "object": "?value"
-        }
-      ],
-      "isRequired": false,
-      "propertyFeatures": [],
-      "disjointPropertyIris": []
-    },
-    {
-      "id": "p33",
-      "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p33",
-      "name": "hasCode",
-      "label": "Has Code",
-      "description": "Links a Measurement to its SNOMED CT observable entity code (e.g. body weight, blood pressure).",
-      "propertyType": "object",
-      "domainClassId": "Measurement",
-      "rangeClassIri": "https://w3id.org/sulo/schema-builder/clinical-health-record/ObservableEntity",
-      "mappingPattern": [
-        {
-          "subject": "?this",
-          "predicate": "https://w3id.org/sulo/hasFeature",
-          "object": "?value"
-        }
-      ],
-      "isRequired": false,
-      "propertyFeatures": [],
-      "disjointPropertyIris": []
-    },
-    {
-      "id": "p34",
-      "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p34",
-      "name": "hasAdministrativeCase",
-      "label": "Has Administrative Case",
-      "description": "Links a clinical visit to the administrative case it belongs to.",
-      "propertyType": "object",
-      "domainClassId": "ClinicalVisit",
-      "rangeClassIri": "https://w3id.org/sulo/schema-builder/clinical-health-record/AdministrativeCase",
-      "mappingPattern": [
-        {
-          "subject": "?this",
-          "predicate": "https://w3id.org/sulo/isPartOf",
-          "object": "?value"
-        }
-      ],
-      "isRequired": false,
-      "propertyFeatures": [],
-      "disjointPropertyIris": []
-    },
-    {
-      "id": "p35",
-      "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p35",
-      "name": "hasPatient",
-      "label": "Has Patient",
-      "description": "Links an administrative case to the patient it concerns.",
-      "propertyType": "object",
-      "domainClassId": "AdministrativeCase",
-      "rangeClassIri": "https://w3id.org/sulo/schema-builder/clinical-health-record/Person",
-      "mappingPattern": [
-        {
-          "subject": "?this",
-          "predicate": "https://w3id.org/sulo/hasParticipant",
-          "object": "?o1"
-        },
-        {
-          "subject": "?o1",
-          "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
-          "object": "https://w3id.org/sulo/schema-builder/clinical-health-record/SubjectOfCareRole"
-        },
-        {
-          "subject": "?o1",
-          "predicate": "https://w3id.org/sulo/isFeatureOf",
-          "object": "?value"
-        }
-      ],
-      "isRequired": false,
-      "propertyFeatures": [],
-      "disjointPropertyIris": []
-    },
-    {
-      "id": "p36",
-      "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p36",
-      "name": "hasSample",
-      "label": "Has Sample",
-      "description": "Links a measurement process to the sample it is performed on.",
-      "propertyType": "object",
-      "domainClassId": "MeasurementProcess",
-      "rangeClassIri": "https://w3id.org/sulo/schema-builder/clinical-health-record/Sample",
-      "mappingPattern": [
-        {
-          "subject": "?this",
-          "predicate": "https://w3id.org/sulo/hasParticipant",
-          "object": "?value"
-        }
-      ],
-      "isRequired": false,
-      "propertyFeatures": [],
-      "disjointPropertyIris": []
-    },
-    {
-      "id": "p37",
-      "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p37",
-      "name": "collectedFrom",
-      "label": "Collected From",
-      "description": "Links a sample to the patient it was collected from.",
-      "propertyType": "object",
-      "domainClassId": "Sample",
-      "rangeClassIri": "https://w3id.org/sulo/schema-builder/clinical-health-record/Person",
-      "mappingPattern": [
-        {
-          "subject": "?this",
-          "predicate": "https://w3id.org/sulo/isPartOf",
-          "object": "?value"
-        }
-      ],
-      "isRequired": false,
-      "propertyFeatures": [],
-      "disjointPropertyIris": []
-    },
-    {
-      "id": "p38",
-      "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p38",
-      "name": "hasSubstance",
-      "label": "Has Substance",
-      "description": "Links a pharmaceutical product to its active substance.",
-      "propertyType": "object",
-      "domainClassId": "PharmaceuticalProduct",
-      "rangeClassIri": "https://w3id.org/sulo/schema-builder/clinical-health-record/Substance",
-      "mappingPattern": [
-        {
-          "subject": "?this",
-          "predicate": "https://w3id.org/sulo/hasPart",
-          "object": "?value"
-        }
-      ],
-      "isRequired": false,
-      "propertyFeatures": [],
-      "disjointPropertyIris": []
-    },
-    {
-      "id": "p39",
-      "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p39",
-      "name": "prescribesDrug",
-      "label": "Prescribes Drug",
-      "description": "Links a drug prescription to the pharmaceutical product it prescribes.",
-      "propertyType": "object",
-      "domainClassId": "DrugPrescription",
-      "rangeClassIri": "https://w3id.org/sulo/schema-builder/clinical-health-record/PharmaceuticalProduct",
-      "mappingPattern": [
-        {
-          "subject": "?this",
-          "predicate": "https://w3id.org/sulo/refersTo",
-          "object": "?value"
-        }
-      ],
-      "isRequired": false,
-      "propertyFeatures": [],
-      "disjointPropertyIris": []
-    },
-    {
-      "id": "p40",
-      "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p40",
-      "name": "hasSubject",
-      "label": "Has Subject",
-      "description": "Records that the drug prescription (an information object) is about its patient.",
-      "propertyType": "object",
-      "domainClassId": "DrugPrescription",
-      "rangeClassIri": "https://w3id.org/sulo/schema-builder/clinical-health-record/Person",
-      "mappingPattern": [
-        {
-          "subject": "?this",
-          "predicate": "https://w3id.org/sulo/isFeatureOf",
-          "object": "?value"
-        }
-      ],
-      "isRequired": false,
-      "propertyFeatures": [],
-      "disjointPropertyIris": []
-    }
-  ]
+  "format": "sulo-schema",
+  "version": 1,
+  "schema": {
+    "title": "Clinical Health Record Schema",
+    "description": "Example schema covering core clinical concepts: visits, lab results, procedures, conditions, severity, treatments, and drugs (the case study from the SULO Schema Builder paper).",
+    "upperOntologyIri": "https://w3id.org/sulo/",
+    "baseUri": "https://w3id.org/sulo/schema-builder/clinical-health-record",
+    "classes": [
+      {
+        "id": "ClinicalVisit",
+        "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/ClinicalVisit",
+        "name": "ClinicalVisit",
+        "label": "Clinical Visit",
+        "description": "A healthcare encounter between a patient and a provider.",
+        "mapsToConceptIri": "https://w3id.org/sulo/Process"
+      },
+      {
+        "id": "Measurement",
+        "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/Measurement",
+        "name": "Measurement",
+        "label": "Measurement",
+        "description": "The outcome of a laboratory test or diagnostic analysis.",
+        "mapsToConceptIri": "https://w3id.org/sulo/InformationObject"
+      },
+      {
+        "id": "MedicalProcedure",
+        "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/MedicalProcedure",
+        "name": "MedicalProcedure",
+        "label": "Medical Procedure",
+        "description": "A clinical action or intervention performed on a patient.",
+        "mapsToConceptIri": "https://w3id.org/sulo/Process"
+      },
+      {
+        "id": "ClinicalCondition",
+        "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/ClinicalCondition",
+        "name": "ClinicalCondition",
+        "label": "Clinical Condition",
+        "description": "A medical condition, disease, or disorder affecting a patient.",
+        "mapsToConceptIri": "https://w3id.org/sulo/Process"
+      },
+      {
+        "id": "Severity",
+        "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/Severity",
+        "name": "Severity",
+        "label": "Severity",
+        "description": "The degree of seriousness of a condition, symptom, or finding.",
+        "mapsToConceptIri": "https://w3id.org/sulo/Quality"
+      },
+      {
+        "id": "TreatmentPlan",
+        "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/TreatmentPlan",
+        "name": "TreatmentPlan",
+        "label": "Treatment / Treatment Plan",
+        "description": "A drug administration event or planned course of treatment.",
+        "mapsToConceptIri": "https://w3id.org/sulo/Process"
+      },
+      {
+        "id": "SubjectOfCareRole",
+        "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/SubjectOfCareRole",
+        "name": "SubjectOfCareRole",
+        "label": "Subject of Care Role",
+        "description": "The role played by a person who is the subject of a care activity.",
+        "mapsToConceptIri": "https://w3id.org/sulo/Role"
+      },
+      {
+        "id": "CareProviderRole",
+        "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/CareProviderRole",
+        "name": "CareProviderRole",
+        "label": "Care Provider Role",
+        "description": "The role played by a person or organisation providing care.",
+        "mapsToConceptIri": "https://w3id.org/sulo/Role"
+      },
+      {
+        "id": "Person",
+        "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/Person",
+        "name": "Person",
+        "label": "Person",
+        "description": "A human being, either as a patient or a care participant.",
+        "mapsToConceptIri": "https://w3id.org/sulo/SpatialObject"
+      },
+      {
+        "id": "AnatomicalStructure",
+        "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/AnatomicalStructure",
+        "name": "AnatomicalStructure",
+        "label": "Anatomical Structure",
+        "description": "A body part or anatomical site relevant to a clinical finding or procedure.",
+        "mapsToConceptIri": "https://w3id.org/sulo/SpatialObject"
+      },
+      {
+        "id": "PerformerRole",
+        "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/PerformerRole",
+        "name": "PerformerRole",
+        "label": "Performer Role",
+        "description": "The role of an agent who performs a clinical action or procedure.",
+        "mapsToConceptIri": "https://w3id.org/sulo/Role"
+      },
+      {
+        "id": "ProcessStatus",
+        "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/ProcessStatus",
+        "name": "ProcessStatus",
+        "label": "Process Status",
+        "description": "The state or status of a clinical process or workflow step.",
+        "mapsToConceptIri": "https://w3id.org/sulo/Quality"
+      },
+      {
+        "id": "PharmaceuticalDose",
+        "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/PharmaceuticalDose",
+        "name": "PharmaceuticalDose",
+        "label": "Pharmaceutical Dose",
+        "description": "The quantity and form of a drug administered in a single instance.",
+        "mapsToConceptIri": "https://w3id.org/sulo/Quantity"
+      },
+      {
+        "id": "OutputRole",
+        "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/OutputRole",
+        "name": "OutputRole",
+        "label": "Output Role",
+        "description": "The role of an entity produced as an output of a clinical process.",
+        "mapsToConceptIri": "https://w3id.org/sulo/Role"
+      },
+      {
+        "id": "InstrumentRole",
+        "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/InstrumentRole",
+        "name": "InstrumentRole",
+        "label": "Instrument Role",
+        "description": "The role of a device or tool used in a clinical procedure.",
+        "mapsToConceptIri": "https://w3id.org/sulo/Role"
+      },
+      {
+        "id": "CareUnit",
+        "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/CareUnit",
+        "name": "CareUnit",
+        "label": "Care Unit",
+        "description": "An organisational unit responsible for delivering a type of care.",
+        "mapsToConceptIri": "https://w3id.org/sulo/SpatialObject"
+      },
+      {
+        "id": "MeasurementProcess",
+        "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/MeasurementProcess",
+        "name": "MeasurementProcess",
+        "label": "Measurement Process",
+        "description": "A process of measuring or quantifying a clinical observable or parameter.",
+        "mapsToConceptIri": "https://w3id.org/sulo/Process",
+        "superClassId": "MedicalProcedure"
+      },
+      {
+        "id": "Device",
+        "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/Device",
+        "name": "Device",
+        "label": "Device",
+        "description": "A physical instrument or medical device used in a clinical or diagnostic process.",
+        "mapsToConceptIri": "https://w3id.org/sulo/SpatialObject"
+      },
+      {
+        "id": "CarePlan",
+        "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/CarePlan",
+        "name": "CarePlan",
+        "label": "Care Plan",
+        "description": "A structured set of intended actions or treatments for a patient.",
+        "mapsToConceptIri": "https://w3id.org/sulo/InformationObject"
+      },
+      {
+        "id": "Occupation",
+        "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/Occupation",
+        "name": "Occupation",
+        "label": "Occupation",
+        "description": "A job, profession, or occupational role held by a person.",
+        "mapsToConceptIri": "https://w3id.org/sulo/SpatialObject"
+      },
+      {
+        "id": "EvaluationProcess",
+        "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/EvaluationProcess",
+        "name": "EvaluationProcess",
+        "label": "Evaluation Process",
+        "description": "A process of assessing or evaluating a clinical finding, condition, or patient state.",
+        "mapsToConceptIri": "https://w3id.org/sulo/Process",
+        "superClassId": "MedicalProcedure"
+      },
+      {
+        "id": "MedicationAdministration",
+        "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/MedicationAdministration",
+        "name": "MedicationAdministration",
+        "label": "Medication Administration",
+        "description": "A process of administering a drug or pharmaceutical substance to a patient.",
+        "mapsToConceptIri": "https://w3id.org/sulo/Process",
+        "superClassId": "MedicalProcedure"
+      },
+      {
+        "id": "PharmaceuticalProduct",
+        "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/PharmaceuticalProduct",
+        "name": "PharmaceuticalProduct",
+        "label": "Pharmaceutical Product",
+        "description": "A drug or medicinal product used in the treatment or prevention of disease.",
+        "mapsToConceptIri": "https://w3id.org/sulo/SpatialObject"
+      },
+      {
+        "id": "PharmaceuticalDoseForm",
+        "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/PharmaceuticalDoseForm",
+        "name": "PharmaceuticalDoseForm",
+        "label": "Pharmaceutical Dose Form",
+        "description": "The physical form of a pharmaceutical product (e.g. tablet, capsule, solution).",
+        "mapsToConceptIri": "https://w3id.org/sulo/Quality"
+      },
+      {
+        "id": "DiagnosticStatement",
+        "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/DiagnosticStatement",
+        "name": "DiagnosticStatement",
+        "label": "Diagnostic Statement",
+        "description": "An information object representing a diagnostic finding or clinical assertion.",
+        "mapsToConceptIri": "https://w3id.org/sulo/InformationObject"
+      },
+      {
+        "id": "Code",
+        "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/Code",
+        "name": "Code",
+        "label": "Code",
+        "description": "A terminology code bundling an identifier, its coding system/version, and an optional display name.",
+        "mapsToConceptIri": "https://w3id.org/sulo/InformationObject"
+      },
+      {
+        "id": "ObservableEntity",
+        "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/ObservableEntity",
+        "name": "ObservableEntity",
+        "label": "Observable Entity",
+        "description": "A SNOMED CT observable entity — a concept that can be measured or observed in a clinical or scientific context.",
+        "mapsToConceptIri": "http://snomed.info/id/363787002",
+        "superClassId": "Code"
+      },
+      {
+        "id": "SCT_Procedure",
+        "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/SCT_Procedure",
+        "name": "SCT_Procedure",
+        "label": "SCT Procedure",
+        "description": "A SNOMED CT procedure concept — a clinical action or intervention performed on or for a patient.",
+        "mapsToConceptIri": "http://snomed.info/id/71388002",
+        "superClassId": "Code"
+      },
+      {
+        "id": "AdministrativeCase",
+        "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/AdministrativeCase",
+        "name": "AdministrativeCase",
+        "label": "Administrative Case",
+        "description": "An administrative hospital case grouping a patient’s clinical visits.",
+        "mapsToConceptIri": "https://w3id.org/sulo/Process"
+      },
+      {
+        "id": "Sample",
+        "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/Sample",
+        "name": "Sample",
+        "label": "Sample",
+        "description": "A biological specimen collected from a patient for laboratory analysis.",
+        "mapsToConceptIri": "https://w3id.org/sulo/SpatialObject"
+      },
+      {
+        "id": "Substance",
+        "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/Substance",
+        "name": "Substance",
+        "label": "Substance",
+        "description": "A material substance, e.g. the active ingredient of a pharmaceutical product.",
+        "mapsToConceptIri": "https://w3id.org/sulo/SpatialObject"
+      },
+      {
+        "id": "DrugPrescription",
+        "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/DrugPrescription",
+        "name": "DrugPrescription",
+        "label": "Drug Prescription",
+        "description": "An information object representing a prescription or order for a drug.",
+        "mapsToConceptIri": "https://w3id.org/sulo/InformationObject"
+      }
+    ],
+    "properties": [
+      {
+        "id": "p0",
+        "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p0",
+        "name": "hasPatient",
+        "label": "Has Patient",
+        "description": "Links a clinical visit to the patient (subject of care).",
+        "propertyType": "object",
+        "domainClassId": "ClinicalVisit",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/clinical-health-record/Person",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasParticipant",
+            "object": "?o1"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+            "object": "https://w3id.org/sulo/schema-builder/clinical-health-record/SubjectOfCareRole"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "https://w3id.org/sulo/isFeatureOf",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p1",
+        "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p1",
+        "name": "hasCareProvider",
+        "label": "Has Care Provider",
+        "description": "Links a clinical visit to the care provider.",
+        "propertyType": "object",
+        "domainClassId": "ClinicalVisit",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/clinical-health-record/Person",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasParticipant",
+            "object": "?o1"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+            "object": "https://w3id.org/sulo/schema-builder/clinical-health-record/CareProviderRole"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "https://w3id.org/sulo/isFeatureOf",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p2",
+        "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p2",
+        "name": "hasCareUnit",
+        "label": "Has Care Unit",
+        "description": "Links a clinical visit to the care unit where it takes place.",
+        "propertyType": "object",
+        "domainClassId": "ClinicalVisit",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/clinical-health-record/CareUnit",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/isIn",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p3",
+        "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p3",
+        "name": "hasPatient",
+        "label": "Has Patient",
+        "description": "Links a medical procedure to the patient it is performed on.",
+        "propertyType": "object",
+        "domainClassId": "MedicalProcedure",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/clinical-health-record/Person",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasParticipant",
+            "object": "?o1"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+            "object": "https://w3id.org/sulo/schema-builder/clinical-health-record/SubjectOfCareRole"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "https://w3id.org/sulo/isFeatureOf",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p4",
+        "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p4",
+        "name": "hasPerformer",
+        "label": "Has Performer",
+        "description": "Links a medical procedure to the person who performed it.",
+        "propertyType": "object",
+        "domainClassId": "MedicalProcedure",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/clinical-health-record/Person",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasParticipant",
+            "object": "?o1"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+            "object": "https://w3id.org/sulo/schema-builder/clinical-health-record/PerformerRole"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "https://w3id.org/sulo/isFeatureOf",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p5",
+        "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p5",
+        "name": "hasPerformedDate",
+        "label": "Has Performed Date",
+        "description": "Links a medical procedure to the date and time it was performed.",
+        "propertyType": "datatype",
+        "domainClassId": "MedicalProcedure",
+        "rangeClassIri": "http://www.w3.org/2001/XMLSchema#dateTime",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/atTime",
+            "object": "?o1"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+            "object": "https://w3id.org/sulo/TimeInstant"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "https://w3id.org/sulo/hasValue",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p6",
+        "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p6",
+        "name": "hasStatus",
+        "label": "Has Status",
+        "description": "Links a medical procedure to its current status.",
+        "propertyType": "object",
+        "domainClassId": "MedicalProcedure",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/clinical-health-record/ProcessStatus",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasFeature",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p7",
+        "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p7",
+        "name": "hasDevice",
+        "label": "Has Device",
+        "description": "Links a measurement process to the device used as an instrument.",
+        "propertyType": "object",
+        "domainClassId": "MeasurementProcess",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/clinical-health-record/Device",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasParticipant",
+            "object": "?o1"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+            "object": "https://w3id.org/sulo/schema-builder/clinical-health-record/InstrumentRole"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "https://w3id.org/sulo/isFeatureOf",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p8",
+        "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p8",
+        "name": "hasMeasuredDate",
+        "label": "Has Measured Date",
+        "description": "Links a measurement to the date and time it was recorded.",
+        "propertyType": "datatype",
+        "domainClassId": "Measurement",
+        "rangeClassIri": "http://www.w3.org/2001/XMLSchema#dateTime",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/atTime",
+            "object": "?o1"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+            "object": "https://w3id.org/sulo/TimeInstant"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "https://w3id.org/sulo/hasValue",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p9",
+        "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p9",
+        "name": "hasUnit",
+        "label": "Has Unit",
+        "description": "Links a measurement to its unit of measure.",
+        "propertyType": "object",
+        "domainClassId": "Measurement",
+        "rangeClassIri": "https://w3id.org/sulo/Unit",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasPart",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p10",
+        "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p10",
+        "name": "hasQuantityValue",
+        "label": "Has Quantity Value",
+        "description": "Links a measurement to its numeric quantity value.",
+        "propertyType": "datatype",
+        "domainClassId": "Measurement",
+        "rangeClassIri": "http://www.w3.org/2001/XMLSchema#float",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasValue",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p11",
+        "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p11",
+        "name": "hasResult",
+        "label": "Has Result",
+        "description": "Links a measurement process to its result via an output role.",
+        "propertyType": "object",
+        "domainClassId": "MeasurementProcess",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/clinical-health-record/Measurement",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasParticipant",
+            "object": "?o1"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+            "object": "https://w3id.org/sulo/schema-builder/clinical-health-record/OutputRole"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "https://w3id.org/sulo/isFeatureOf",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p12",
+        "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p12",
+        "name": "hasRecordDate",
+        "label": "Has Record Date",
+        "description": "Links a clinical condition to the date and time it was recorded.",
+        "propertyType": "datatype",
+        "domainClassId": "ClinicalCondition",
+        "rangeClassIri": "http://www.w3.org/2001/XMLSchema#dateTime",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/atTime",
+            "object": "?o1"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+            "object": "https://w3id.org/sulo/TimeInstant"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "https://w3id.org/sulo/hasValue",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p13",
+        "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p13",
+        "name": "hasConditionEndDate",
+        "label": "Has Condition End Date",
+        "description": "Links a clinical condition to the date and time it ended.",
+        "propertyType": "datatype",
+        "domainClassId": "ClinicalCondition",
+        "rangeClassIri": "http://www.w3.org/2001/XMLSchema#dateTime",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/atTime",
+            "object": "?o1"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+            "object": "https://w3id.org/sulo/EndTime"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "https://w3id.org/sulo/hasValue",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p14",
+        "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p14",
+        "name": "hasLocatedIn",
+        "label": "Has Located In",
+        "description": "Links a clinical condition to the anatomical structure where it is located.",
+        "propertyType": "object",
+        "domainClassId": "ClinicalCondition",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/clinical-health-record/AnatomicalStructure",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/isIn",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p15",
+        "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p15",
+        "name": "hasSeverity",
+        "label": "Has Severity",
+        "description": "Links a clinical condition to its severity.",
+        "propertyType": "object",
+        "domainClassId": "ClinicalCondition",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/clinical-health-record/Severity",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasFeature",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p16",
+        "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p16",
+        "name": "hasMedicalProcedure",
+        "label": "Has Medical Procedure",
+        "description": "Links a plan to the medical procedure it refers to.",
+        "propertyType": "object",
+        "domainClassId": "CarePlan",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/clinical-health-record/MedicalProcedure",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/refersTo",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p17",
+        "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p17",
+        "name": "hasObservation",
+        "label": "Has Observation",
+        "description": "Links an evaluation process to the diagnostic statement produced as its output.",
+        "propertyType": "object",
+        "domainClassId": "EvaluationProcess",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/clinical-health-record/DiagnosticStatement",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasParticipant",
+            "object": "?o1"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+            "object": "https://w3id.org/sulo/schema-builder/clinical-health-record/OutputRole"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "https://w3id.org/sulo/isFeatureOf",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p18",
+        "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p18",
+        "name": "hasDoseQuantity",
+        "label": "Has Dose Quantity",
+        "description": "Links a pharmaceutical product to its dose quantity.",
+        "propertyType": "object",
+        "domainClassId": "PharmaceuticalProduct",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/clinical-health-record/PharmaceuticalDose",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasFeature",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p19",
+        "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p19",
+        "name": "hasDoseForm",
+        "label": "Has Dose Form",
+        "description": "Links a pharmaceutical product to its dose form.",
+        "propertyType": "object",
+        "domainClassId": "PharmaceuticalProduct",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/clinical-health-record/PharmaceuticalDoseForm",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasFeature",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p20",
+        "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p20",
+        "name": "hasPharmaceuticalProduct",
+        "label": "Has Pharmaceutical Product",
+        "description": "Links a medication administration to the pharmaceutical product being administered.",
+        "propertyType": "object",
+        "domainClassId": "MedicationAdministration",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/clinical-health-record/PharmaceuticalProduct",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasParticipant",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p21",
+        "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p21",
+        "name": "hasIdentifier",
+        "label": "Has Identifier",
+        "description": "The code string itself (e.g. \"73211009\" for SNOMED CT, \"J18.9\" for ICD-10).",
+        "propertyType": "datatype",
+        "domainClassId": "Code",
+        "rangeClassIri": "http://www.w3.org/2001/XMLSchema#string",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasValue",
+            "object": "?value"
+          }
+        ],
+        "isRequired": true,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p22",
+        "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p22",
+        "name": "hasCodingSystemAndVersion",
+        "label": "Has Coding System And Version",
+        "description": "Name and version of the coding system (e.g. \"SNOMED CT 2024-03\", \"ICD-10-CM 2024\", \"LOINC 2.76\").",
+        "propertyType": "datatype",
+        "domainClassId": "Code",
+        "rangeClassIri": "http://www.w3.org/2001/XMLSchema#string",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasLabel",
+            "object": "?value"
+          }
+        ],
+        "isRequired": true,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p23",
+        "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p23",
+        "name": "hasName",
+        "label": "Has Name",
+        "description": "Human-readable display name for the code (e.g. \"Pneumonia, unspecified organism\").",
+        "propertyType": "datatype",
+        "domainClassId": "Code",
+        "rangeClassIri": "http://www.w3.org/2001/XMLSchema#string",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasLabel",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p24",
+        "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p24",
+        "name": "hasCode",
+        "label": "Has Code",
+        "description": "Links a Clinical Condition instance to its terminology code (SNOMED CT, ICD-10, LOINC, ATC, etc.).",
+        "propertyType": "object",
+        "domainClassId": "ClinicalCondition",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/clinical-health-record/Code",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasFeature",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p25",
+        "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p25",
+        "name": "hasCode",
+        "label": "Has Code",
+        "description": "Links a Clinical Visit instance to its terminology code (SNOMED CT, ICD-10, LOINC, ATC, etc.).",
+        "propertyType": "object",
+        "domainClassId": "ClinicalVisit",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/clinical-health-record/Code",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasFeature",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p26",
+        "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p26",
+        "name": "hasCode",
+        "label": "Has Code",
+        "description": "Links a Medical Procedure instance to its terminology code (SNOMED CT, ICD-10, LOINC, ATC, etc.).",
+        "propertyType": "object",
+        "domainClassId": "MedicalProcedure",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/clinical-health-record/Code",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasFeature",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p27",
+        "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p27",
+        "name": "hasCode",
+        "label": "Has Code",
+        "description": "Links a Measurement instance to its terminology code (SNOMED CT, ICD-10, LOINC, ATC, etc.).",
+        "propertyType": "object",
+        "domainClassId": "Measurement",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/clinical-health-record/Code",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasFeature",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p28",
+        "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p28",
+        "name": "hasCode",
+        "label": "Has Code",
+        "description": "Links a Medication Administration instance to its terminology code (SNOMED CT, ICD-10, LOINC, ATC, etc.).",
+        "propertyType": "object",
+        "domainClassId": "MedicationAdministration",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/clinical-health-record/Code",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasFeature",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p29",
+        "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p29",
+        "name": "hasCode",
+        "label": "Has Code",
+        "description": "Links a Anatomical Structure instance to its terminology code (SNOMED CT, ICD-10, LOINC, ATC, etc.).",
+        "propertyType": "object",
+        "domainClassId": "AnatomicalStructure",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/clinical-health-record/Code",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasFeature",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p30",
+        "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p30",
+        "name": "hasCode",
+        "label": "Has Code",
+        "description": "Links a Severity instance to its terminology code (SNOMED CT, ICD-10, LOINC, ATC, etc.).",
+        "propertyType": "object",
+        "domainClassId": "Severity",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/clinical-health-record/Code",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasFeature",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p31",
+        "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p31",
+        "name": "hasCode",
+        "label": "Has Code",
+        "description": "Links a Pharmaceutical Product instance to its terminology code (SNOMED CT, ICD-10, LOINC, ATC, etc.).",
+        "propertyType": "object",
+        "domainClassId": "PharmaceuticalProduct",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/clinical-health-record/Code",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasFeature",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p32",
+        "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p32",
+        "name": "hasCode",
+        "label": "Has Code",
+        "description": "Links a MedicalProcedure to its SNOMED CT procedure code.",
+        "propertyType": "object",
+        "domainClassId": "MedicalProcedure",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/clinical-health-record/SCT_Procedure",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasFeature",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p33",
+        "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p33",
+        "name": "hasCode",
+        "label": "Has Code",
+        "description": "Links a Measurement to its SNOMED CT observable entity code (e.g. body weight, blood pressure).",
+        "propertyType": "object",
+        "domainClassId": "Measurement",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/clinical-health-record/ObservableEntity",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasFeature",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p34",
+        "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p34",
+        "name": "hasAdministrativeCase",
+        "label": "Has Administrative Case",
+        "description": "Links a clinical visit to the administrative case it belongs to.",
+        "propertyType": "object",
+        "domainClassId": "ClinicalVisit",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/clinical-health-record/AdministrativeCase",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/isPartOf",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p35",
+        "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p35",
+        "name": "hasPatient",
+        "label": "Has Patient",
+        "description": "Links an administrative case to the patient it concerns.",
+        "propertyType": "object",
+        "domainClassId": "AdministrativeCase",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/clinical-health-record/Person",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasParticipant",
+            "object": "?o1"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+            "object": "https://w3id.org/sulo/schema-builder/clinical-health-record/SubjectOfCareRole"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "https://w3id.org/sulo/isFeatureOf",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p36",
+        "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p36",
+        "name": "hasSample",
+        "label": "Has Sample",
+        "description": "Links a measurement process to the sample it is performed on.",
+        "propertyType": "object",
+        "domainClassId": "MeasurementProcess",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/clinical-health-record/Sample",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasParticipant",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p37",
+        "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p37",
+        "name": "collectedFrom",
+        "label": "Collected From",
+        "description": "Links a sample to the patient it was collected from.",
+        "propertyType": "object",
+        "domainClassId": "Sample",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/clinical-health-record/Person",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/isPartOf",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p38",
+        "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p38",
+        "name": "hasSubstance",
+        "label": "Has Substance",
+        "description": "Links a pharmaceutical product to its active substance.",
+        "propertyType": "object",
+        "domainClassId": "PharmaceuticalProduct",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/clinical-health-record/Substance",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasPart",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p39",
+        "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p39",
+        "name": "prescribesDrug",
+        "label": "Prescribes Drug",
+        "description": "Links a drug prescription to the pharmaceutical product it prescribes.",
+        "propertyType": "object",
+        "domainClassId": "DrugPrescription",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/clinical-health-record/PharmaceuticalProduct",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/refersTo",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p40",
+        "url": "https://w3id.org/sulo/schema-builder/clinical-health-record/prop/p40",
+        "name": "hasSubject",
+        "label": "Has Subject",
+        "description": "Records that the drug prescription (an information object) is about its patient.",
+        "propertyType": "object",
+        "domainClassId": "DrugPrescription",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/clinical-health-record/Person",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/isFeatureOf",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      }
+    ]
+  }
 }

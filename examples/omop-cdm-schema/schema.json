@@ -1,0 +1,2280 @@
+{
+  "format": "sulo-schema",
+  "version": 1,
+  "schema": {
+    "title": "OMOP CDM Schema",
+    "description": "OMOP Common Data Model schema with core clinical tables (VisitOccurrence, ConditionOccurrence, DrugExposure, Measurement, ProcedureOccurrence, Observation, DeviceExposure) mapped to SULO. Intentionally contains SULO domain/range violations (see docs/omop-consistency-issues.md and docs/omop-modeling-error-examples.md) — HermiT reports 44 unsatisfiable classes.",
+    "upperOntologyIri": "https://w3id.org/sulo/",
+    "baseUri": "https://w3id.org/sulo/schema-builder/omop-cdm-schema",
+    "classes": [
+      {
+        "id": "VisitOccurrence",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/VisitOccurrence",
+        "name": "VisitOccurrence",
+        "label": "Visit Occurrence",
+        "description": "A healthcare encounter between a person and the healthcare system.",
+        "mapsToConceptIri": "https://w3id.org/sulo/Process"
+      },
+      {
+        "id": "ConditionOccurrence",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/ConditionOccurrence",
+        "name": "ConditionOccurrence",
+        "label": "Condition Occurrence",
+        "description": "A record of a disease, injury, or medical condition observed in a person.",
+        "mapsToConceptIri": "https://w3id.org/sulo/Process"
+      },
+      {
+        "id": "DrugExposure",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/DrugExposure",
+        "name": "DrugExposure",
+        "label": "Drug Exposure",
+        "description": "A record of a drug or vaccine administered to or ingested by a person.",
+        "mapsToConceptIri": "https://w3id.org/sulo/Process"
+      },
+      {
+        "id": "Measurement",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/Measurement",
+        "name": "Measurement",
+        "label": "Measurement",
+        "description": "A structured result obtained through systematic examination or testing (lab, vital signs).",
+        "mapsToConceptIri": "https://w3id.org/sulo/InformationObject"
+      },
+      {
+        "id": "ProcedureOccurrence",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/ProcedureOccurrence",
+        "name": "ProcedureOccurrence",
+        "label": "Procedure Occurrence",
+        "description": "A record of an activity or process ordered or carried out on a person.",
+        "mapsToConceptIri": "https://w3id.org/sulo/Process"
+      },
+      {
+        "id": "Observation",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/Observation",
+        "name": "Observation",
+        "label": "Observation",
+        "description": "A clinical fact about a person not captured in other tables (e.g. smoking status, BMI).",
+        "mapsToConceptIri": "https://w3id.org/sulo/InformationObject"
+      },
+      {
+        "id": "DeviceExposure",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/DeviceExposure",
+        "name": "DeviceExposure",
+        "label": "Device Exposure",
+        "description": "Exposure to a foreign physical object used for diagnostic or therapeutic purposes.",
+        "mapsToConceptIri": "https://w3id.org/sulo/Process"
+      },
+      {
+        "id": "Person",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/Person",
+        "name": "Person",
+        "label": "Person",
+        "description": "A person who is the subject of health-related data.",
+        "mapsToConceptIri": "https://w3id.org/sulo/SpatialObject"
+      },
+      {
+        "id": "Provider",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/Provider",
+        "name": "Provider",
+        "label": "Provider",
+        "description": "A healthcare provider (clinician, nurse, etc.) who delivers care.",
+        "mapsToConceptIri": "https://w3id.org/sulo/SpatialObject"
+      },
+      {
+        "id": "CareSite",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/CareSite",
+        "name": "CareSite",
+        "label": "Care Site",
+        "description": "A uniquely identified healthcare delivery location or organisational unit.",
+        "mapsToConceptIri": "https://w3id.org/sulo/SpatialObject"
+      },
+      {
+        "id": "Location",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/Location",
+        "name": "Location",
+        "label": "Location",
+        "description": "A physical or geographic address associated with a care site or person.",
+        "mapsToConceptIri": "https://w3id.org/sulo/SpatialObject"
+      },
+      {
+        "id": "Concept",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/Concept",
+        "name": "Concept",
+        "label": "Concept",
+        "description": "A standardised vocabulary concept (SNOMED-CT, RxNorm, LOINC, etc.) used to express clinical data.",
+        "mapsToConceptIri": "https://w3id.org/sulo/InformationObject"
+      },
+      {
+        "id": "DrugProduct",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/DrugProduct",
+        "name": "DrugProduct",
+        "label": "Drug Product",
+        "description": "A pharmaceutical substance or drug formulation identified by a vocabulary concept.",
+        "mapsToConceptIri": "https://w3id.org/sulo/SpatialObject"
+      },
+      {
+        "id": "Device",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/Device",
+        "name": "Device",
+        "label": "Device",
+        "description": "A medical device or instrument used in diagnosis or therapy.",
+        "mapsToConceptIri": "https://w3id.org/sulo/SpatialObject"
+      },
+      {
+        "id": "Specimen",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/Specimen",
+        "name": "Specimen",
+        "label": "Specimen",
+        "description": "A biological specimen collected from a person for laboratory analysis.",
+        "mapsToConceptIri": "https://w3id.org/sulo/SpatialObject"
+      },
+      {
+        "id": "PatientRole",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/PatientRole",
+        "name": "PatientRole",
+        "label": "Patient Role",
+        "description": "The role played by a person as the subject of a clinical event.",
+        "mapsToConceptIri": "https://w3id.org/sulo/Role"
+      },
+      {
+        "id": "ProviderRole",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/ProviderRole",
+        "name": "ProviderRole",
+        "label": "Provider Role",
+        "description": "The role played by a provider who participates in a clinical event.",
+        "mapsToConceptIri": "https://w3id.org/sulo/Role"
+      },
+      {
+        "id": "OutputRole",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/OutputRole",
+        "name": "OutputRole",
+        "label": "Output Role",
+        "description": "The role of an entity produced as an output of a clinical process.",
+        "mapsToConceptIri": "https://w3id.org/sulo/Role"
+      },
+      {
+        "id": "InstrumentRole",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/InstrumentRole",
+        "name": "InstrumentRole",
+        "label": "Instrument Role",
+        "description": "The role of a device or instrument used in a clinical process.",
+        "mapsToConceptIri": "https://w3id.org/sulo/Role"
+      },
+      {
+        "id": "MeasurementValue",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/MeasurementValue",
+        "name": "MeasurementValue",
+        "label": "Measurement Value",
+        "description": "A numerical or categorical value obtained from a measurement.",
+        "mapsToConceptIri": "https://w3id.org/sulo/Quantity"
+      },
+      {
+        "id": "Unit",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/Unit",
+        "name": "Unit",
+        "label": "Unit",
+        "description": "A unit of measure associated with a measurement or dose.",
+        "mapsToConceptIri": "https://w3id.org/sulo/Quality"
+      },
+      {
+        "id": "DoseQuantity",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/DoseQuantity",
+        "name": "DoseQuantity",
+        "label": "Dose Quantity",
+        "description": "The quantity of a drug dispensed or administered.",
+        "mapsToConceptIri": "https://w3id.org/sulo/Quantity"
+      }
+    ],
+    "properties": [
+      {
+        "id": "p0",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p0",
+        "name": "concept_id",
+        "label": "Concept ID",
+        "description": "The unique integer identifier of the concept in the vocabulary.",
+        "propertyType": "datatype",
+        "domainClassId": "Concept",
+        "rangeClassIri": "http://www.w3.org/2001/XMLSchema#integer",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasValue",
+            "object": "?value"
+          }
+        ],
+        "isRequired": true,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p1",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p1",
+        "name": "concept_name",
+        "label": "Concept Name",
+        "description": "The human-readable name or label of the concept.",
+        "propertyType": "datatype",
+        "domainClassId": "Concept",
+        "rangeClassIri": "http://www.w3.org/2001/XMLSchema#string",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasLabel",
+            "object": "?value"
+          }
+        ],
+        "isRequired": true,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p2",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p2",
+        "name": "person_id",
+        "label": "Person ID",
+        "description": "Links a visit occurrence to the patient (subject of care).",
+        "propertyType": "object",
+        "domainClassId": "VisitOccurrence",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/Person",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasParticipant",
+            "object": "?o1"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+            "object": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/PatientRole"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "https://w3id.org/sulo/isFeatureOf",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p3",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p3",
+        "name": "provider_id",
+        "label": "Provider ID",
+        "description": "Links a visit occurrence to the attending healthcare provider.",
+        "propertyType": "object",
+        "domainClassId": "VisitOccurrence",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/Provider",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasParticipant",
+            "object": "?o1"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+            "object": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/ProviderRole"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "https://w3id.org/sulo/isFeatureOf",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p4",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p4",
+        "name": "care_site_id",
+        "label": "Care Site ID",
+        "description": "Links a visit occurrence to the care site where it took place.",
+        "propertyType": "object",
+        "domainClassId": "VisitOccurrence",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/CareSite",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/isIn",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p5",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p5",
+        "name": "visit_concept_id",
+        "label": "Visit Concept ID",
+        "description": "Links a visit occurrence to its standardised vocabulary concept (visit type).",
+        "propertyType": "object",
+        "domainClassId": "VisitOccurrence",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/Concept",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasFeature",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p6",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p6",
+        "name": "visit_start_datetime",
+        "label": "Visit Start Datetime",
+        "description": "Date and time when the visit started.",
+        "propertyType": "datatype",
+        "domainClassId": "VisitOccurrence",
+        "rangeClassIri": "http://www.w3.org/2001/XMLSchema#dateTime",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/atTime",
+            "object": "?o1"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+            "object": "https://w3id.org/sulo/StartTime"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "https://w3id.org/sulo/hasValue",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p7",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p7",
+        "name": "visit_end_datetime",
+        "label": "Visit End Datetime",
+        "description": "Date and time when the visit ended.",
+        "propertyType": "datatype",
+        "domainClassId": "VisitOccurrence",
+        "rangeClassIri": "http://www.w3.org/2001/XMLSchema#dateTime",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/atTime",
+            "object": "?o1"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+            "object": "https://w3id.org/sulo/EndTime"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "https://w3id.org/sulo/hasValue",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p8",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p8",
+        "name": "admitting_source_concept_id",
+        "label": "Admitting Source Concept ID",
+        "description": "Concept for the place of service or type of provider from which the patient was admitted.",
+        "propertyType": "object",
+        "domainClassId": "VisitOccurrence",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/Concept",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasFeature",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p9",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p9",
+        "name": "discharge_to_concept_id",
+        "label": "Discharge To Concept ID",
+        "description": "Concept for the place of service or type of provider to which the patient was discharged.",
+        "propertyType": "object",
+        "domainClassId": "VisitOccurrence",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/Concept",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasFeature",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p10",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p10",
+        "name": "preceding_visit_occurrence_id",
+        "label": "Preceding Visit Occurrence ID",
+        "description": "Links a visit to the immediately preceding visit occurrence for the same patient.",
+        "propertyType": "object",
+        "domainClassId": "VisitOccurrence",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/VisitOccurrence",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/isPartOf",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p11",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p11",
+        "name": "person_id",
+        "label": "Person ID",
+        "description": "Links a condition occurrence to the patient.",
+        "propertyType": "object",
+        "domainClassId": "ConditionOccurrence",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/Person",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasParticipant",
+            "object": "?o1"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+            "object": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/PatientRole"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "https://w3id.org/sulo/isFeatureOf",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p12",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p12",
+        "name": "condition_concept_id",
+        "label": "Condition Concept ID",
+        "description": "Links a condition occurrence to its standardised diagnosis concept (e.g. SNOMED-CT code).",
+        "propertyType": "object",
+        "domainClassId": "ConditionOccurrence",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/Concept",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasFeature",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p13",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p13",
+        "name": "visit_occurrence_id",
+        "label": "Visit Occurrence ID",
+        "description": "Links a condition occurrence to the enclosing visit occurrence.",
+        "propertyType": "object",
+        "domainClassId": "ConditionOccurrence",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/VisitOccurrence",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/isPartOf",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p14",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p14",
+        "name": "condition_start_datetime",
+        "label": "Condition Start Datetime",
+        "description": "Date and time when the condition started.",
+        "propertyType": "datatype",
+        "domainClassId": "ConditionOccurrence",
+        "rangeClassIri": "http://www.w3.org/2001/XMLSchema#dateTime",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/atTime",
+            "object": "?o1"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+            "object": "https://w3id.org/sulo/StartTime"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "https://w3id.org/sulo/hasValue",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p15",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p15",
+        "name": "condition_end_datetime",
+        "label": "Condition End Datetime",
+        "description": "Date and time when the condition ended.",
+        "propertyType": "datatype",
+        "domainClassId": "ConditionOccurrence",
+        "rangeClassIri": "http://www.w3.org/2001/XMLSchema#dateTime",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/atTime",
+            "object": "?o1"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+            "object": "https://w3id.org/sulo/EndTime"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "https://w3id.org/sulo/hasValue",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p16",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p16",
+        "name": "condition_status_concept_id",
+        "label": "Condition Status Concept ID",
+        "description": "Standardised concept reflecting the current status of the condition (e.g. active, inactive, resolved).",
+        "propertyType": "object",
+        "domainClassId": "ConditionOccurrence",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/Concept",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasFeature",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p17",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p17",
+        "name": "stop_reason",
+        "label": "Stop Reason",
+        "description": "The reason the condition was no longer present, as indicated in the source data.",
+        "propertyType": "datatype",
+        "domainClassId": "ConditionOccurrence",
+        "rangeClassIri": "http://www.w3.org/2001/XMLSchema#string",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasValue",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p18",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p18",
+        "name": "person_id",
+        "label": "Person ID",
+        "description": "Links a drug exposure to the patient who received the drug.",
+        "propertyType": "object",
+        "domainClassId": "DrugExposure",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/Person",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasParticipant",
+            "object": "?o1"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+            "object": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/PatientRole"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "https://w3id.org/sulo/isFeatureOf",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p19",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p19",
+        "name": "provider_id",
+        "label": "Provider ID",
+        "description": "Links a drug exposure to the prescribing or administering provider.",
+        "propertyType": "object",
+        "domainClassId": "DrugExposure",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/Provider",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasParticipant",
+            "object": "?o1"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+            "object": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/ProviderRole"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "https://w3id.org/sulo/isFeatureOf",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p20",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p20",
+        "name": "drug_concept_id",
+        "label": "Drug Concept ID",
+        "description": "Links a drug exposure to the drug concept (RxNorm or ATC code).",
+        "propertyType": "object",
+        "domainClassId": "DrugExposure",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/Concept",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/refersTo",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p21",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p21",
+        "name": "hasDrugProduct",
+        "label": "Has Drug Product",
+        "description": "Links a drug exposure to the dispensed or administered drug product.",
+        "propertyType": "object",
+        "domainClassId": "DrugExposure",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/DrugProduct",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasParticipant",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p22",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p22",
+        "name": "hasDoseQuantity",
+        "label": "Has Dose Quantity",
+        "description": "Links a drug exposure to the administered dose quantity.",
+        "propertyType": "object",
+        "domainClassId": "DrugExposure",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/DoseQuantity",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasPart",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p23",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p23",
+        "name": "visit_occurrence_id",
+        "label": "Visit Occurrence ID",
+        "description": "Links a drug exposure to the enclosing visit occurrence.",
+        "propertyType": "object",
+        "domainClassId": "DrugExposure",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/VisitOccurrence",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/isPartOf",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p24",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p24",
+        "name": "drug_exposure_start_datetime",
+        "label": "Drug Exposure Start Datetime",
+        "description": "Date and time when the drug exposure started.",
+        "propertyType": "datatype",
+        "domainClassId": "DrugExposure",
+        "rangeClassIri": "http://www.w3.org/2001/XMLSchema#dateTime",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/atTime",
+            "object": "?o1"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+            "object": "https://w3id.org/sulo/StartTime"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "https://w3id.org/sulo/hasValue",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p25",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p25",
+        "name": "drug_exposure_end_datetime",
+        "label": "Drug Exposure End Datetime",
+        "description": "Date and time when the drug exposure ended.",
+        "propertyType": "datatype",
+        "domainClassId": "DrugExposure",
+        "rangeClassIri": "http://www.w3.org/2001/XMLSchema#dateTime",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/atTime",
+            "object": "?o1"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+            "object": "https://w3id.org/sulo/EndTime"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "https://w3id.org/sulo/hasValue",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p26",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p26",
+        "name": "stop_reason",
+        "label": "Stop Reason",
+        "description": "The reason the drug was discontinued (e.g. regimen completed, side effects, changed).",
+        "propertyType": "datatype",
+        "domainClassId": "DrugExposure",
+        "rangeClassIri": "http://www.w3.org/2001/XMLSchema#string",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasValue",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p27",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p27",
+        "name": "quantity",
+        "label": "Quantity",
+        "description": "The quantity of the drug as recorded in the original prescription or dispensing record.",
+        "propertyType": "datatype",
+        "domainClassId": "DrugExposure",
+        "rangeClassIri": "http://www.w3.org/2001/XMLSchema#decimal",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasValue",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p28",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p28",
+        "name": "days_supply",
+        "label": "Days Supply",
+        "description": "Number of days of supply as recorded in the original prescription or dispensing record.",
+        "propertyType": "datatype",
+        "domainClassId": "DrugExposure",
+        "rangeClassIri": "http://www.w3.org/2001/XMLSchema#integer",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasValue",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p29",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p29",
+        "name": "refills",
+        "label": "Refills",
+        "description": "The number of refills after the initial prescription, starting at 0.",
+        "propertyType": "datatype",
+        "domainClassId": "DrugExposure",
+        "rangeClassIri": "http://www.w3.org/2001/XMLSchema#integer",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasValue",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p30",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p30",
+        "name": "person_id",
+        "label": "Person ID",
+        "description": "Links a measurement to the patient it was taken from.",
+        "propertyType": "object",
+        "domainClassId": "Measurement",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/Person",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasParticipant",
+            "object": "?o1"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+            "object": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/PatientRole"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "https://w3id.org/sulo/isFeatureOf",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p31",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p31",
+        "name": "provider_id",
+        "label": "Provider ID",
+        "description": "Links a measurement to the provider who ordered or performed it.",
+        "propertyType": "object",
+        "domainClassId": "Measurement",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/Provider",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasParticipant",
+            "object": "?o1"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+            "object": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/ProviderRole"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "https://w3id.org/sulo/isFeatureOf",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p32",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p32",
+        "name": "hasMeasurementResult",
+        "label": "Has Measurement Result",
+        "description": "Links a measurement to its output result value via an output role.",
+        "propertyType": "object",
+        "domainClassId": "Measurement",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/MeasurementValue",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasParticipant",
+            "object": "?o1"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+            "object": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/OutputRole"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "https://w3id.org/sulo/isFeatureOf",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p33",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p33",
+        "name": "measurement_concept_id",
+        "label": "Measurement Concept ID",
+        "description": "Links a measurement to its LOINC or SNOMED concept (what was measured).",
+        "propertyType": "object",
+        "domainClassId": "Measurement",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/Concept",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasFeature",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p34",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p34",
+        "name": "value_as_number",
+        "label": "Value As Number",
+        "description": "Numeric result of the measurement.",
+        "propertyType": "datatype",
+        "domainClassId": "Measurement",
+        "rangeClassIri": "http://www.w3.org/2001/XMLSchema#float",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasValue",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p35",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p35",
+        "name": "unit_concept_id",
+        "label": "Unit Concept ID",
+        "description": "Links a measurement to its unit of measure.",
+        "propertyType": "object",
+        "domainClassId": "Measurement",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/Unit",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasPart",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p36",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p36",
+        "name": "visit_occurrence_id",
+        "label": "Visit Occurrence ID",
+        "description": "Links a measurement to the enclosing visit occurrence.",
+        "propertyType": "object",
+        "domainClassId": "Measurement",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/VisitOccurrence",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/isPartOf",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p37",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p37",
+        "name": "measurement_datetime",
+        "label": "Measurement Datetime",
+        "description": "Date and time when the measurement was taken.",
+        "propertyType": "datatype",
+        "domainClassId": "Measurement",
+        "rangeClassIri": "http://www.w3.org/2001/XMLSchema#dateTime",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/atTime",
+            "object": "?o1"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+            "object": "https://w3id.org/sulo/TimeInstant"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "https://w3id.org/sulo/hasValue",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p38",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p38",
+        "name": "operator_concept_id",
+        "label": "Operator Concept ID",
+        "description": "Comparison operator applied to the numeric result (e.g. <, <=, =, >=, >).",
+        "propertyType": "object",
+        "domainClassId": "Measurement",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/Concept",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasFeature",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p39",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p39",
+        "name": "range_low",
+        "label": "Range Low",
+        "description": "Lower bound of the normal reference range for this measurement.",
+        "propertyType": "datatype",
+        "domainClassId": "Measurement",
+        "rangeClassIri": "http://www.w3.org/2001/XMLSchema#decimal",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasValue",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p40",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p40",
+        "name": "range_high",
+        "label": "Range High",
+        "description": "Upper bound of the normal reference range for this measurement.",
+        "propertyType": "datatype",
+        "domainClassId": "Measurement",
+        "rangeClassIri": "http://www.w3.org/2001/XMLSchema#decimal",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasValue",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p41",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p41",
+        "name": "person_id",
+        "label": "Person ID",
+        "description": "Links a procedure occurrence to the patient it was performed on.",
+        "propertyType": "object",
+        "domainClassId": "ProcedureOccurrence",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/Person",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasParticipant",
+            "object": "?o1"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+            "object": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/PatientRole"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "https://w3id.org/sulo/isFeatureOf",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p42",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p42",
+        "name": "provider_id",
+        "label": "Provider ID",
+        "description": "Links a procedure occurrence to the provider who performed it.",
+        "propertyType": "object",
+        "domainClassId": "ProcedureOccurrence",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/Provider",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasParticipant",
+            "object": "?o1"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+            "object": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/ProviderRole"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "https://w3id.org/sulo/isFeatureOf",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p43",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p43",
+        "name": "procedure_concept_id",
+        "label": "Procedure Concept ID",
+        "description": "Links a procedure occurrence to its standardised procedure concept.",
+        "propertyType": "object",
+        "domainClassId": "ProcedureOccurrence",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/Concept",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasFeature",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p44",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p44",
+        "name": "visit_occurrence_id",
+        "label": "Visit Occurrence ID",
+        "description": "Links a procedure occurrence to the enclosing visit occurrence.",
+        "propertyType": "object",
+        "domainClassId": "ProcedureOccurrence",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/VisitOccurrence",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/isPartOf",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p45",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p45",
+        "name": "procedure_datetime",
+        "label": "Procedure Datetime",
+        "description": "Date and time when the procedure was performed.",
+        "propertyType": "datatype",
+        "domainClassId": "ProcedureOccurrence",
+        "rangeClassIri": "http://www.w3.org/2001/XMLSchema#dateTime",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/atTime",
+            "object": "?o1"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+            "object": "https://w3id.org/sulo/TimeInstant"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "https://w3id.org/sulo/hasValue",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p46",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p46",
+        "name": "procedure_end_datetime",
+        "label": "Procedure End Datetime",
+        "description": "Date and time when the procedure ended.",
+        "propertyType": "datatype",
+        "domainClassId": "ProcedureOccurrence",
+        "rangeClassIri": "http://www.w3.org/2001/XMLSchema#dateTime",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/atTime",
+            "object": "?o1"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+            "object": "https://w3id.org/sulo/EndTime"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "https://w3id.org/sulo/hasValue",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p47",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p47",
+        "name": "person_id",
+        "label": "Person ID",
+        "description": "Links a clinical observation to the patient it concerns.",
+        "propertyType": "object",
+        "domainClassId": "Observation",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/Person",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasParticipant",
+            "object": "?o1"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+            "object": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/PatientRole"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "https://w3id.org/sulo/isFeatureOf",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p48",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p48",
+        "name": "observation_concept_id",
+        "label": "Observation Concept ID",
+        "description": "Links an observation to its standardised concept (e.g. smoking status, BMI).",
+        "propertyType": "object",
+        "domainClassId": "Observation",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/Concept",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasFeature",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p49",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p49",
+        "name": "value_as_string",
+        "label": "Value As String",
+        "description": "Textual or categorical value of the observation.",
+        "propertyType": "datatype",
+        "domainClassId": "Observation",
+        "rangeClassIri": "http://www.w3.org/2001/XMLSchema#string",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasValue",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p50",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p50",
+        "name": "visit_occurrence_id",
+        "label": "Visit Occurrence ID",
+        "description": "Links an observation to the enclosing visit occurrence.",
+        "propertyType": "object",
+        "domainClassId": "Observation",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/VisitOccurrence",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/isPartOf",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p51",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p51",
+        "name": "observation_datetime",
+        "label": "Observation Datetime",
+        "description": "Date and time of the observation.",
+        "propertyType": "datatype",
+        "domainClassId": "Observation",
+        "rangeClassIri": "http://www.w3.org/2001/XMLSchema#dateTime",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/atTime",
+            "object": "?o1"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+            "object": "https://w3id.org/sulo/TimeInstant"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "https://w3id.org/sulo/hasValue",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p52",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p52",
+        "name": "value_as_number",
+        "label": "Value As Number",
+        "description": "Numeric result when the observation is expressed as a quantitative value.",
+        "propertyType": "datatype",
+        "domainClassId": "Observation",
+        "rangeClassIri": "http://www.w3.org/2001/XMLSchema#decimal",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasValue",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p53",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p53",
+        "name": "value_as_concept_id",
+        "label": "Value As Concept ID",
+        "description": "Categorical result when the observation is expressed as a standardised concept.",
+        "propertyType": "object",
+        "domainClassId": "Observation",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/Concept",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasFeature",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p54",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p54",
+        "name": "unit_concept_id",
+        "label": "Unit Concept ID",
+        "description": "Links an observation to its unit of measure (for numeric observations).",
+        "propertyType": "object",
+        "domainClassId": "Observation",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/Unit",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasPart",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p55",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p55",
+        "name": "qualifier_concept_id",
+        "label": "Qualifier Concept ID",
+        "description": "Qualifier concept characterising the observation (e.g. severity, certainty, laterality).",
+        "propertyType": "object",
+        "domainClassId": "Observation",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/Concept",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasFeature",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p56",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p56",
+        "name": "provider_id",
+        "label": "Provider ID",
+        "description": "Links an observation to the provider responsible for documenting it.",
+        "propertyType": "object",
+        "domainClassId": "Observation",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/Provider",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasParticipant",
+            "object": "?o1"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+            "object": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/ProviderRole"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "https://w3id.org/sulo/isFeatureOf",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p57",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p57",
+        "name": "person_id",
+        "label": "Person ID",
+        "description": "Links a device exposure to the patient.",
+        "propertyType": "object",
+        "domainClassId": "DeviceExposure",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/Person",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasParticipant",
+            "object": "?o1"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+            "object": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/PatientRole"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "https://w3id.org/sulo/isFeatureOf",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p58",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p58",
+        "name": "provider_id",
+        "label": "Provider ID",
+        "description": "Links a device exposure to the provider who applied the device.",
+        "propertyType": "object",
+        "domainClassId": "DeviceExposure",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/Provider",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasParticipant",
+            "object": "?o1"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+            "object": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/ProviderRole"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "https://w3id.org/sulo/isFeatureOf",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p59",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p59",
+        "name": "device_concept_id",
+        "label": "Device Concept ID",
+        "description": "Links a device exposure to its standardised device concept.",
+        "propertyType": "object",
+        "domainClassId": "DeviceExposure",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/Concept",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasFeature",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p60",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p60",
+        "name": "hasDevice",
+        "label": "Has Device",
+        "description": "Links a device exposure to the physical device via an instrument role.",
+        "propertyType": "object",
+        "domainClassId": "DeviceExposure",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/Device",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasParticipant",
+            "object": "?o1"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+            "object": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/InstrumentRole"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "https://w3id.org/sulo/isFeatureOf",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p61",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p61",
+        "name": "visit_occurrence_id",
+        "label": "Visit Occurrence ID",
+        "description": "Links a device exposure to the enclosing visit occurrence.",
+        "propertyType": "object",
+        "domainClassId": "DeviceExposure",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/VisitOccurrence",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/isPartOf",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p62",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p62",
+        "name": "device_exposure_start_datetime",
+        "label": "Device Exposure Start Datetime",
+        "description": "Date and time when the device exposure started.",
+        "propertyType": "datatype",
+        "domainClassId": "DeviceExposure",
+        "rangeClassIri": "http://www.w3.org/2001/XMLSchema#dateTime",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/atTime",
+            "object": "?o1"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+            "object": "https://w3id.org/sulo/StartTime"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "https://w3id.org/sulo/hasValue",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p63",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p63",
+        "name": "device_exposure_end_datetime",
+        "label": "Device Exposure End Datetime",
+        "description": "Date and time when the device exposure ended.",
+        "propertyType": "datatype",
+        "domainClassId": "DeviceExposure",
+        "rangeClassIri": "http://www.w3.org/2001/XMLSchema#dateTime",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/atTime",
+            "object": "?o1"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+            "object": "https://w3id.org/sulo/EndTime"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "https://w3id.org/sulo/hasValue",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p64",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p64",
+        "name": "visit_type_concept_id",
+        "label": "Type Concept ID",
+        "description": "Provenance concept reflecting the source and origin of the visit record (e.g. EHR entry, claim, lab result).",
+        "propertyType": "object",
+        "domainClassId": "VisitOccurrence",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/Concept",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasFeature",
+            "object": "?value"
+          }
+        ],
+        "isRequired": true,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p65",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p65",
+        "name": "condition_type_concept_id",
+        "label": "Type Concept ID",
+        "description": "Provenance concept reflecting the source and origin of the condition record (e.g. EHR entry, claim, lab result).",
+        "propertyType": "object",
+        "domainClassId": "ConditionOccurrence",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/Concept",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasFeature",
+            "object": "?value"
+          }
+        ],
+        "isRequired": true,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p66",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p66",
+        "name": "drug_type_concept_id",
+        "label": "Type Concept ID",
+        "description": "Provenance concept reflecting the source and origin of the drug exposure record (e.g. EHR entry, claim, lab result).",
+        "propertyType": "object",
+        "domainClassId": "DrugExposure",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/Concept",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasFeature",
+            "object": "?value"
+          }
+        ],
+        "isRequired": true,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p67",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p67",
+        "name": "measurement_type_concept_id",
+        "label": "Type Concept ID",
+        "description": "Provenance concept reflecting the source and origin of the measurement record (e.g. EHR entry, claim, lab result).",
+        "propertyType": "object",
+        "domainClassId": "Measurement",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/Concept",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasFeature",
+            "object": "?value"
+          }
+        ],
+        "isRequired": true,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p68",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p68",
+        "name": "procedure_type_concept_id",
+        "label": "Type Concept ID",
+        "description": "Provenance concept reflecting the source and origin of the procedure record (e.g. EHR entry, claim, lab result).",
+        "propertyType": "object",
+        "domainClassId": "ProcedureOccurrence",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/Concept",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasFeature",
+            "object": "?value"
+          }
+        ],
+        "isRequired": true,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p69",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p69",
+        "name": "observation_type_concept_id",
+        "label": "Type Concept ID",
+        "description": "Provenance concept reflecting the source and origin of the observation record (e.g. EHR entry, claim, lab result).",
+        "propertyType": "object",
+        "domainClassId": "Observation",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/Concept",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasFeature",
+            "object": "?value"
+          }
+        ],
+        "isRequired": true,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p70",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p70",
+        "name": "device_type_concept_id",
+        "label": "Type Concept ID",
+        "description": "Provenance concept reflecting the source and origin of the device exposure record (e.g. EHR entry, claim, lab result).",
+        "propertyType": "object",
+        "domainClassId": "DeviceExposure",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/Concept",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasFeature",
+            "object": "?value"
+          }
+        ],
+        "isRequired": true,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p71",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p71",
+        "name": "specimen_type_concept_id",
+        "label": "Type Concept ID",
+        "description": "Provenance concept reflecting the source and origin of the specimen record (e.g. EHR entry, claim, lab result).",
+        "propertyType": "object",
+        "domainClassId": "Specimen",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/Concept",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasFeature",
+            "object": "?value"
+          }
+        ],
+        "isRequired": true,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p72",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p72",
+        "name": "visit_source_concept_id",
+        "label": "Source Concept ID",
+        "description": "Links a visit to the original source vocabulary concept before mapping to a standard concept.",
+        "propertyType": "object",
+        "domainClassId": "VisitOccurrence",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/Concept",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/refersTo",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p73",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p73",
+        "name": "condition_source_concept_id",
+        "label": "Source Concept ID",
+        "description": "Links a condition to the original source vocabulary concept before mapping to a standard concept.",
+        "propertyType": "object",
+        "domainClassId": "ConditionOccurrence",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/Concept",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/refersTo",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p74",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p74",
+        "name": "drug_source_concept_id",
+        "label": "Source Concept ID",
+        "description": "Links a drug exposure to the original source vocabulary concept before mapping to a standard concept.",
+        "propertyType": "object",
+        "domainClassId": "DrugExposure",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/Concept",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/refersTo",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p75",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p75",
+        "name": "measurement_source_concept_id",
+        "label": "Source Concept ID",
+        "description": "Links a measurement to the original source vocabulary concept before mapping to a standard concept.",
+        "propertyType": "object",
+        "domainClassId": "Measurement",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/Concept",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/refersTo",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p76",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p76",
+        "name": "procedure_source_concept_id",
+        "label": "Source Concept ID",
+        "description": "Links a procedure to the original source vocabulary concept before mapping to a standard concept.",
+        "propertyType": "object",
+        "domainClassId": "ProcedureOccurrence",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/Concept",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/refersTo",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p77",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p77",
+        "name": "observation_source_concept_id",
+        "label": "Source Concept ID",
+        "description": "Links a observation to the original source vocabulary concept before mapping to a standard concept.",
+        "propertyType": "object",
+        "domainClassId": "Observation",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/Concept",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/refersTo",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p78",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p78",
+        "name": "device_source_concept_id",
+        "label": "Source Concept ID",
+        "description": "Links a device exposure to the original source vocabulary concept before mapping to a standard concept.",
+        "propertyType": "object",
+        "domainClassId": "DeviceExposure",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/Concept",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/refersTo",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p79",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p79",
+        "name": "value_as_concept_id",
+        "label": "Value As Concept ID",
+        "description": "Categorical result of the measurement expressed as a standardised concept (e.g. Positive, Negative, Present).",
+        "propertyType": "object",
+        "domainClassId": "Measurement",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/Concept",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasFeature",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p80",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p80",
+        "name": "route_concept_id",
+        "label": "Route Concept ID",
+        "description": "Links a drug exposure to the route of administration concept (e.g. oral, intravenous, topical).",
+        "propertyType": "object",
+        "domainClassId": "DrugExposure",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/Concept",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasFeature",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p81",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p81",
+        "name": "location_id",
+        "label": "Location ID",
+        "description": "Links a care site to its physical or geographic location.",
+        "propertyType": "object",
+        "domainClassId": "CareSite",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/Location",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/isIn",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p82",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p82",
+        "name": "person_id",
+        "label": "Person ID",
+        "description": "Links a specimen to the person it was collected from.",
+        "propertyType": "object",
+        "domainClassId": "Specimen",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/Person",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasParticipant",
+            "object": "?o1"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+            "object": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/PatientRole"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "https://w3id.org/sulo/isFeatureOf",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p83",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p83",
+        "name": "specimen_concept_id",
+        "label": "Specimen Concept ID",
+        "description": "Links a specimen to its standardised type concept (e.g. blood, urine, tissue).",
+        "propertyType": "object",
+        "domainClassId": "Specimen",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/Concept",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasFeature",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p84",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p84",
+        "name": "anatomic_site_concept_id",
+        "label": "Anatomic Site Concept ID",
+        "description": "Links a specimen to the anatomical site from which it was collected.",
+        "propertyType": "object",
+        "domainClassId": "Specimen",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/Concept",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/isIn",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p85",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p85",
+        "name": "specimen_datetime",
+        "label": "Specimen Datetime",
+        "description": "Date and time when the specimen was collected.",
+        "propertyType": "datatype",
+        "domainClassId": "Specimen",
+        "rangeClassIri": "http://www.w3.org/2001/XMLSchema#dateTime",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/atTime",
+            "object": "?o1"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+            "object": "https://w3id.org/sulo/TimeInstant"
+          },
+          {
+            "subject": "?o1",
+            "predicate": "https://w3id.org/sulo/hasValue",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p86",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p86",
+        "name": "specimen_source_concept_id",
+        "label": "Specimen Source Concept ID",
+        "description": "Links a specimen to its original source vocabulary concept before mapping.",
+        "propertyType": "object",
+        "domainClassId": "Specimen",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/Concept",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/refersTo",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p87",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p87",
+        "name": "quantity",
+        "label": "Quantity",
+        "description": "The volume or amount of the specimen collected.",
+        "propertyType": "datatype",
+        "domainClassId": "Specimen",
+        "rangeClassIri": "http://www.w3.org/2001/XMLSchema#decimal",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasValue",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p88",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p88",
+        "name": "unit_concept_id",
+        "label": "Unit Concept ID",
+        "description": "Links a specimen to the unit of measure for its collected quantity.",
+        "propertyType": "object",
+        "domainClassId": "Specimen",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/Unit",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasPart",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      },
+      {
+        "id": "p89",
+        "url": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/prop/p89",
+        "name": "disease_status_concept_id",
+        "label": "Disease Status Concept ID",
+        "description": "Standardised concept reflecting the disease status of the patient at the time of specimen collection.",
+        "propertyType": "object",
+        "domainClassId": "Specimen",
+        "rangeClassIri": "https://w3id.org/sulo/schema-builder/omop-cdm-schema/Concept",
+        "mappingPattern": [
+          {
+            "subject": "?this",
+            "predicate": "https://w3id.org/sulo/hasFeature",
+            "object": "?value"
+          }
+        ],
+        "isRequired": false,
+        "propertyFeatures": [],
+        "disjointPropertyIris": []
+      }
+    ]
+  }
+}

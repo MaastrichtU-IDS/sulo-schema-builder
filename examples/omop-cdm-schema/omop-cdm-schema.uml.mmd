@@ -1,0 +1,222 @@
+classDiagram
+  class VisitOccurrence {
+    <<sulo:Process>>
+    +person_id() Person
+    +provider_id() Provider
+    +care_site_id() CareSite
+    +visit_concept_id() Concept
+    +visit_start_datetime() dateTime
+    +visit_end_datetime() dateTime
+    +admitting_source_concept_id() Concept
+    +discharge_to_concept_id() Concept
+    +preceding_visit_occurrence_id() VisitOccurrence
+    +visit_type_concept_id() Concept
+    +visit_source_concept_id() Concept
+  }
+  class ConditionOccurrence {
+    <<sulo:Process>>
+    +person_id() Person
+    +condition_concept_id() Concept
+    +visit_occurrence_id() VisitOccurrence
+    +condition_start_datetime() dateTime
+    +condition_end_datetime() dateTime
+    +condition_status_concept_id() Concept
+    +stop_reason() string
+    +condition_type_concept_id() Concept
+    +condition_source_concept_id() Concept
+  }
+  class DrugExposure {
+    <<sulo:Process>>
+    +person_id() Person
+    +provider_id() Provider
+    +drug_concept_id() Concept
+    +hasDrugProduct() DrugProduct
+    +hasDoseQuantity() DoseQuantity
+    +visit_occurrence_id() VisitOccurrence
+    +drug_exposure_start_datetime() dateTime
+    +drug_exposure_end_datetime() dateTime
+    +stop_reason() string
+    +quantity() decimal
+    +days_supply() integer
+    +refills() integer
+    +drug_type_concept_id() Concept
+    +drug_source_concept_id() Concept
+    +route_concept_id() Concept
+  }
+  class Measurement {
+    <<sulo:InformationObject>>
+    +person_id() Person
+    +provider_id() Provider
+    +hasMeasurementResult() MeasurementValue
+    +measurement_concept_id() Concept
+    +value_as_number() float
+    +unit_concept_id() Unit
+    +visit_occurrence_id() VisitOccurrence
+    +measurement_datetime() dateTime
+    +operator_concept_id() Concept
+    +range_low() decimal
+    +range_high() decimal
+    +measurement_type_concept_id() Concept
+    +measurement_source_concept_id() Concept
+    +value_as_concept_id() Concept
+  }
+  class ProcedureOccurrence {
+    <<sulo:Process>>
+    +person_id() Person
+    +provider_id() Provider
+    +procedure_concept_id() Concept
+    +visit_occurrence_id() VisitOccurrence
+    +procedure_datetime() dateTime
+    +procedure_end_datetime() dateTime
+    +procedure_type_concept_id() Concept
+    +procedure_source_concept_id() Concept
+  }
+  class Observation {
+    <<sulo:InformationObject>>
+    +person_id() Person
+    +observation_concept_id() Concept
+    +value_as_string() string
+    +visit_occurrence_id() VisitOccurrence
+    +observation_datetime() dateTime
+    +value_as_number() decimal
+    +value_as_concept_id() Concept
+    +unit_concept_id() Unit
+    +qualifier_concept_id() Concept
+    +provider_id() Provider
+    +observation_type_concept_id() Concept
+    +observation_source_concept_id() Concept
+  }
+  class DeviceExposure {
+    <<sulo:Process>>
+    +person_id() Person
+    +provider_id() Provider
+    +device_concept_id() Concept
+    +hasDevice() Device
+    +visit_occurrence_id() VisitOccurrence
+    +device_exposure_start_datetime() dateTime
+    +device_exposure_end_datetime() dateTime
+    +device_type_concept_id() Concept
+    +device_source_concept_id() Concept
+  }
+  class Person {
+    <<sulo:SpatialObject>>
+  }
+  class Provider {
+    <<sulo:SpatialObject>>
+  }
+  class CareSite {
+    <<sulo:SpatialObject>>
+    +location_id() Location
+  }
+  class Location {
+    <<sulo:SpatialObject>>
+  }
+  class Concept {
+    <<sulo:InformationObject>>
+    +concept_id() integer
+    +concept_name() string
+  }
+  class DrugProduct {
+    <<sulo:SpatialObject>>
+  }
+  class Device {
+    <<sulo:SpatialObject>>
+  }
+  class Specimen {
+    <<sulo:SpatialObject>>
+    +specimen_type_concept_id() Concept
+    +person_id() Person
+    +specimen_concept_id() Concept
+    +anatomic_site_concept_id() Concept
+    +specimen_datetime() dateTime
+    +specimen_source_concept_id() Concept
+    +quantity() decimal
+    +unit_concept_id() Unit
+    +disease_status_concept_id() Concept
+  }
+  class PatientRole {
+    <<sulo:Role>>
+  }
+  class ProviderRole {
+    <<sulo:Role>>
+  }
+  class OutputRole {
+    <<sulo:Role>>
+  }
+  class InstrumentRole {
+    <<sulo:Role>>
+  }
+  class MeasurementValue {
+    <<sulo:Quantity>>
+  }
+  class Unit {
+    <<sulo:Quality>>
+  }
+  class DoseQuantity {
+    <<sulo:Quantity>>
+  }
+
+  VisitOccurrence --> Person : person_id
+  VisitOccurrence --> Provider : provider_id
+  VisitOccurrence --> CareSite : care_site_id
+  VisitOccurrence --> Concept : visit_concept_id
+  VisitOccurrence --> Concept : admitting_source_concept_id
+  VisitOccurrence --> Concept : discharge_to_concept_id
+  VisitOccurrence --> VisitOccurrence : preceding_visit_occurrence_id
+  ConditionOccurrence --> Person : person_id
+  ConditionOccurrence --> Concept : condition_concept_id
+  ConditionOccurrence --> VisitOccurrence : visit_occurrence_id
+  ConditionOccurrence --> Concept : condition_status_concept_id
+  DrugExposure --> Person : person_id
+  DrugExposure --> Provider : provider_id
+  DrugExposure --> Concept : drug_concept_id
+  DrugExposure --> DrugProduct : hasDrugProduct
+  DrugExposure --> DoseQuantity : hasDoseQuantity
+  DrugExposure --> VisitOccurrence : visit_occurrence_id
+  Measurement --> Person : person_id
+  Measurement --> Provider : provider_id
+  Measurement --> MeasurementValue : hasMeasurementResult
+  Measurement --> Concept : measurement_concept_id
+  Measurement --> Unit : unit_concept_id
+  Measurement --> VisitOccurrence : visit_occurrence_id
+  Measurement --> Concept : operator_concept_id
+  ProcedureOccurrence --> Person : person_id
+  ProcedureOccurrence --> Provider : provider_id
+  ProcedureOccurrence --> Concept : procedure_concept_id
+  ProcedureOccurrence --> VisitOccurrence : visit_occurrence_id
+  Observation --> Person : person_id
+  Observation --> Concept : observation_concept_id
+  Observation --> VisitOccurrence : visit_occurrence_id
+  Observation --> Concept : value_as_concept_id
+  Observation --> Unit : unit_concept_id
+  Observation --> Concept : qualifier_concept_id
+  Observation --> Provider : provider_id
+  DeviceExposure --> Person : person_id
+  DeviceExposure --> Provider : provider_id
+  DeviceExposure --> Concept : device_concept_id
+  DeviceExposure --> Device : hasDevice
+  DeviceExposure --> VisitOccurrence : visit_occurrence_id
+  VisitOccurrence --> Concept : visit_type_concept_id
+  ConditionOccurrence --> Concept : condition_type_concept_id
+  DrugExposure --> Concept : drug_type_concept_id
+  Measurement --> Concept : measurement_type_concept_id
+  ProcedureOccurrence --> Concept : procedure_type_concept_id
+  Observation --> Concept : observation_type_concept_id
+  DeviceExposure --> Concept : device_type_concept_id
+  Specimen --> Concept : specimen_type_concept_id
+  VisitOccurrence --> Concept : visit_source_concept_id
+  ConditionOccurrence --> Concept : condition_source_concept_id
+  DrugExposure --> Concept : drug_source_concept_id
+  Measurement --> Concept : measurement_source_concept_id
+  ProcedureOccurrence --> Concept : procedure_source_concept_id
+  Observation --> Concept : observation_source_concept_id
+  DeviceExposure --> Concept : device_source_concept_id
+  Measurement --> Concept : value_as_concept_id
+  DrugExposure --> Concept : route_concept_id
+  CareSite --> Location : location_id
+  Specimen --> Person : person_id
+  Specimen --> Concept : specimen_concept_id
+  Specimen --> Concept : anatomic_site_concept_id
+  Specimen --> Concept : specimen_source_concept_id
+  Specimen --> Unit : unit_concept_id
+  Specimen --> Concept : disease_status_concept_id

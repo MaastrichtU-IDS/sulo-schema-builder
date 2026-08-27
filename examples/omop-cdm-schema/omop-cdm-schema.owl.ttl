@@ -1,0 +1,1242 @@
+@prefix : <https://w3id.org/sulo/schema-builder/omop-cdm-schema/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix dct: <http://purl.org/dc/terms/> .
+@prefix sulo: <https://w3id.org/sulo/> .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema>
+    a owl:Ontology ;
+    dct:title "OMOP CDM Schema" ;
+    dct:description "OMOP Common Data Model schema with core clinical tables (VisitOccurrence, ConditionOccurrence, DrugExposure, Measurement, ProcedureOccurrence, Observation, DeviceExposure) mapped to SULO. Intentionally contains SULO domain/range violations (see docs/omop-consistency-issues.md and docs/omop-modeling-error-examples.md) — HermiT reports 44 unsatisfiable classes." ;
+    owl:imports <https://w3id.org/sulo/> .
+
+# ── Classes ──────────────────────────────────────────────────────────────
+
+:VisitOccurrence
+    a owl:Class ;
+    rdfs:label "Visit Occurrence" ;
+    rdfs:comment "A healthcare encounter between a person and the healthcare system." ;
+    rdfs:subClassOf sulo:Process .
+
+:ConditionOccurrence
+    a owl:Class ;
+    rdfs:label "Condition Occurrence" ;
+    rdfs:comment "A record of a disease, injury, or medical condition observed in a person." ;
+    rdfs:subClassOf sulo:Process .
+
+:DrugExposure
+    a owl:Class ;
+    rdfs:label "Drug Exposure" ;
+    rdfs:comment "A record of a drug or vaccine administered to or ingested by a person." ;
+    rdfs:subClassOf sulo:Process .
+
+:Measurement
+    a owl:Class ;
+    rdfs:label "Measurement" ;
+    rdfs:comment "A structured result obtained through systematic examination or testing (lab, vital signs)." ;
+    rdfs:subClassOf sulo:InformationObject .
+
+:ProcedureOccurrence
+    a owl:Class ;
+    rdfs:label "Procedure Occurrence" ;
+    rdfs:comment "A record of an activity or process ordered or carried out on a person." ;
+    rdfs:subClassOf sulo:Process .
+
+:Observation
+    a owl:Class ;
+    rdfs:label "Observation" ;
+    rdfs:comment "A clinical fact about a person not captured in other tables (e.g. smoking status, BMI)." ;
+    rdfs:subClassOf sulo:InformationObject .
+
+:DeviceExposure
+    a owl:Class ;
+    rdfs:label "Device Exposure" ;
+    rdfs:comment "Exposure to a foreign physical object used for diagnostic or therapeutic purposes." ;
+    rdfs:subClassOf sulo:Process .
+
+:Person
+    a owl:Class ;
+    rdfs:label "Person" ;
+    rdfs:comment "A person who is the subject of health-related data." ;
+    rdfs:subClassOf sulo:SpatialObject .
+
+:Provider
+    a owl:Class ;
+    rdfs:label "Provider" ;
+    rdfs:comment "A healthcare provider (clinician, nurse, etc.) who delivers care." ;
+    rdfs:subClassOf sulo:SpatialObject .
+
+:CareSite
+    a owl:Class ;
+    rdfs:label "Care Site" ;
+    rdfs:comment "A uniquely identified healthcare delivery location or organisational unit." ;
+    rdfs:subClassOf sulo:SpatialObject .
+
+:Location
+    a owl:Class ;
+    rdfs:label "Location" ;
+    rdfs:comment "A physical or geographic address associated with a care site or person." ;
+    rdfs:subClassOf sulo:SpatialObject .
+
+:Concept
+    a owl:Class ;
+    rdfs:label "Concept" ;
+    rdfs:comment "A standardised vocabulary concept (SNOMED-CT, RxNorm, LOINC, etc.) used to express clinical data." ;
+    rdfs:subClassOf sulo:InformationObject .
+
+:DrugProduct
+    a owl:Class ;
+    rdfs:label "Drug Product" ;
+    rdfs:comment "A pharmaceutical substance or drug formulation identified by a vocabulary concept." ;
+    rdfs:subClassOf sulo:SpatialObject .
+
+:Device
+    a owl:Class ;
+    rdfs:label "Device" ;
+    rdfs:comment "A medical device or instrument used in diagnosis or therapy." ;
+    rdfs:subClassOf sulo:SpatialObject .
+
+:Specimen
+    a owl:Class ;
+    rdfs:label "Specimen" ;
+    rdfs:comment "A biological specimen collected from a person for laboratory analysis." ;
+    rdfs:subClassOf sulo:SpatialObject .
+
+:PatientRole
+    a owl:Class ;
+    rdfs:label "Patient Role" ;
+    rdfs:comment "The role played by a person as the subject of a clinical event." ;
+    rdfs:subClassOf sulo:Role .
+
+:ProviderRole
+    a owl:Class ;
+    rdfs:label "Provider Role" ;
+    rdfs:comment "The role played by a provider who participates in a clinical event." ;
+    rdfs:subClassOf sulo:Role .
+
+:OutputRole
+    a owl:Class ;
+    rdfs:label "Output Role" ;
+    rdfs:comment "The role of an entity produced as an output of a clinical process." ;
+    rdfs:subClassOf sulo:Role .
+
+:InstrumentRole
+    a owl:Class ;
+    rdfs:label "Instrument Role" ;
+    rdfs:comment "The role of a device or instrument used in a clinical process." ;
+    rdfs:subClassOf sulo:Role .
+
+:MeasurementValue
+    a owl:Class ;
+    rdfs:label "Measurement Value" ;
+    rdfs:comment "A numerical or categorical value obtained from a measurement." ;
+    rdfs:subClassOf sulo:Quantity .
+
+:Unit
+    a owl:Class ;
+    rdfs:label "Unit" ;
+    rdfs:comment "A unit of measure associated with a measurement or dose." ;
+    rdfs:subClassOf sulo:Quality .
+
+:DoseQuantity
+    a owl:Class ;
+    rdfs:label "Dose Quantity" ;
+    rdfs:comment "The quantity of a drug dispensed or administered." ;
+    rdfs:subClassOf sulo:Quantity .
+
+# ── Properties ───────────────────────────────────────────────────────────
+
+:concept_id
+    a owl:DatatypeProperty ;
+    rdfs:label "Concept ID" ;
+    rdfs:comment "The unique integer identifier of the concept in the vocabulary." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/Concept_concept_id_domain> ;
+    rdfs:range xsd:integer .
+
+:concept_name
+    a owl:DatatypeProperty ;
+    rdfs:label "Concept Name" ;
+    rdfs:comment "The human-readable name or label of the concept." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/Concept_concept_name_domain> ;
+    rdfs:range xsd:string .
+
+:person_id
+    a owl:ObjectProperty ;
+    rdfs:label "Person ID" ;
+    rdfs:comment "Links a visit occurrence to the patient (subject of care)." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/VisitOccurrence_person_id_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/omop-cdm-schema/VisitOccurrence_person_id_range> .
+
+:provider_id
+    a owl:ObjectProperty ;
+    rdfs:label "Provider ID" ;
+    rdfs:comment "Links a visit occurrence to the attending healthcare provider." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/VisitOccurrence_provider_id_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/omop-cdm-schema/VisitOccurrence_provider_id_range> .
+
+:care_site_id
+    a owl:ObjectProperty ;
+    rdfs:label "Care Site ID" ;
+    rdfs:comment "Links a visit occurrence to the care site where it took place." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/VisitOccurrence_care_site_id_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/omop-cdm-schema/VisitOccurrence_care_site_id_range> .
+
+:visit_concept_id
+    a owl:ObjectProperty ;
+    rdfs:label "Visit Concept ID" ;
+    rdfs:comment "Links a visit occurrence to its standardised vocabulary concept (visit type)." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/VisitOccurrence_visit_concept_id_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/omop-cdm-schema/VisitOccurrence_visit_concept_id_range> .
+
+:visit_start_datetime
+    a owl:DatatypeProperty ;
+    rdfs:label "Visit Start Datetime" ;
+    rdfs:comment "Date and time when the visit started." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/VisitOccurrence_visit_start_datetime_domain> ;
+    rdfs:range xsd:dateTime .
+
+:visit_end_datetime
+    a owl:DatatypeProperty ;
+    rdfs:label "Visit End Datetime" ;
+    rdfs:comment "Date and time when the visit ended." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/VisitOccurrence_visit_end_datetime_domain> ;
+    rdfs:range xsd:dateTime .
+
+:admitting_source_concept_id
+    a owl:ObjectProperty ;
+    rdfs:label "Admitting Source Concept ID" ;
+    rdfs:comment "Concept for the place of service or type of provider from which the patient was admitted." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/VisitOccurrence_admitting_source_concept_id_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/omop-cdm-schema/VisitOccurrence_admitting_source_concept_id_range> .
+
+:discharge_to_concept_id
+    a owl:ObjectProperty ;
+    rdfs:label "Discharge To Concept ID" ;
+    rdfs:comment "Concept for the place of service or type of provider to which the patient was discharged." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/VisitOccurrence_discharge_to_concept_id_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/omop-cdm-schema/VisitOccurrence_discharge_to_concept_id_range> .
+
+:preceding_visit_occurrence_id
+    a owl:ObjectProperty ;
+    rdfs:label "Preceding Visit Occurrence ID" ;
+    rdfs:comment "Links a visit to the immediately preceding visit occurrence for the same patient." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/VisitOccurrence_preceding_visit_occurrence_id_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/omop-cdm-schema/VisitOccurrence_preceding_visit_occurrence_id_range> .
+
+:person_id
+    a owl:ObjectProperty ;
+    rdfs:label "Person ID" ;
+    rdfs:comment "Links a condition occurrence to the patient." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/ConditionOccurrence_person_id_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/omop-cdm-schema/ConditionOccurrence_person_id_range> .
+
+:condition_concept_id
+    a owl:ObjectProperty ;
+    rdfs:label "Condition Concept ID" ;
+    rdfs:comment "Links a condition occurrence to its standardised diagnosis concept (e.g. SNOMED-CT code)." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/ConditionOccurrence_condition_concept_id_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/omop-cdm-schema/ConditionOccurrence_condition_concept_id_range> .
+
+:visit_occurrence_id
+    a owl:ObjectProperty ;
+    rdfs:label "Visit Occurrence ID" ;
+    rdfs:comment "Links a condition occurrence to the enclosing visit occurrence." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/ConditionOccurrence_visit_occurrence_id_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/omop-cdm-schema/ConditionOccurrence_visit_occurrence_id_range> .
+
+:condition_start_datetime
+    a owl:DatatypeProperty ;
+    rdfs:label "Condition Start Datetime" ;
+    rdfs:comment "Date and time when the condition started." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/ConditionOccurrence_condition_start_datetime_domain> ;
+    rdfs:range xsd:dateTime .
+
+:condition_end_datetime
+    a owl:DatatypeProperty ;
+    rdfs:label "Condition End Datetime" ;
+    rdfs:comment "Date and time when the condition ended." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/ConditionOccurrence_condition_end_datetime_domain> ;
+    rdfs:range xsd:dateTime .
+
+:condition_status_concept_id
+    a owl:ObjectProperty ;
+    rdfs:label "Condition Status Concept ID" ;
+    rdfs:comment "Standardised concept reflecting the current status of the condition (e.g. active, inactive, resolved)." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/ConditionOccurrence_condition_status_concept_id_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/omop-cdm-schema/ConditionOccurrence_condition_status_concept_id_range> .
+
+:stop_reason
+    a owl:DatatypeProperty ;
+    rdfs:label "Stop Reason" ;
+    rdfs:comment "The reason the condition was no longer present, as indicated in the source data." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/ConditionOccurrence_stop_reason_domain> ;
+    rdfs:range xsd:string .
+
+:person_id
+    a owl:ObjectProperty ;
+    rdfs:label "Person ID" ;
+    rdfs:comment "Links a drug exposure to the patient who received the drug." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/DrugExposure_person_id_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/omop-cdm-schema/DrugExposure_person_id_range> .
+
+:provider_id
+    a owl:ObjectProperty ;
+    rdfs:label "Provider ID" ;
+    rdfs:comment "Links a drug exposure to the prescribing or administering provider." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/DrugExposure_provider_id_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/omop-cdm-schema/DrugExposure_provider_id_range> .
+
+:drug_concept_id
+    a owl:ObjectProperty ;
+    rdfs:label "Drug Concept ID" ;
+    rdfs:comment "Links a drug exposure to the drug concept (RxNorm or ATC code)." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/DrugExposure_drug_concept_id_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/omop-cdm-schema/DrugExposure_drug_concept_id_range> .
+
+:hasDrugProduct
+    a owl:ObjectProperty ;
+    rdfs:label "Has Drug Product" ;
+    rdfs:comment "Links a drug exposure to the dispensed or administered drug product." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/DrugExposure_hasDrugProduct_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/omop-cdm-schema/DrugExposure_hasDrugProduct_range> .
+
+:hasDoseQuantity
+    a owl:ObjectProperty ;
+    rdfs:label "Has Dose Quantity" ;
+    rdfs:comment "Links a drug exposure to the administered dose quantity." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/DrugExposure_hasDoseQuantity_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/omop-cdm-schema/DrugExposure_hasDoseQuantity_range> .
+
+:visit_occurrence_id
+    a owl:ObjectProperty ;
+    rdfs:label "Visit Occurrence ID" ;
+    rdfs:comment "Links a drug exposure to the enclosing visit occurrence." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/DrugExposure_visit_occurrence_id_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/omop-cdm-schema/DrugExposure_visit_occurrence_id_range> .
+
+:drug_exposure_start_datetime
+    a owl:DatatypeProperty ;
+    rdfs:label "Drug Exposure Start Datetime" ;
+    rdfs:comment "Date and time when the drug exposure started." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/DrugExposure_drug_exposure_start_datetime_domain> ;
+    rdfs:range xsd:dateTime .
+
+:drug_exposure_end_datetime
+    a owl:DatatypeProperty ;
+    rdfs:label "Drug Exposure End Datetime" ;
+    rdfs:comment "Date and time when the drug exposure ended." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/DrugExposure_drug_exposure_end_datetime_domain> ;
+    rdfs:range xsd:dateTime .
+
+:stop_reason
+    a owl:DatatypeProperty ;
+    rdfs:label "Stop Reason" ;
+    rdfs:comment "The reason the drug was discontinued (e.g. regimen completed, side effects, changed)." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/DrugExposure_stop_reason_domain> ;
+    rdfs:range xsd:string .
+
+:quantity
+    a owl:DatatypeProperty ;
+    rdfs:label "Quantity" ;
+    rdfs:comment "The quantity of the drug as recorded in the original prescription or dispensing record." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/DrugExposure_quantity_domain> ;
+    rdfs:range xsd:decimal .
+
+:days_supply
+    a owl:DatatypeProperty ;
+    rdfs:label "Days Supply" ;
+    rdfs:comment "Number of days of supply as recorded in the original prescription or dispensing record." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/DrugExposure_days_supply_domain> ;
+    rdfs:range xsd:integer .
+
+:refills
+    a owl:DatatypeProperty ;
+    rdfs:label "Refills" ;
+    rdfs:comment "The number of refills after the initial prescription, starting at 0." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/DrugExposure_refills_domain> ;
+    rdfs:range xsd:integer .
+
+:person_id
+    a owl:ObjectProperty ;
+    rdfs:label "Person ID" ;
+    rdfs:comment "Links a measurement to the patient it was taken from." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/Measurement_person_id_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/omop-cdm-schema/Measurement_person_id_range> .
+
+:provider_id
+    a owl:ObjectProperty ;
+    rdfs:label "Provider ID" ;
+    rdfs:comment "Links a measurement to the provider who ordered or performed it." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/Measurement_provider_id_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/omop-cdm-schema/Measurement_provider_id_range> .
+
+:hasMeasurementResult
+    a owl:ObjectProperty ;
+    rdfs:label "Has Measurement Result" ;
+    rdfs:comment "Links a measurement to its output result value via an output role." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/Measurement_hasMeasurementResult_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/omop-cdm-schema/Measurement_hasMeasurementResult_range> .
+
+:measurement_concept_id
+    a owl:ObjectProperty ;
+    rdfs:label "Measurement Concept ID" ;
+    rdfs:comment "Links a measurement to its LOINC or SNOMED concept (what was measured)." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/Measurement_measurement_concept_id_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/omop-cdm-schema/Measurement_measurement_concept_id_range> .
+
+:value_as_number
+    a owl:DatatypeProperty ;
+    rdfs:label "Value As Number" ;
+    rdfs:comment "Numeric result of the measurement." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/Measurement_value_as_number_domain> ;
+    rdfs:range xsd:float .
+
+:unit_concept_id
+    a owl:ObjectProperty ;
+    rdfs:label "Unit Concept ID" ;
+    rdfs:comment "Links a measurement to its unit of measure." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/Measurement_unit_concept_id_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/omop-cdm-schema/Measurement_unit_concept_id_range> .
+
+:visit_occurrence_id
+    a owl:ObjectProperty ;
+    rdfs:label "Visit Occurrence ID" ;
+    rdfs:comment "Links a measurement to the enclosing visit occurrence." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/Measurement_visit_occurrence_id_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/omop-cdm-schema/Measurement_visit_occurrence_id_range> .
+
+:measurement_datetime
+    a owl:DatatypeProperty ;
+    rdfs:label "Measurement Datetime" ;
+    rdfs:comment "Date and time when the measurement was taken." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/Measurement_measurement_datetime_domain> ;
+    rdfs:range xsd:dateTime .
+
+:operator_concept_id
+    a owl:ObjectProperty ;
+    rdfs:label "Operator Concept ID" ;
+    rdfs:comment "Comparison operator applied to the numeric result (e.g. <, <=, =, >=, >)." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/Measurement_operator_concept_id_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/omop-cdm-schema/Measurement_operator_concept_id_range> .
+
+:range_low
+    a owl:DatatypeProperty ;
+    rdfs:label "Range Low" ;
+    rdfs:comment "Lower bound of the normal reference range for this measurement." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/Measurement_range_low_domain> ;
+    rdfs:range xsd:decimal .
+
+:range_high
+    a owl:DatatypeProperty ;
+    rdfs:label "Range High" ;
+    rdfs:comment "Upper bound of the normal reference range for this measurement." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/Measurement_range_high_domain> ;
+    rdfs:range xsd:decimal .
+
+:person_id
+    a owl:ObjectProperty ;
+    rdfs:label "Person ID" ;
+    rdfs:comment "Links a procedure occurrence to the patient it was performed on." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/ProcedureOccurrence_person_id_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/omop-cdm-schema/ProcedureOccurrence_person_id_range> .
+
+:provider_id
+    a owl:ObjectProperty ;
+    rdfs:label "Provider ID" ;
+    rdfs:comment "Links a procedure occurrence to the provider who performed it." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/ProcedureOccurrence_provider_id_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/omop-cdm-schema/ProcedureOccurrence_provider_id_range> .
+
+:procedure_concept_id
+    a owl:ObjectProperty ;
+    rdfs:label "Procedure Concept ID" ;
+    rdfs:comment "Links a procedure occurrence to its standardised procedure concept." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/ProcedureOccurrence_procedure_concept_id_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/omop-cdm-schema/ProcedureOccurrence_procedure_concept_id_range> .
+
+:visit_occurrence_id
+    a owl:ObjectProperty ;
+    rdfs:label "Visit Occurrence ID" ;
+    rdfs:comment "Links a procedure occurrence to the enclosing visit occurrence." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/ProcedureOccurrence_visit_occurrence_id_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/omop-cdm-schema/ProcedureOccurrence_visit_occurrence_id_range> .
+
+:procedure_datetime
+    a owl:DatatypeProperty ;
+    rdfs:label "Procedure Datetime" ;
+    rdfs:comment "Date and time when the procedure was performed." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/ProcedureOccurrence_procedure_datetime_domain> ;
+    rdfs:range xsd:dateTime .
+
+:procedure_end_datetime
+    a owl:DatatypeProperty ;
+    rdfs:label "Procedure End Datetime" ;
+    rdfs:comment "Date and time when the procedure ended." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/ProcedureOccurrence_procedure_end_datetime_domain> ;
+    rdfs:range xsd:dateTime .
+
+:person_id
+    a owl:ObjectProperty ;
+    rdfs:label "Person ID" ;
+    rdfs:comment "Links a clinical observation to the patient it concerns." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/Observation_person_id_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/omop-cdm-schema/Observation_person_id_range> .
+
+:observation_concept_id
+    a owl:ObjectProperty ;
+    rdfs:label "Observation Concept ID" ;
+    rdfs:comment "Links an observation to its standardised concept (e.g. smoking status, BMI)." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/Observation_observation_concept_id_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/omop-cdm-schema/Observation_observation_concept_id_range> .
+
+:value_as_string
+    a owl:DatatypeProperty ;
+    rdfs:label "Value As String" ;
+    rdfs:comment "Textual or categorical value of the observation." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/Observation_value_as_string_domain> ;
+    rdfs:range xsd:string .
+
+:visit_occurrence_id
+    a owl:ObjectProperty ;
+    rdfs:label "Visit Occurrence ID" ;
+    rdfs:comment "Links an observation to the enclosing visit occurrence." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/Observation_visit_occurrence_id_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/omop-cdm-schema/Observation_visit_occurrence_id_range> .
+
+:observation_datetime
+    a owl:DatatypeProperty ;
+    rdfs:label "Observation Datetime" ;
+    rdfs:comment "Date and time of the observation." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/Observation_observation_datetime_domain> ;
+    rdfs:range xsd:dateTime .
+
+:value_as_number
+    a owl:DatatypeProperty ;
+    rdfs:label "Value As Number" ;
+    rdfs:comment "Numeric result when the observation is expressed as a quantitative value." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/Observation_value_as_number_domain> ;
+    rdfs:range xsd:decimal .
+
+:value_as_concept_id
+    a owl:ObjectProperty ;
+    rdfs:label "Value As Concept ID" ;
+    rdfs:comment "Categorical result when the observation is expressed as a standardised concept." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/Observation_value_as_concept_id_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/omop-cdm-schema/Observation_value_as_concept_id_range> .
+
+:unit_concept_id
+    a owl:ObjectProperty ;
+    rdfs:label "Unit Concept ID" ;
+    rdfs:comment "Links an observation to its unit of measure (for numeric observations)." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/Observation_unit_concept_id_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/omop-cdm-schema/Observation_unit_concept_id_range> .
+
+:qualifier_concept_id
+    a owl:ObjectProperty ;
+    rdfs:label "Qualifier Concept ID" ;
+    rdfs:comment "Qualifier concept characterising the observation (e.g. severity, certainty, laterality)." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/Observation_qualifier_concept_id_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/omop-cdm-schema/Observation_qualifier_concept_id_range> .
+
+:provider_id
+    a owl:ObjectProperty ;
+    rdfs:label "Provider ID" ;
+    rdfs:comment "Links an observation to the provider responsible for documenting it." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/Observation_provider_id_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/omop-cdm-schema/Observation_provider_id_range> .
+
+:person_id
+    a owl:ObjectProperty ;
+    rdfs:label "Person ID" ;
+    rdfs:comment "Links a device exposure to the patient." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/DeviceExposure_person_id_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/omop-cdm-schema/DeviceExposure_person_id_range> .
+
+:provider_id
+    a owl:ObjectProperty ;
+    rdfs:label "Provider ID" ;
+    rdfs:comment "Links a device exposure to the provider who applied the device." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/DeviceExposure_provider_id_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/omop-cdm-schema/DeviceExposure_provider_id_range> .
+
+:device_concept_id
+    a owl:ObjectProperty ;
+    rdfs:label "Device Concept ID" ;
+    rdfs:comment "Links a device exposure to its standardised device concept." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/DeviceExposure_device_concept_id_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/omop-cdm-schema/DeviceExposure_device_concept_id_range> .
+
+:hasDevice
+    a owl:ObjectProperty ;
+    rdfs:label "Has Device" ;
+    rdfs:comment "Links a device exposure to the physical device via an instrument role." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/DeviceExposure_hasDevice_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/omop-cdm-schema/DeviceExposure_hasDevice_range> .
+
+:visit_occurrence_id
+    a owl:ObjectProperty ;
+    rdfs:label "Visit Occurrence ID" ;
+    rdfs:comment "Links a device exposure to the enclosing visit occurrence." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/DeviceExposure_visit_occurrence_id_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/omop-cdm-schema/DeviceExposure_visit_occurrence_id_range> .
+
+:device_exposure_start_datetime
+    a owl:DatatypeProperty ;
+    rdfs:label "Device Exposure Start Datetime" ;
+    rdfs:comment "Date and time when the device exposure started." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/DeviceExposure_device_exposure_start_datetime_domain> ;
+    rdfs:range xsd:dateTime .
+
+:device_exposure_end_datetime
+    a owl:DatatypeProperty ;
+    rdfs:label "Device Exposure End Datetime" ;
+    rdfs:comment "Date and time when the device exposure ended." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/DeviceExposure_device_exposure_end_datetime_domain> ;
+    rdfs:range xsd:dateTime .
+
+:visit_type_concept_id
+    a owl:ObjectProperty ;
+    rdfs:label "Type Concept ID" ;
+    rdfs:comment "Provenance concept reflecting the source and origin of the visit record (e.g. EHR entry, claim, lab result)." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/VisitOccurrence_visit_type_concept_id_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/omop-cdm-schema/VisitOccurrence_visit_type_concept_id_range> .
+
+:condition_type_concept_id
+    a owl:ObjectProperty ;
+    rdfs:label "Type Concept ID" ;
+    rdfs:comment "Provenance concept reflecting the source and origin of the condition record (e.g. EHR entry, claim, lab result)." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/ConditionOccurrence_condition_type_concept_id_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/omop-cdm-schema/ConditionOccurrence_condition_type_concept_id_range> .
+
+:drug_type_concept_id
+    a owl:ObjectProperty ;
+    rdfs:label "Type Concept ID" ;
+    rdfs:comment "Provenance concept reflecting the source and origin of the drug exposure record (e.g. EHR entry, claim, lab result)." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/DrugExposure_drug_type_concept_id_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/omop-cdm-schema/DrugExposure_drug_type_concept_id_range> .
+
+:measurement_type_concept_id
+    a owl:ObjectProperty ;
+    rdfs:label "Type Concept ID" ;
+    rdfs:comment "Provenance concept reflecting the source and origin of the measurement record (e.g. EHR entry, claim, lab result)." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/Measurement_measurement_type_concept_id_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/omop-cdm-schema/Measurement_measurement_type_concept_id_range> .
+
+:procedure_type_concept_id
+    a owl:ObjectProperty ;
+    rdfs:label "Type Concept ID" ;
+    rdfs:comment "Provenance concept reflecting the source and origin of the procedure record (e.g. EHR entry, claim, lab result)." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/ProcedureOccurrence_procedure_type_concept_id_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/omop-cdm-schema/ProcedureOccurrence_procedure_type_concept_id_range> .
+
+:observation_type_concept_id
+    a owl:ObjectProperty ;
+    rdfs:label "Type Concept ID" ;
+    rdfs:comment "Provenance concept reflecting the source and origin of the observation record (e.g. EHR entry, claim, lab result)." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/Observation_observation_type_concept_id_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/omop-cdm-schema/Observation_observation_type_concept_id_range> .
+
+:device_type_concept_id
+    a owl:ObjectProperty ;
+    rdfs:label "Type Concept ID" ;
+    rdfs:comment "Provenance concept reflecting the source and origin of the device exposure record (e.g. EHR entry, claim, lab result)." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/DeviceExposure_device_type_concept_id_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/omop-cdm-schema/DeviceExposure_device_type_concept_id_range> .
+
+:specimen_type_concept_id
+    a owl:ObjectProperty ;
+    rdfs:label "Type Concept ID" ;
+    rdfs:comment "Provenance concept reflecting the source and origin of the specimen record (e.g. EHR entry, claim, lab result)." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/Specimen_specimen_type_concept_id_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/omop-cdm-schema/Specimen_specimen_type_concept_id_range> .
+
+:visit_source_concept_id
+    a owl:ObjectProperty ;
+    rdfs:label "Source Concept ID" ;
+    rdfs:comment "Links a visit to the original source vocabulary concept before mapping to a standard concept." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/VisitOccurrence_visit_source_concept_id_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/omop-cdm-schema/VisitOccurrence_visit_source_concept_id_range> .
+
+:condition_source_concept_id
+    a owl:ObjectProperty ;
+    rdfs:label "Source Concept ID" ;
+    rdfs:comment "Links a condition to the original source vocabulary concept before mapping to a standard concept." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/ConditionOccurrence_condition_source_concept_id_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/omop-cdm-schema/ConditionOccurrence_condition_source_concept_id_range> .
+
+:drug_source_concept_id
+    a owl:ObjectProperty ;
+    rdfs:label "Source Concept ID" ;
+    rdfs:comment "Links a drug exposure to the original source vocabulary concept before mapping to a standard concept." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/DrugExposure_drug_source_concept_id_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/omop-cdm-schema/DrugExposure_drug_source_concept_id_range> .
+
+:measurement_source_concept_id
+    a owl:ObjectProperty ;
+    rdfs:label "Source Concept ID" ;
+    rdfs:comment "Links a measurement to the original source vocabulary concept before mapping to a standard concept." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/Measurement_measurement_source_concept_id_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/omop-cdm-schema/Measurement_measurement_source_concept_id_range> .
+
+:procedure_source_concept_id
+    a owl:ObjectProperty ;
+    rdfs:label "Source Concept ID" ;
+    rdfs:comment "Links a procedure to the original source vocabulary concept before mapping to a standard concept." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/ProcedureOccurrence_procedure_source_concept_id_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/omop-cdm-schema/ProcedureOccurrence_procedure_source_concept_id_range> .
+
+:observation_source_concept_id
+    a owl:ObjectProperty ;
+    rdfs:label "Source Concept ID" ;
+    rdfs:comment "Links a observation to the original source vocabulary concept before mapping to a standard concept." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/Observation_observation_source_concept_id_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/omop-cdm-schema/Observation_observation_source_concept_id_range> .
+
+:device_source_concept_id
+    a owl:ObjectProperty ;
+    rdfs:label "Source Concept ID" ;
+    rdfs:comment "Links a device exposure to the original source vocabulary concept before mapping to a standard concept." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/DeviceExposure_device_source_concept_id_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/omop-cdm-schema/DeviceExposure_device_source_concept_id_range> .
+
+:value_as_concept_id
+    a owl:ObjectProperty ;
+    rdfs:label "Value As Concept ID" ;
+    rdfs:comment "Categorical result of the measurement expressed as a standardised concept (e.g. Positive, Negative, Present)." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/Measurement_value_as_concept_id_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/omop-cdm-schema/Measurement_value_as_concept_id_range> .
+
+:route_concept_id
+    a owl:ObjectProperty ;
+    rdfs:label "Route Concept ID" ;
+    rdfs:comment "Links a drug exposure to the route of administration concept (e.g. oral, intravenous, topical)." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/DrugExposure_route_concept_id_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/omop-cdm-schema/DrugExposure_route_concept_id_range> .
+
+:location_id
+    a owl:ObjectProperty ;
+    rdfs:label "Location ID" ;
+    rdfs:comment "Links a care site to its physical or geographic location." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/CareSite_location_id_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/omop-cdm-schema/CareSite_location_id_range> .
+
+:person_id
+    a owl:ObjectProperty ;
+    rdfs:label "Person ID" ;
+    rdfs:comment "Links a specimen to the person it was collected from." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/Specimen_person_id_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/omop-cdm-schema/Specimen_person_id_range> .
+
+:specimen_concept_id
+    a owl:ObjectProperty ;
+    rdfs:label "Specimen Concept ID" ;
+    rdfs:comment "Links a specimen to its standardised type concept (e.g. blood, urine, tissue)." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/Specimen_specimen_concept_id_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/omop-cdm-schema/Specimen_specimen_concept_id_range> .
+
+:anatomic_site_concept_id
+    a owl:ObjectProperty ;
+    rdfs:label "Anatomic Site Concept ID" ;
+    rdfs:comment "Links a specimen to the anatomical site from which it was collected." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/Specimen_anatomic_site_concept_id_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/omop-cdm-schema/Specimen_anatomic_site_concept_id_range> .
+
+:specimen_datetime
+    a owl:DatatypeProperty ;
+    rdfs:label "Specimen Datetime" ;
+    rdfs:comment "Date and time when the specimen was collected." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/Specimen_specimen_datetime_domain> ;
+    rdfs:range xsd:dateTime .
+
+:specimen_source_concept_id
+    a owl:ObjectProperty ;
+    rdfs:label "Specimen Source Concept ID" ;
+    rdfs:comment "Links a specimen to its original source vocabulary concept before mapping." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/Specimen_specimen_source_concept_id_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/omop-cdm-schema/Specimen_specimen_source_concept_id_range> .
+
+:quantity
+    a owl:DatatypeProperty ;
+    rdfs:label "Quantity" ;
+    rdfs:comment "The volume or amount of the specimen collected." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/Specimen_quantity_domain> ;
+    rdfs:range xsd:decimal .
+
+:unit_concept_id
+    a owl:ObjectProperty ;
+    rdfs:label "Unit Concept ID" ;
+    rdfs:comment "Links a specimen to the unit of measure for its collected quantity." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/Specimen_unit_concept_id_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/omop-cdm-schema/Specimen_unit_concept_id_range> .
+
+:disease_status_concept_id
+    a owl:ObjectProperty ;
+    rdfs:label "Disease Status Concept ID" ;
+    rdfs:comment "Standardised concept reflecting the disease status of the patient at the time of specimen collection." ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/omop-cdm-schema/Specimen_disease_status_concept_id_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/omop-cdm-schema/Specimen_disease_status_concept_id_range> .
+
+# ── Domain / Range class expressions (OWL equivalent axioms) ──────────────
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/Concept_concept_id_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Concept [ a owl:Restriction ; owl:onProperty sulo:hasValue ; owl:someValuesFrom xsd:integer ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/Concept_concept_name_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Concept [ a owl:Restriction ; owl:onProperty sulo:hasLabel ; owl:someValuesFrom xsd:string ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/VisitOccurrence_person_id_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :VisitOccurrence [ a owl:Restriction ; owl:onProperty sulo:hasParticipant ; owl:someValuesFrom [ a owl:Class ; owl:intersectionOf ( :PatientRole [ a owl:Restriction ; owl:onProperty sulo:isFeatureOf ; owl:someValuesFrom :Person ] ) ] ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/VisitOccurrence_person_id_range>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Person [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:isFeatureOf ] ; owl:someValuesFrom [ a owl:Class ; owl:intersectionOf ( :PatientRole [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:hasParticipant ] ; owl:someValuesFrom :VisitOccurrence ] ) ] ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/VisitOccurrence_provider_id_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :VisitOccurrence [ a owl:Restriction ; owl:onProperty sulo:hasParticipant ; owl:someValuesFrom [ a owl:Class ; owl:intersectionOf ( :ProviderRole [ a owl:Restriction ; owl:onProperty sulo:isFeatureOf ; owl:someValuesFrom :Provider ] ) ] ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/VisitOccurrence_provider_id_range>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Provider [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:isFeatureOf ] ; owl:someValuesFrom [ a owl:Class ; owl:intersectionOf ( :ProviderRole [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:hasParticipant ] ; owl:someValuesFrom :VisitOccurrence ] ) ] ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/VisitOccurrence_care_site_id_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :VisitOccurrence [ a owl:Restriction ; owl:onProperty sulo:isIn ; owl:someValuesFrom :CareSite ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/VisitOccurrence_care_site_id_range>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :CareSite [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:isIn ] ; owl:someValuesFrom :VisitOccurrence ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/VisitOccurrence_visit_concept_id_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :VisitOccurrence [ a owl:Restriction ; owl:onProperty sulo:hasFeature ; owl:someValuesFrom :Concept ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/VisitOccurrence_visit_concept_id_range>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Concept [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:hasFeature ] ; owl:someValuesFrom :VisitOccurrence ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/VisitOccurrence_visit_start_datetime_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :VisitOccurrence [ a owl:Restriction ; owl:onProperty sulo:atTime ; owl:someValuesFrom [ a owl:Class ; owl:intersectionOf ( sulo:StartTime [ a owl:Restriction ; owl:onProperty sulo:hasValue ; owl:someValuesFrom xsd:dateTime ] ) ] ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/VisitOccurrence_visit_end_datetime_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :VisitOccurrence [ a owl:Restriction ; owl:onProperty sulo:atTime ; owl:someValuesFrom [ a owl:Class ; owl:intersectionOf ( sulo:EndTime [ a owl:Restriction ; owl:onProperty sulo:hasValue ; owl:someValuesFrom xsd:dateTime ] ) ] ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/VisitOccurrence_admitting_source_concept_id_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :VisitOccurrence [ a owl:Restriction ; owl:onProperty sulo:hasFeature ; owl:someValuesFrom :Concept ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/VisitOccurrence_admitting_source_concept_id_range>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Concept [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:hasFeature ] ; owl:someValuesFrom :VisitOccurrence ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/VisitOccurrence_discharge_to_concept_id_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :VisitOccurrence [ a owl:Restriction ; owl:onProperty sulo:hasFeature ; owl:someValuesFrom :Concept ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/VisitOccurrence_discharge_to_concept_id_range>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Concept [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:hasFeature ] ; owl:someValuesFrom :VisitOccurrence ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/VisitOccurrence_preceding_visit_occurrence_id_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :VisitOccurrence [ a owl:Restriction ; owl:onProperty sulo:isPartOf ; owl:someValuesFrom :VisitOccurrence ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/VisitOccurrence_preceding_visit_occurrence_id_range>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :VisitOccurrence [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:isPartOf ] ; owl:someValuesFrom :VisitOccurrence ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/ConditionOccurrence_person_id_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :ConditionOccurrence [ a owl:Restriction ; owl:onProperty sulo:hasParticipant ; owl:someValuesFrom [ a owl:Class ; owl:intersectionOf ( :PatientRole [ a owl:Restriction ; owl:onProperty sulo:isFeatureOf ; owl:someValuesFrom :Person ] ) ] ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/ConditionOccurrence_person_id_range>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Person [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:isFeatureOf ] ; owl:someValuesFrom [ a owl:Class ; owl:intersectionOf ( :PatientRole [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:hasParticipant ] ; owl:someValuesFrom :ConditionOccurrence ] ) ] ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/ConditionOccurrence_condition_concept_id_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :ConditionOccurrence [ a owl:Restriction ; owl:onProperty sulo:hasFeature ; owl:someValuesFrom :Concept ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/ConditionOccurrence_condition_concept_id_range>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Concept [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:hasFeature ] ; owl:someValuesFrom :ConditionOccurrence ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/ConditionOccurrence_visit_occurrence_id_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :ConditionOccurrence [ a owl:Restriction ; owl:onProperty sulo:isPartOf ; owl:someValuesFrom :VisitOccurrence ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/ConditionOccurrence_visit_occurrence_id_range>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :VisitOccurrence [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:isPartOf ] ; owl:someValuesFrom :ConditionOccurrence ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/ConditionOccurrence_condition_start_datetime_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :ConditionOccurrence [ a owl:Restriction ; owl:onProperty sulo:atTime ; owl:someValuesFrom [ a owl:Class ; owl:intersectionOf ( sulo:StartTime [ a owl:Restriction ; owl:onProperty sulo:hasValue ; owl:someValuesFrom xsd:dateTime ] ) ] ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/ConditionOccurrence_condition_end_datetime_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :ConditionOccurrence [ a owl:Restriction ; owl:onProperty sulo:atTime ; owl:someValuesFrom [ a owl:Class ; owl:intersectionOf ( sulo:EndTime [ a owl:Restriction ; owl:onProperty sulo:hasValue ; owl:someValuesFrom xsd:dateTime ] ) ] ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/ConditionOccurrence_condition_status_concept_id_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :ConditionOccurrence [ a owl:Restriction ; owl:onProperty sulo:hasFeature ; owl:someValuesFrom :Concept ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/ConditionOccurrence_condition_status_concept_id_range>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Concept [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:hasFeature ] ; owl:someValuesFrom :ConditionOccurrence ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/ConditionOccurrence_stop_reason_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :ConditionOccurrence [ a owl:Restriction ; owl:onProperty sulo:hasValue ; owl:someValuesFrom xsd:string ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/DrugExposure_person_id_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :DrugExposure [ a owl:Restriction ; owl:onProperty sulo:hasParticipant ; owl:someValuesFrom [ a owl:Class ; owl:intersectionOf ( :PatientRole [ a owl:Restriction ; owl:onProperty sulo:isFeatureOf ; owl:someValuesFrom :Person ] ) ] ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/DrugExposure_person_id_range>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Person [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:isFeatureOf ] ; owl:someValuesFrom [ a owl:Class ; owl:intersectionOf ( :PatientRole [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:hasParticipant ] ; owl:someValuesFrom :DrugExposure ] ) ] ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/DrugExposure_provider_id_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :DrugExposure [ a owl:Restriction ; owl:onProperty sulo:hasParticipant ; owl:someValuesFrom [ a owl:Class ; owl:intersectionOf ( :ProviderRole [ a owl:Restriction ; owl:onProperty sulo:isFeatureOf ; owl:someValuesFrom :Provider ] ) ] ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/DrugExposure_provider_id_range>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Provider [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:isFeatureOf ] ; owl:someValuesFrom [ a owl:Class ; owl:intersectionOf ( :ProviderRole [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:hasParticipant ] ; owl:someValuesFrom :DrugExposure ] ) ] ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/DrugExposure_drug_concept_id_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :DrugExposure [ a owl:Restriction ; owl:onProperty sulo:refersTo ; owl:someValuesFrom :Concept ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/DrugExposure_drug_concept_id_range>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Concept [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:refersTo ] ; owl:someValuesFrom :DrugExposure ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/DrugExposure_hasDrugProduct_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :DrugExposure [ a owl:Restriction ; owl:onProperty sulo:hasParticipant ; owl:someValuesFrom :DrugProduct ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/DrugExposure_hasDrugProduct_range>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :DrugProduct [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:hasParticipant ] ; owl:someValuesFrom :DrugExposure ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/DrugExposure_hasDoseQuantity_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :DrugExposure [ a owl:Restriction ; owl:onProperty sulo:hasPart ; owl:someValuesFrom :DoseQuantity ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/DrugExposure_hasDoseQuantity_range>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :DoseQuantity [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:hasPart ] ; owl:someValuesFrom :DrugExposure ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/DrugExposure_visit_occurrence_id_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :DrugExposure [ a owl:Restriction ; owl:onProperty sulo:isPartOf ; owl:someValuesFrom :VisitOccurrence ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/DrugExposure_visit_occurrence_id_range>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :VisitOccurrence [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:isPartOf ] ; owl:someValuesFrom :DrugExposure ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/DrugExposure_drug_exposure_start_datetime_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :DrugExposure [ a owl:Restriction ; owl:onProperty sulo:atTime ; owl:someValuesFrom [ a owl:Class ; owl:intersectionOf ( sulo:StartTime [ a owl:Restriction ; owl:onProperty sulo:hasValue ; owl:someValuesFrom xsd:dateTime ] ) ] ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/DrugExposure_drug_exposure_end_datetime_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :DrugExposure [ a owl:Restriction ; owl:onProperty sulo:atTime ; owl:someValuesFrom [ a owl:Class ; owl:intersectionOf ( sulo:EndTime [ a owl:Restriction ; owl:onProperty sulo:hasValue ; owl:someValuesFrom xsd:dateTime ] ) ] ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/DrugExposure_stop_reason_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :DrugExposure [ a owl:Restriction ; owl:onProperty sulo:hasValue ; owl:someValuesFrom xsd:string ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/DrugExposure_quantity_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :DrugExposure [ a owl:Restriction ; owl:onProperty sulo:hasValue ; owl:someValuesFrom xsd:decimal ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/DrugExposure_days_supply_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :DrugExposure [ a owl:Restriction ; owl:onProperty sulo:hasValue ; owl:someValuesFrom xsd:integer ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/DrugExposure_refills_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :DrugExposure [ a owl:Restriction ; owl:onProperty sulo:hasValue ; owl:someValuesFrom xsd:integer ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/Measurement_person_id_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Measurement [ a owl:Restriction ; owl:onProperty sulo:hasParticipant ; owl:someValuesFrom [ a owl:Class ; owl:intersectionOf ( :PatientRole [ a owl:Restriction ; owl:onProperty sulo:isFeatureOf ; owl:someValuesFrom :Person ] ) ] ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/Measurement_person_id_range>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Person [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:isFeatureOf ] ; owl:someValuesFrom [ a owl:Class ; owl:intersectionOf ( :PatientRole [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:hasParticipant ] ; owl:someValuesFrom :Measurement ] ) ] ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/Measurement_provider_id_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Measurement [ a owl:Restriction ; owl:onProperty sulo:hasParticipant ; owl:someValuesFrom [ a owl:Class ; owl:intersectionOf ( :ProviderRole [ a owl:Restriction ; owl:onProperty sulo:isFeatureOf ; owl:someValuesFrom :Provider ] ) ] ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/Measurement_provider_id_range>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Provider [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:isFeatureOf ] ; owl:someValuesFrom [ a owl:Class ; owl:intersectionOf ( :ProviderRole [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:hasParticipant ] ; owl:someValuesFrom :Measurement ] ) ] ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/Measurement_hasMeasurementResult_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Measurement [ a owl:Restriction ; owl:onProperty sulo:hasParticipant ; owl:someValuesFrom [ a owl:Class ; owl:intersectionOf ( :OutputRole [ a owl:Restriction ; owl:onProperty sulo:isFeatureOf ; owl:someValuesFrom :MeasurementValue ] ) ] ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/Measurement_hasMeasurementResult_range>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :MeasurementValue [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:isFeatureOf ] ; owl:someValuesFrom [ a owl:Class ; owl:intersectionOf ( :OutputRole [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:hasParticipant ] ; owl:someValuesFrom :Measurement ] ) ] ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/Measurement_measurement_concept_id_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Measurement [ a owl:Restriction ; owl:onProperty sulo:hasFeature ; owl:someValuesFrom :Concept ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/Measurement_measurement_concept_id_range>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Concept [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:hasFeature ] ; owl:someValuesFrom :Measurement ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/Measurement_value_as_number_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Measurement [ a owl:Restriction ; owl:onProperty sulo:hasValue ; owl:someValuesFrom xsd:float ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/Measurement_unit_concept_id_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Measurement [ a owl:Restriction ; owl:onProperty sulo:hasPart ; owl:someValuesFrom :Unit ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/Measurement_unit_concept_id_range>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Unit [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:hasPart ] ; owl:someValuesFrom :Measurement ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/Measurement_visit_occurrence_id_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Measurement [ a owl:Restriction ; owl:onProperty sulo:isPartOf ; owl:someValuesFrom :VisitOccurrence ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/Measurement_visit_occurrence_id_range>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :VisitOccurrence [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:isPartOf ] ; owl:someValuesFrom :Measurement ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/Measurement_measurement_datetime_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Measurement [ a owl:Restriction ; owl:onProperty sulo:atTime ; owl:someValuesFrom [ a owl:Class ; owl:intersectionOf ( sulo:TimeInstant [ a owl:Restriction ; owl:onProperty sulo:hasValue ; owl:someValuesFrom xsd:dateTime ] ) ] ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/Measurement_operator_concept_id_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Measurement [ a owl:Restriction ; owl:onProperty sulo:hasFeature ; owl:someValuesFrom :Concept ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/Measurement_operator_concept_id_range>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Concept [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:hasFeature ] ; owl:someValuesFrom :Measurement ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/Measurement_range_low_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Measurement [ a owl:Restriction ; owl:onProperty sulo:hasValue ; owl:someValuesFrom xsd:decimal ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/Measurement_range_high_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Measurement [ a owl:Restriction ; owl:onProperty sulo:hasValue ; owl:someValuesFrom xsd:decimal ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/ProcedureOccurrence_person_id_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :ProcedureOccurrence [ a owl:Restriction ; owl:onProperty sulo:hasParticipant ; owl:someValuesFrom [ a owl:Class ; owl:intersectionOf ( :PatientRole [ a owl:Restriction ; owl:onProperty sulo:isFeatureOf ; owl:someValuesFrom :Person ] ) ] ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/ProcedureOccurrence_person_id_range>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Person [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:isFeatureOf ] ; owl:someValuesFrom [ a owl:Class ; owl:intersectionOf ( :PatientRole [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:hasParticipant ] ; owl:someValuesFrom :ProcedureOccurrence ] ) ] ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/ProcedureOccurrence_provider_id_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :ProcedureOccurrence [ a owl:Restriction ; owl:onProperty sulo:hasParticipant ; owl:someValuesFrom [ a owl:Class ; owl:intersectionOf ( :ProviderRole [ a owl:Restriction ; owl:onProperty sulo:isFeatureOf ; owl:someValuesFrom :Provider ] ) ] ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/ProcedureOccurrence_provider_id_range>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Provider [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:isFeatureOf ] ; owl:someValuesFrom [ a owl:Class ; owl:intersectionOf ( :ProviderRole [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:hasParticipant ] ; owl:someValuesFrom :ProcedureOccurrence ] ) ] ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/ProcedureOccurrence_procedure_concept_id_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :ProcedureOccurrence [ a owl:Restriction ; owl:onProperty sulo:hasFeature ; owl:someValuesFrom :Concept ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/ProcedureOccurrence_procedure_concept_id_range>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Concept [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:hasFeature ] ; owl:someValuesFrom :ProcedureOccurrence ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/ProcedureOccurrence_visit_occurrence_id_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :ProcedureOccurrence [ a owl:Restriction ; owl:onProperty sulo:isPartOf ; owl:someValuesFrom :VisitOccurrence ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/ProcedureOccurrence_visit_occurrence_id_range>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :VisitOccurrence [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:isPartOf ] ; owl:someValuesFrom :ProcedureOccurrence ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/ProcedureOccurrence_procedure_datetime_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :ProcedureOccurrence [ a owl:Restriction ; owl:onProperty sulo:atTime ; owl:someValuesFrom [ a owl:Class ; owl:intersectionOf ( sulo:TimeInstant [ a owl:Restriction ; owl:onProperty sulo:hasValue ; owl:someValuesFrom xsd:dateTime ] ) ] ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/ProcedureOccurrence_procedure_end_datetime_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :ProcedureOccurrence [ a owl:Restriction ; owl:onProperty sulo:atTime ; owl:someValuesFrom [ a owl:Class ; owl:intersectionOf ( sulo:EndTime [ a owl:Restriction ; owl:onProperty sulo:hasValue ; owl:someValuesFrom xsd:dateTime ] ) ] ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/Observation_person_id_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Observation [ a owl:Restriction ; owl:onProperty sulo:hasParticipant ; owl:someValuesFrom [ a owl:Class ; owl:intersectionOf ( :PatientRole [ a owl:Restriction ; owl:onProperty sulo:isFeatureOf ; owl:someValuesFrom :Person ] ) ] ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/Observation_person_id_range>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Person [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:isFeatureOf ] ; owl:someValuesFrom [ a owl:Class ; owl:intersectionOf ( :PatientRole [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:hasParticipant ] ; owl:someValuesFrom :Observation ] ) ] ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/Observation_observation_concept_id_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Observation [ a owl:Restriction ; owl:onProperty sulo:hasFeature ; owl:someValuesFrom :Concept ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/Observation_observation_concept_id_range>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Concept [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:hasFeature ] ; owl:someValuesFrom :Observation ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/Observation_value_as_string_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Observation [ a owl:Restriction ; owl:onProperty sulo:hasValue ; owl:someValuesFrom xsd:string ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/Observation_visit_occurrence_id_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Observation [ a owl:Restriction ; owl:onProperty sulo:isPartOf ; owl:someValuesFrom :VisitOccurrence ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/Observation_visit_occurrence_id_range>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :VisitOccurrence [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:isPartOf ] ; owl:someValuesFrom :Observation ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/Observation_observation_datetime_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Observation [ a owl:Restriction ; owl:onProperty sulo:atTime ; owl:someValuesFrom [ a owl:Class ; owl:intersectionOf ( sulo:TimeInstant [ a owl:Restriction ; owl:onProperty sulo:hasValue ; owl:someValuesFrom xsd:dateTime ] ) ] ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/Observation_value_as_number_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Observation [ a owl:Restriction ; owl:onProperty sulo:hasValue ; owl:someValuesFrom xsd:decimal ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/Observation_value_as_concept_id_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Observation [ a owl:Restriction ; owl:onProperty sulo:hasFeature ; owl:someValuesFrom :Concept ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/Observation_value_as_concept_id_range>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Concept [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:hasFeature ] ; owl:someValuesFrom :Observation ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/Observation_unit_concept_id_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Observation [ a owl:Restriction ; owl:onProperty sulo:hasPart ; owl:someValuesFrom :Unit ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/Observation_unit_concept_id_range>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Unit [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:hasPart ] ; owl:someValuesFrom :Observation ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/Observation_qualifier_concept_id_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Observation [ a owl:Restriction ; owl:onProperty sulo:hasFeature ; owl:someValuesFrom :Concept ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/Observation_qualifier_concept_id_range>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Concept [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:hasFeature ] ; owl:someValuesFrom :Observation ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/Observation_provider_id_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Observation [ a owl:Restriction ; owl:onProperty sulo:hasParticipant ; owl:someValuesFrom [ a owl:Class ; owl:intersectionOf ( :ProviderRole [ a owl:Restriction ; owl:onProperty sulo:isFeatureOf ; owl:someValuesFrom :Provider ] ) ] ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/Observation_provider_id_range>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Provider [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:isFeatureOf ] ; owl:someValuesFrom [ a owl:Class ; owl:intersectionOf ( :ProviderRole [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:hasParticipant ] ; owl:someValuesFrom :Observation ] ) ] ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/DeviceExposure_person_id_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :DeviceExposure [ a owl:Restriction ; owl:onProperty sulo:hasParticipant ; owl:someValuesFrom [ a owl:Class ; owl:intersectionOf ( :PatientRole [ a owl:Restriction ; owl:onProperty sulo:isFeatureOf ; owl:someValuesFrom :Person ] ) ] ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/DeviceExposure_person_id_range>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Person [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:isFeatureOf ] ; owl:someValuesFrom [ a owl:Class ; owl:intersectionOf ( :PatientRole [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:hasParticipant ] ; owl:someValuesFrom :DeviceExposure ] ) ] ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/DeviceExposure_provider_id_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :DeviceExposure [ a owl:Restriction ; owl:onProperty sulo:hasParticipant ; owl:someValuesFrom [ a owl:Class ; owl:intersectionOf ( :ProviderRole [ a owl:Restriction ; owl:onProperty sulo:isFeatureOf ; owl:someValuesFrom :Provider ] ) ] ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/DeviceExposure_provider_id_range>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Provider [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:isFeatureOf ] ; owl:someValuesFrom [ a owl:Class ; owl:intersectionOf ( :ProviderRole [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:hasParticipant ] ; owl:someValuesFrom :DeviceExposure ] ) ] ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/DeviceExposure_device_concept_id_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :DeviceExposure [ a owl:Restriction ; owl:onProperty sulo:hasFeature ; owl:someValuesFrom :Concept ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/DeviceExposure_device_concept_id_range>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Concept [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:hasFeature ] ; owl:someValuesFrom :DeviceExposure ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/DeviceExposure_hasDevice_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :DeviceExposure [ a owl:Restriction ; owl:onProperty sulo:hasParticipant ; owl:someValuesFrom [ a owl:Class ; owl:intersectionOf ( :InstrumentRole [ a owl:Restriction ; owl:onProperty sulo:isFeatureOf ; owl:someValuesFrom :Device ] ) ] ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/DeviceExposure_hasDevice_range>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Device [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:isFeatureOf ] ; owl:someValuesFrom [ a owl:Class ; owl:intersectionOf ( :InstrumentRole [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:hasParticipant ] ; owl:someValuesFrom :DeviceExposure ] ) ] ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/DeviceExposure_visit_occurrence_id_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :DeviceExposure [ a owl:Restriction ; owl:onProperty sulo:isPartOf ; owl:someValuesFrom :VisitOccurrence ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/DeviceExposure_visit_occurrence_id_range>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :VisitOccurrence [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:isPartOf ] ; owl:someValuesFrom :DeviceExposure ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/DeviceExposure_device_exposure_start_datetime_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :DeviceExposure [ a owl:Restriction ; owl:onProperty sulo:atTime ; owl:someValuesFrom [ a owl:Class ; owl:intersectionOf ( sulo:StartTime [ a owl:Restriction ; owl:onProperty sulo:hasValue ; owl:someValuesFrom xsd:dateTime ] ) ] ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/DeviceExposure_device_exposure_end_datetime_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :DeviceExposure [ a owl:Restriction ; owl:onProperty sulo:atTime ; owl:someValuesFrom [ a owl:Class ; owl:intersectionOf ( sulo:EndTime [ a owl:Restriction ; owl:onProperty sulo:hasValue ; owl:someValuesFrom xsd:dateTime ] ) ] ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/VisitOccurrence_visit_type_concept_id_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :VisitOccurrence [ a owl:Restriction ; owl:onProperty sulo:hasFeature ; owl:someValuesFrom :Concept ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/VisitOccurrence_visit_type_concept_id_range>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Concept [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:hasFeature ] ; owl:someValuesFrom :VisitOccurrence ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/ConditionOccurrence_condition_type_concept_id_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :ConditionOccurrence [ a owl:Restriction ; owl:onProperty sulo:hasFeature ; owl:someValuesFrom :Concept ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/ConditionOccurrence_condition_type_concept_id_range>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Concept [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:hasFeature ] ; owl:someValuesFrom :ConditionOccurrence ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/DrugExposure_drug_type_concept_id_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :DrugExposure [ a owl:Restriction ; owl:onProperty sulo:hasFeature ; owl:someValuesFrom :Concept ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/DrugExposure_drug_type_concept_id_range>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Concept [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:hasFeature ] ; owl:someValuesFrom :DrugExposure ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/Measurement_measurement_type_concept_id_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Measurement [ a owl:Restriction ; owl:onProperty sulo:hasFeature ; owl:someValuesFrom :Concept ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/Measurement_measurement_type_concept_id_range>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Concept [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:hasFeature ] ; owl:someValuesFrom :Measurement ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/ProcedureOccurrence_procedure_type_concept_id_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :ProcedureOccurrence [ a owl:Restriction ; owl:onProperty sulo:hasFeature ; owl:someValuesFrom :Concept ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/ProcedureOccurrence_procedure_type_concept_id_range>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Concept [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:hasFeature ] ; owl:someValuesFrom :ProcedureOccurrence ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/Observation_observation_type_concept_id_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Observation [ a owl:Restriction ; owl:onProperty sulo:hasFeature ; owl:someValuesFrom :Concept ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/Observation_observation_type_concept_id_range>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Concept [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:hasFeature ] ; owl:someValuesFrom :Observation ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/DeviceExposure_device_type_concept_id_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :DeviceExposure [ a owl:Restriction ; owl:onProperty sulo:hasFeature ; owl:someValuesFrom :Concept ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/DeviceExposure_device_type_concept_id_range>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Concept [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:hasFeature ] ; owl:someValuesFrom :DeviceExposure ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/Specimen_specimen_type_concept_id_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Specimen [ a owl:Restriction ; owl:onProperty sulo:hasFeature ; owl:someValuesFrom :Concept ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/Specimen_specimen_type_concept_id_range>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Concept [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:hasFeature ] ; owl:someValuesFrom :Specimen ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/VisitOccurrence_visit_source_concept_id_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :VisitOccurrence [ a owl:Restriction ; owl:onProperty sulo:refersTo ; owl:someValuesFrom :Concept ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/VisitOccurrence_visit_source_concept_id_range>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Concept [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:refersTo ] ; owl:someValuesFrom :VisitOccurrence ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/ConditionOccurrence_condition_source_concept_id_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :ConditionOccurrence [ a owl:Restriction ; owl:onProperty sulo:refersTo ; owl:someValuesFrom :Concept ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/ConditionOccurrence_condition_source_concept_id_range>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Concept [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:refersTo ] ; owl:someValuesFrom :ConditionOccurrence ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/DrugExposure_drug_source_concept_id_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :DrugExposure [ a owl:Restriction ; owl:onProperty sulo:refersTo ; owl:someValuesFrom :Concept ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/DrugExposure_drug_source_concept_id_range>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Concept [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:refersTo ] ; owl:someValuesFrom :DrugExposure ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/Measurement_measurement_source_concept_id_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Measurement [ a owl:Restriction ; owl:onProperty sulo:refersTo ; owl:someValuesFrom :Concept ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/Measurement_measurement_source_concept_id_range>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Concept [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:refersTo ] ; owl:someValuesFrom :Measurement ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/ProcedureOccurrence_procedure_source_concept_id_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :ProcedureOccurrence [ a owl:Restriction ; owl:onProperty sulo:refersTo ; owl:someValuesFrom :Concept ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/ProcedureOccurrence_procedure_source_concept_id_range>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Concept [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:refersTo ] ; owl:someValuesFrom :ProcedureOccurrence ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/Observation_observation_source_concept_id_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Observation [ a owl:Restriction ; owl:onProperty sulo:refersTo ; owl:someValuesFrom :Concept ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/Observation_observation_source_concept_id_range>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Concept [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:refersTo ] ; owl:someValuesFrom :Observation ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/DeviceExposure_device_source_concept_id_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :DeviceExposure [ a owl:Restriction ; owl:onProperty sulo:refersTo ; owl:someValuesFrom :Concept ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/DeviceExposure_device_source_concept_id_range>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Concept [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:refersTo ] ; owl:someValuesFrom :DeviceExposure ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/Measurement_value_as_concept_id_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Measurement [ a owl:Restriction ; owl:onProperty sulo:hasFeature ; owl:someValuesFrom :Concept ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/Measurement_value_as_concept_id_range>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Concept [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:hasFeature ] ; owl:someValuesFrom :Measurement ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/DrugExposure_route_concept_id_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :DrugExposure [ a owl:Restriction ; owl:onProperty sulo:hasFeature ; owl:someValuesFrom :Concept ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/DrugExposure_route_concept_id_range>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Concept [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:hasFeature ] ; owl:someValuesFrom :DrugExposure ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/CareSite_location_id_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :CareSite [ a owl:Restriction ; owl:onProperty sulo:isIn ; owl:someValuesFrom :Location ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/CareSite_location_id_range>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Location [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:isIn ] ; owl:someValuesFrom :CareSite ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/Specimen_person_id_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Specimen [ a owl:Restriction ; owl:onProperty sulo:hasParticipant ; owl:someValuesFrom [ a owl:Class ; owl:intersectionOf ( :PatientRole [ a owl:Restriction ; owl:onProperty sulo:isFeatureOf ; owl:someValuesFrom :Person ] ) ] ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/Specimen_person_id_range>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Person [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:isFeatureOf ] ; owl:someValuesFrom [ a owl:Class ; owl:intersectionOf ( :PatientRole [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:hasParticipant ] ; owl:someValuesFrom :Specimen ] ) ] ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/Specimen_specimen_concept_id_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Specimen [ a owl:Restriction ; owl:onProperty sulo:hasFeature ; owl:someValuesFrom :Concept ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/Specimen_specimen_concept_id_range>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Concept [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:hasFeature ] ; owl:someValuesFrom :Specimen ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/Specimen_anatomic_site_concept_id_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Specimen [ a owl:Restriction ; owl:onProperty sulo:isIn ; owl:someValuesFrom :Concept ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/Specimen_anatomic_site_concept_id_range>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Concept [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:isIn ] ; owl:someValuesFrom :Specimen ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/Specimen_specimen_datetime_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Specimen [ a owl:Restriction ; owl:onProperty sulo:atTime ; owl:someValuesFrom [ a owl:Class ; owl:intersectionOf ( sulo:TimeInstant [ a owl:Restriction ; owl:onProperty sulo:hasValue ; owl:someValuesFrom xsd:dateTime ] ) ] ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/Specimen_specimen_source_concept_id_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Specimen [ a owl:Restriction ; owl:onProperty sulo:refersTo ; owl:someValuesFrom :Concept ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/Specimen_specimen_source_concept_id_range>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Concept [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:refersTo ] ; owl:someValuesFrom :Specimen ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/Specimen_quantity_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Specimen [ a owl:Restriction ; owl:onProperty sulo:hasValue ; owl:someValuesFrom xsd:decimal ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/Specimen_unit_concept_id_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Specimen [ a owl:Restriction ; owl:onProperty sulo:hasPart ; owl:someValuesFrom :Unit ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/Specimen_unit_concept_id_range>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Unit [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:hasPart ] ; owl:someValuesFrom :Specimen ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/Specimen_disease_status_concept_id_domain>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Specimen [ a owl:Restriction ; owl:onProperty sulo:hasFeature ; owl:someValuesFrom :Concept ] ) ] .
+
+<https://w3id.org/sulo/schema-builder/omop-cdm-schema/Specimen_disease_status_concept_id_range>
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Concept [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:hasFeature ] ; owl:someValuesFrom :Specimen ] ) ] .

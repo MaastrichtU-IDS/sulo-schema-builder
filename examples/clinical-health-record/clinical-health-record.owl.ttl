@@ -216,474 +216,474 @@
     a owl:ObjectProperty ;
     rdfs:label "Has Patient" ;
     rdfs:comment "Links a clinical visit to the patient (subject of care)." ;
-    rdfs:domain <https://w3id.org/sulo/schema/resource/ontology-class/9ef01b0d-0fa0-48ab-9f9a-2ba3c2223392> ;
-    rdfs:range <https://w3id.org/sulo/schema/resource/ontology-class/ce6cc09b-6861-4b2f-9352-c9ee91958278> .
+    rdfs:domain <https://w3id.org/sulo/schema-builder/clinical-health-record/ClinicalVisit_hasPatient_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/clinical-health-record/ClinicalVisit_hasPatient_range> .
 
 :hasCareProvider
     a owl:ObjectProperty ;
     rdfs:label "Has Care Provider" ;
     rdfs:comment "Links a clinical visit to the care provider." ;
-    rdfs:domain <https://w3id.org/sulo/schema/resource/ontology-class/93e07f81-0750-4a7f-bee4-033973311925> ;
-    rdfs:range <https://w3id.org/sulo/schema/resource/ontology-class/17b9076a-02ba-4348-a7c7-509456b886b0> .
+    rdfs:domain <https://w3id.org/sulo/schema-builder/clinical-health-record/ClinicalVisit_hasCareProvider_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/clinical-health-record/ClinicalVisit_hasCareProvider_range> .
 
 :hasCareUnit
     a owl:ObjectProperty ;
     rdfs:label "Has Care Unit" ;
     rdfs:comment "Links a clinical visit to the care unit where it takes place." ;
-    rdfs:domain <https://w3id.org/sulo/schema/resource/ontology-class/9b8d6049-05fb-4c8d-8649-67e65358b69e> ;
-    rdfs:range <https://w3id.org/sulo/schema/resource/ontology-class/cb88c4d1-0c50-4462-bfbb-97262fac0447> .
+    rdfs:domain <https://w3id.org/sulo/schema-builder/clinical-health-record/ClinicalVisit_hasCareUnit_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/clinical-health-record/ClinicalVisit_hasCareUnit_range> .
 
 :hasPatient
     a owl:ObjectProperty ;
     rdfs:label "Has Patient" ;
     rdfs:comment "Links a medical procedure to the patient it is performed on." ;
-    rdfs:domain <https://w3id.org/sulo/schema/resource/ontology-class/1731d959-4462-425f-b3c5-69daa3dfb2ad> ;
-    rdfs:range <https://w3id.org/sulo/schema/resource/ontology-class/377b5455-7050-493b-9771-c29a5a858c5f> .
+    rdfs:domain <https://w3id.org/sulo/schema-builder/clinical-health-record/MedicalProcedure_hasPatient_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/clinical-health-record/MedicalProcedure_hasPatient_range> .
 
 :hasPerformer
     a owl:ObjectProperty ;
     rdfs:label "Has Performer" ;
     rdfs:comment "Links a medical procedure to the person who performed it." ;
-    rdfs:domain <https://w3id.org/sulo/schema/resource/ontology-class/2520d9a3-f385-4c0a-913f-b512e1404c55> ;
-    rdfs:range <https://w3id.org/sulo/schema/resource/ontology-class/9c59f80c-3456-418d-a847-57971ebbda77> .
+    rdfs:domain <https://w3id.org/sulo/schema-builder/clinical-health-record/MedicalProcedure_hasPerformer_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/clinical-health-record/MedicalProcedure_hasPerformer_range> .
 
 :hasPerformedDate
     a owl:DatatypeProperty ;
     rdfs:label "Has Performed Date" ;
     rdfs:comment "Links a medical procedure to the date and time it was performed." ;
-    rdfs:domain <https://w3id.org/sulo/schema/resource/ontology-class/f8414006-9c5f-4274-9933-2a24ee04d668> ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/clinical-health-record/MedicalProcedure_hasPerformedDate_domain> ;
     rdfs:range xsd:dateTime .
 
 :hasStatus
     a owl:ObjectProperty ;
     rdfs:label "Has Status" ;
     rdfs:comment "Links a medical procedure to its current status." ;
-    rdfs:domain <https://w3id.org/sulo/schema/resource/ontology-class/72f08911-eab1-4f63-9bac-a3e28a671f6a> ;
-    rdfs:range <https://w3id.org/sulo/schema/resource/ontology-class/66aa09a8-a45b-4f38-8b5b-646c7269e61f> .
+    rdfs:domain <https://w3id.org/sulo/schema-builder/clinical-health-record/MedicalProcedure_hasStatus_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/clinical-health-record/MedicalProcedure_hasStatus_range> .
 
 :hasDevice
     a owl:ObjectProperty ;
     rdfs:label "Has Device" ;
     rdfs:comment "Links a measurement process to the device used as an instrument." ;
-    rdfs:domain <https://w3id.org/sulo/schema/resource/ontology-class/52b239b0-f783-47db-8f0c-8b6e07a05acc> ;
-    rdfs:range <https://w3id.org/sulo/schema/resource/ontology-class/2b96177c-b069-4981-a9f9-60383e6c3124> .
+    rdfs:domain <https://w3id.org/sulo/schema-builder/clinical-health-record/MeasurementProcess_hasDevice_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/clinical-health-record/MeasurementProcess_hasDevice_range> .
 
 :hasMeasuredDate
     a owl:DatatypeProperty ;
     rdfs:label "Has Measured Date" ;
     rdfs:comment "Links a measurement to the date and time it was recorded." ;
-    rdfs:domain <https://w3id.org/sulo/schema/resource/ontology-class/167d3a96-6d5b-412f-b56a-d6c9f460cdfa> ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/clinical-health-record/Measurement_hasMeasuredDate_domain> ;
     rdfs:range xsd:dateTime .
 
 :hasUnit
     a owl:ObjectProperty ;
     rdfs:label "Has Unit" ;
     rdfs:comment "Links a measurement to its unit of measure." ;
-    rdfs:domain <https://w3id.org/sulo/schema/resource/ontology-class/8e45d649-dabf-4d49-8b55-f1a4c8cf01a2> ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/clinical-health-record/Measurement_hasUnit_domain> ;
     rdfs:range sulo:Unit .
 
 :hasQuantityValue
     a owl:DatatypeProperty ;
     rdfs:label "Has Quantity Value" ;
     rdfs:comment "Links a measurement to its numeric quantity value." ;
-    rdfs:domain <https://w3id.org/sulo/schema/resource/ontology-class/5e96ad7c-cecd-47fc-9842-04b17a3a7165> ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/clinical-health-record/Measurement_hasQuantityValue_domain> ;
     rdfs:range xsd:float .
 
 :hasResult
     a owl:ObjectProperty ;
     rdfs:label "Has Result" ;
     rdfs:comment "Links a measurement process to its result via an output role." ;
-    rdfs:domain <https://w3id.org/sulo/schema/resource/ontology-class/a93e71c4-2d5b-4723-ac0a-7bb95a039568> ;
-    rdfs:range <https://w3id.org/sulo/schema/resource/ontology-class/4f88d263-5434-4f7f-81b2-f21b704e993b> .
+    rdfs:domain <https://w3id.org/sulo/schema-builder/clinical-health-record/MeasurementProcess_hasResult_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/clinical-health-record/MeasurementProcess_hasResult_range> .
 
 :hasRecordDate
     a owl:DatatypeProperty ;
     rdfs:label "Has Record Date" ;
     rdfs:comment "Links a clinical condition to the date and time it was recorded." ;
-    rdfs:domain <https://w3id.org/sulo/schema/resource/ontology-class/d483dd3b-4e37-4d58-99fd-0f82dd268bd5> ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/clinical-health-record/ClinicalCondition_hasRecordDate_domain> ;
     rdfs:range xsd:dateTime .
 
 :hasConditionEndDate
     a owl:DatatypeProperty ;
     rdfs:label "Has Condition End Date" ;
     rdfs:comment "Links a clinical condition to the date and time it ended." ;
-    rdfs:domain <https://w3id.org/sulo/schema/resource/ontology-class/a101dab2-c06a-4940-beb8-73f4f6607ceb> ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/clinical-health-record/ClinicalCondition_hasConditionEndDate_domain> ;
     rdfs:range xsd:dateTime .
 
 :hasLocatedIn
     a owl:ObjectProperty ;
     rdfs:label "Has Located In" ;
     rdfs:comment "Links a clinical condition to the anatomical structure where it is located." ;
-    rdfs:domain <https://w3id.org/sulo/schema/resource/ontology-class/9f65ad15-955e-4931-a1e7-130a0a883f4e> ;
-    rdfs:range <https://w3id.org/sulo/schema/resource/ontology-class/09a9c249-9e14-41aa-bb25-a8627e7cea8c> .
+    rdfs:domain <https://w3id.org/sulo/schema-builder/clinical-health-record/ClinicalCondition_hasLocatedIn_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/clinical-health-record/ClinicalCondition_hasLocatedIn_range> .
 
 :hasSeverity
     a owl:ObjectProperty ;
     rdfs:label "Has Severity" ;
     rdfs:comment "Links a clinical condition to its severity." ;
-    rdfs:domain <https://w3id.org/sulo/schema/resource/ontology-class/b5b999e4-43c8-4b56-b8da-07a32ec9d05e> ;
-    rdfs:range <https://w3id.org/sulo/schema/resource/ontology-class/48499661-7ca0-428f-b071-8fb5cdc92813> .
+    rdfs:domain <https://w3id.org/sulo/schema-builder/clinical-health-record/ClinicalCondition_hasSeverity_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/clinical-health-record/ClinicalCondition_hasSeverity_range> .
 
 :hasMedicalProcedure
     a owl:ObjectProperty ;
     rdfs:label "Has Medical Procedure" ;
     rdfs:comment "Links a plan to the medical procedure it refers to." ;
-    rdfs:domain <https://w3id.org/sulo/schema/resource/ontology-class/7e9fb25e-8be0-41e7-8fd6-85ea3cf34a88> ;
-    rdfs:range <https://w3id.org/sulo/schema/resource/ontology-class/22d43d73-2d99-4f76-b977-5e66b9682d81> .
+    rdfs:domain <https://w3id.org/sulo/schema-builder/clinical-health-record/CarePlan_hasMedicalProcedure_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/clinical-health-record/CarePlan_hasMedicalProcedure_range> .
 
 :hasObservation
     a owl:ObjectProperty ;
     rdfs:label "Has Observation" ;
     rdfs:comment "Links an evaluation process to the diagnostic statement produced as its output." ;
-    rdfs:domain <https://w3id.org/sulo/schema/resource/ontology-class/6fc5ea90-4559-4725-816f-8d3cf0b05882> ;
-    rdfs:range <https://w3id.org/sulo/schema/resource/ontology-class/5a266bb0-a31f-4a46-9414-6d5275997f5d> .
+    rdfs:domain <https://w3id.org/sulo/schema-builder/clinical-health-record/EvaluationProcess_hasObservation_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/clinical-health-record/EvaluationProcess_hasObservation_range> .
 
 :hasDoseQuantity
     a owl:ObjectProperty ;
     rdfs:label "Has Dose Quantity" ;
     rdfs:comment "Links a pharmaceutical product to its dose quantity." ;
-    rdfs:domain <https://w3id.org/sulo/schema/resource/ontology-class/025c3897-a548-4404-8b6a-d78476875391> ;
-    rdfs:range <https://w3id.org/sulo/schema/resource/ontology-class/eeeab1c0-40bf-451d-b004-4f1151cf73d6> .
+    rdfs:domain <https://w3id.org/sulo/schema-builder/clinical-health-record/PharmaceuticalProduct_hasDoseQuantity_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/clinical-health-record/PharmaceuticalProduct_hasDoseQuantity_range> .
 
 :hasDoseForm
     a owl:ObjectProperty ;
     rdfs:label "Has Dose Form" ;
     rdfs:comment "Links a pharmaceutical product to its dose form." ;
-    rdfs:domain <https://w3id.org/sulo/schema/resource/ontology-class/28e1c56e-fb6c-49c7-a34c-710340bae92d> ;
-    rdfs:range <https://w3id.org/sulo/schema/resource/ontology-class/77759786-d369-469e-8dd3-0cad91883de8> .
+    rdfs:domain <https://w3id.org/sulo/schema-builder/clinical-health-record/PharmaceuticalProduct_hasDoseForm_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/clinical-health-record/PharmaceuticalProduct_hasDoseForm_range> .
 
 :hasPharmaceuticalProduct
     a owl:ObjectProperty ;
     rdfs:label "Has Pharmaceutical Product" ;
     rdfs:comment "Links a medication administration to the pharmaceutical product being administered." ;
-    rdfs:domain <https://w3id.org/sulo/schema/resource/ontology-class/f3f9cfc6-cebc-4541-8409-d7b0d1fb3dbb> ;
-    rdfs:range <https://w3id.org/sulo/schema/resource/ontology-class/ad4539df-00e0-4c91-b8bc-96f996a91e01> .
+    rdfs:domain <https://w3id.org/sulo/schema-builder/clinical-health-record/MedicationAdministration_hasPharmaceuticalProduct_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/clinical-health-record/MedicationAdministration_hasPharmaceuticalProduct_range> .
 
 :hasIdentifier
     a owl:DatatypeProperty ;
     rdfs:label "Has Identifier" ;
     rdfs:comment "The code string itself (e.g. \"73211009\" for SNOMED CT, \"J18.9\" for ICD-10)." ;
-    rdfs:domain <https://w3id.org/sulo/schema/resource/ontology-class/81a596a6-3794-4dce-8f8b-c19bf278fc9e> ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/clinical-health-record/Code_hasIdentifier_domain> ;
     rdfs:range xsd:string .
 
 :hasCodingSystemAndVersion
     a owl:DatatypeProperty ;
     rdfs:label "Has Coding System And Version" ;
     rdfs:comment "Name and version of the coding system (e.g. \"SNOMED CT 2024-03\", \"ICD-10-CM 2024\", \"LOINC 2.76\")." ;
-    rdfs:domain <https://w3id.org/sulo/schema/resource/ontology-class/271894f0-c200-45c9-a0a0-a7c86c16a59c> ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/clinical-health-record/Code_hasCodingSystemAndVersion_domain> ;
     rdfs:range xsd:string .
 
 :hasName
     a owl:DatatypeProperty ;
     rdfs:label "Has Name" ;
     rdfs:comment "Human-readable display name for the code (e.g. \"Pneumonia, unspecified organism\")." ;
-    rdfs:domain <https://w3id.org/sulo/schema/resource/ontology-class/a4639b5a-4ffa-441e-a261-cc0731062d91> ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/clinical-health-record/Code_hasName_domain> ;
     rdfs:range xsd:string .
 
 :hasCode
     a owl:ObjectProperty ;
     rdfs:label "Has Code" ;
     rdfs:comment "Links a Clinical Condition instance to its terminology code (SNOMED CT, ICD-10, LOINC, ATC, etc.)." ;
-    rdfs:domain <https://w3id.org/sulo/schema/resource/ontology-class/1cd5befd-26e6-4760-b5b8-02d9830e12ab> ;
-    rdfs:range <https://w3id.org/sulo/schema/resource/ontology-class/79196644-ded8-486a-90fe-107b8402447e> .
+    rdfs:domain <https://w3id.org/sulo/schema-builder/clinical-health-record/ClinicalCondition_hasCode_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/clinical-health-record/ClinicalCondition_hasCode_range> .
 
 :hasCode
     a owl:ObjectProperty ;
     rdfs:label "Has Code" ;
     rdfs:comment "Links a Clinical Visit instance to its terminology code (SNOMED CT, ICD-10, LOINC, ATC, etc.)." ;
-    rdfs:domain <https://w3id.org/sulo/schema/resource/ontology-class/791f7892-d694-42a9-990a-da238e5cdd91> ;
-    rdfs:range <https://w3id.org/sulo/schema/resource/ontology-class/0f25a230-6f4a-4fef-a4af-e1b1a138c26d> .
+    rdfs:domain <https://w3id.org/sulo/schema-builder/clinical-health-record/ClinicalVisit_hasCode_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/clinical-health-record/ClinicalVisit_hasCode_range> .
 
 :hasCode
     a owl:ObjectProperty ;
     rdfs:label "Has Code" ;
     rdfs:comment "Links a Medical Procedure instance to its terminology code (SNOMED CT, ICD-10, LOINC, ATC, etc.)." ;
-    rdfs:domain <https://w3id.org/sulo/schema/resource/ontology-class/adf4c4a5-fd90-468a-b9c4-5c3d7db2d3fc> ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/clinical-health-record/MedicalProcedure_hasCode_domain> ;
     rdfs:range [ owl:unionOf (:Code <http://snomed.info/id/71388002>) ] .
 
 :hasCode
     a owl:ObjectProperty ;
     rdfs:label "Has Code" ;
     rdfs:comment "Links a Measurement instance to its terminology code (SNOMED CT, ICD-10, LOINC, ATC, etc.)." ;
-    rdfs:domain <https://w3id.org/sulo/schema/resource/ontology-class/543a0d83-abab-409a-82d9-85e7d8eeca70> ;
+    rdfs:domain <https://w3id.org/sulo/schema-builder/clinical-health-record/Measurement_hasCode_domain> ;
     rdfs:range [ owl:unionOf (:Code <http://snomed.info/id/363787002>) ] .
 
 :hasCode
     a owl:ObjectProperty ;
     rdfs:label "Has Code" ;
     rdfs:comment "Links a Medication Administration instance to its terminology code (SNOMED CT, ICD-10, LOINC, ATC, etc.)." ;
-    rdfs:domain <https://w3id.org/sulo/schema/resource/ontology-class/45c7c5a6-a5bd-4465-b2b3-018579c1e425> ;
-    rdfs:range <https://w3id.org/sulo/schema/resource/ontology-class/a38c6117-39d7-44f4-864c-f37bf9a997b7> .
+    rdfs:domain <https://w3id.org/sulo/schema-builder/clinical-health-record/MedicationAdministration_hasCode_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/clinical-health-record/MedicationAdministration_hasCode_range> .
 
 :hasCode
     a owl:ObjectProperty ;
     rdfs:label "Has Code" ;
     rdfs:comment "Links a Anatomical Structure instance to its terminology code (SNOMED CT, ICD-10, LOINC, ATC, etc.)." ;
-    rdfs:domain <https://w3id.org/sulo/schema/resource/ontology-class/fabbd4d8-495e-495a-be96-e5383963c941> ;
-    rdfs:range <https://w3id.org/sulo/schema/resource/ontology-class/c52fc027-681f-420f-aa1e-227d6c93fc99> .
+    rdfs:domain <https://w3id.org/sulo/schema-builder/clinical-health-record/AnatomicalStructure_hasCode_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/clinical-health-record/AnatomicalStructure_hasCode_range> .
 
 :hasCode
     a owl:ObjectProperty ;
     rdfs:label "Has Code" ;
     rdfs:comment "Links a Severity instance to its terminology code (SNOMED CT, ICD-10, LOINC, ATC, etc.)." ;
-    rdfs:domain <https://w3id.org/sulo/schema/resource/ontology-class/2a4bd9a8-0067-4e67-b7d1-9eba18771ac4> ;
-    rdfs:range <https://w3id.org/sulo/schema/resource/ontology-class/371fb5d8-4102-4bfa-9805-7e0159ecf262> .
+    rdfs:domain <https://w3id.org/sulo/schema-builder/clinical-health-record/Severity_hasCode_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/clinical-health-record/Severity_hasCode_range> .
 
 :hasCode
     a owl:ObjectProperty ;
     rdfs:label "Has Code" ;
     rdfs:comment "Links a Pharmaceutical Product instance to its terminology code (SNOMED CT, ICD-10, LOINC, ATC, etc.)." ;
-    rdfs:domain <https://w3id.org/sulo/schema/resource/ontology-class/45ddcd7a-6aed-4c2f-9224-681a0c2d5a83> ;
-    rdfs:range <https://w3id.org/sulo/schema/resource/ontology-class/65f8da2e-c1a5-40ac-b9dc-fd6f96633a55> .
+    rdfs:domain <https://w3id.org/sulo/schema-builder/clinical-health-record/PharmaceuticalProduct_hasCode_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/clinical-health-record/PharmaceuticalProduct_hasCode_range> .
 
 :hasAdministrativeCase
     a owl:ObjectProperty ;
     rdfs:label "Has Administrative Case" ;
     rdfs:comment "Links a clinical visit to the administrative case it belongs to." ;
-    rdfs:domain <https://w3id.org/sulo/schema/resource/ontology-class/ad178120-769d-4c25-8da9-a06d5ec98334> ;
-    rdfs:range <https://w3id.org/sulo/schema/resource/ontology-class/be8b0b6d-ddc1-4c11-bca4-f604b91e7d5a> .
+    rdfs:domain <https://w3id.org/sulo/schema-builder/clinical-health-record/ClinicalVisit_hasAdministrativeCase_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/clinical-health-record/ClinicalVisit_hasAdministrativeCase_range> .
 
 :hasPatient
     a owl:ObjectProperty ;
     rdfs:label "Has Patient" ;
     rdfs:comment "Links an administrative case to the patient it concerns." ;
-    rdfs:domain <https://w3id.org/sulo/schema/resource/ontology-class/9ea1d443-b0a8-4cc0-a5ac-812dd80a68af> ;
-    rdfs:range <https://w3id.org/sulo/schema/resource/ontology-class/0b7809e6-18de-4da9-b611-d2b7db6dab22> .
+    rdfs:domain <https://w3id.org/sulo/schema-builder/clinical-health-record/AdministrativeCase_hasPatient_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/clinical-health-record/AdministrativeCase_hasPatient_range> .
 
 :hasSample
     a owl:ObjectProperty ;
     rdfs:label "Has Sample" ;
     rdfs:comment "Links a measurement process to the sample it is performed on." ;
-    rdfs:domain <https://w3id.org/sulo/schema/resource/ontology-class/f91a44a9-27b7-4311-83bb-c9a3828971db> ;
-    rdfs:range <https://w3id.org/sulo/schema/resource/ontology-class/60c31bbd-20eb-4d32-bcb9-a634ad6b7306> .
+    rdfs:domain <https://w3id.org/sulo/schema-builder/clinical-health-record/MeasurementProcess_hasSample_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/clinical-health-record/MeasurementProcess_hasSample_range> .
 
 :collectedFrom
     a owl:ObjectProperty ;
     rdfs:label "Collected From" ;
     rdfs:comment "Links a sample to the patient it was collected from." ;
-    rdfs:domain <https://w3id.org/sulo/schema/resource/ontology-class/2ceb1bb1-56b6-4502-8014-5bf6cce6008d> ;
-    rdfs:range <https://w3id.org/sulo/schema/resource/ontology-class/1bbc2af6-0c0f-42e6-8958-220dc0b04ccc> .
+    rdfs:domain <https://w3id.org/sulo/schema-builder/clinical-health-record/Sample_collectedFrom_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/clinical-health-record/Sample_collectedFrom_range> .
 
 :hasSubstance
     a owl:ObjectProperty ;
     rdfs:label "Has Substance" ;
     rdfs:comment "Links a pharmaceutical product to its active substance." ;
-    rdfs:domain <https://w3id.org/sulo/schema/resource/ontology-class/e197f8a6-4004-43fd-b819-6d3921b7cc7c> ;
-    rdfs:range <https://w3id.org/sulo/schema/resource/ontology-class/2680d69b-3471-47bd-a177-92c8b5e8a300> .
+    rdfs:domain <https://w3id.org/sulo/schema-builder/clinical-health-record/PharmaceuticalProduct_hasSubstance_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/clinical-health-record/PharmaceuticalProduct_hasSubstance_range> .
 
 :prescribesDrug
     a owl:ObjectProperty ;
     rdfs:label "Prescribes Drug" ;
     rdfs:comment "Links a drug prescription to the pharmaceutical product it prescribes." ;
-    rdfs:domain <https://w3id.org/sulo/schema/resource/ontology-class/c6a5e26d-ec54-4046-bd87-e77df6b9f3ea> ;
-    rdfs:range <https://w3id.org/sulo/schema/resource/ontology-class/44e2e666-f8eb-4aa8-aceb-d1b6b40d25cb> .
+    rdfs:domain <https://w3id.org/sulo/schema-builder/clinical-health-record/DrugPrescription_prescribesDrug_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/clinical-health-record/DrugPrescription_prescribesDrug_range> .
 
 :hasSubject
     a owl:ObjectProperty ;
     rdfs:label "Has Subject" ;
     rdfs:comment "Records that the drug prescription (an information object) is about its patient." ;
-    rdfs:domain <https://w3id.org/sulo/schema/resource/ontology-class/4badcd5b-0b9e-4da8-abe8-1e807ef40286> ;
-    rdfs:range <https://w3id.org/sulo/schema/resource/ontology-class/2e3e38a9-df94-4dbe-81f4-46ef269ad954> .
+    rdfs:domain <https://w3id.org/sulo/schema-builder/clinical-health-record/DrugPrescription_hasSubject_domain> ;
+    rdfs:range <https://w3id.org/sulo/schema-builder/clinical-health-record/DrugPrescription_hasSubject_range> .
 
 # ── Domain / Range class expressions (OWL equivalent axioms) ──────────────
 
-<https://w3id.org/sulo/schema/resource/ontology-class/9ef01b0d-0fa0-48ab-9f9a-2ba3c2223392>
+<https://w3id.org/sulo/schema-builder/clinical-health-record/ClinicalVisit_hasPatient_domain>
     owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :ClinicalVisit [ a owl:Restriction ; owl:onProperty sulo:hasParticipant ; owl:someValuesFrom [ a owl:Class ; owl:intersectionOf ( :SubjectOfCareRole [ a owl:Restriction ; owl:onProperty sulo:isFeatureOf ; owl:someValuesFrom :Person ] ) ] ] ) ] .
 
-<https://w3id.org/sulo/schema/resource/ontology-class/ce6cc09b-6861-4b2f-9352-c9ee91958278>
+<https://w3id.org/sulo/schema-builder/clinical-health-record/ClinicalVisit_hasPatient_range>
     owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Person [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:isFeatureOf ] ; owl:someValuesFrom [ a owl:Class ; owl:intersectionOf ( :SubjectOfCareRole [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:hasParticipant ] ; owl:someValuesFrom :ClinicalVisit ] ) ] ] ) ] .
 
-<https://w3id.org/sulo/schema/resource/ontology-class/93e07f81-0750-4a7f-bee4-033973311925>
+<https://w3id.org/sulo/schema-builder/clinical-health-record/ClinicalVisit_hasCareProvider_domain>
     owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :ClinicalVisit [ a owl:Restriction ; owl:onProperty sulo:hasParticipant ; owl:someValuesFrom [ a owl:Class ; owl:intersectionOf ( :CareProviderRole [ a owl:Restriction ; owl:onProperty sulo:isFeatureOf ; owl:someValuesFrom :Person ] ) ] ] ) ] .
 
-<https://w3id.org/sulo/schema/resource/ontology-class/17b9076a-02ba-4348-a7c7-509456b886b0>
+<https://w3id.org/sulo/schema-builder/clinical-health-record/ClinicalVisit_hasCareProvider_range>
     owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Person [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:isFeatureOf ] ; owl:someValuesFrom [ a owl:Class ; owl:intersectionOf ( :CareProviderRole [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:hasParticipant ] ; owl:someValuesFrom :ClinicalVisit ] ) ] ] ) ] .
 
-<https://w3id.org/sulo/schema/resource/ontology-class/9b8d6049-05fb-4c8d-8649-67e65358b69e>
+<https://w3id.org/sulo/schema-builder/clinical-health-record/ClinicalVisit_hasCareUnit_domain>
     owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :ClinicalVisit [ a owl:Restriction ; owl:onProperty sulo:isIn ; owl:someValuesFrom :CareUnit ] ) ] .
 
-<https://w3id.org/sulo/schema/resource/ontology-class/cb88c4d1-0c50-4462-bfbb-97262fac0447>
+<https://w3id.org/sulo/schema-builder/clinical-health-record/ClinicalVisit_hasCareUnit_range>
     owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :CareUnit [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:isIn ] ; owl:someValuesFrom :ClinicalVisit ] ) ] .
 
-<https://w3id.org/sulo/schema/resource/ontology-class/1731d959-4462-425f-b3c5-69daa3dfb2ad>
+<https://w3id.org/sulo/schema-builder/clinical-health-record/MedicalProcedure_hasPatient_domain>
     owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :MedicalProcedure [ a owl:Restriction ; owl:onProperty sulo:hasParticipant ; owl:someValuesFrom [ a owl:Class ; owl:intersectionOf ( :SubjectOfCareRole [ a owl:Restriction ; owl:onProperty sulo:isFeatureOf ; owl:someValuesFrom :Person ] ) ] ] ) ] .
 
-<https://w3id.org/sulo/schema/resource/ontology-class/377b5455-7050-493b-9771-c29a5a858c5f>
+<https://w3id.org/sulo/schema-builder/clinical-health-record/MedicalProcedure_hasPatient_range>
     owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Person [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:isFeatureOf ] ; owl:someValuesFrom [ a owl:Class ; owl:intersectionOf ( :SubjectOfCareRole [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:hasParticipant ] ; owl:someValuesFrom :MedicalProcedure ] ) ] ] ) ] .
 
-<https://w3id.org/sulo/schema/resource/ontology-class/2520d9a3-f385-4c0a-913f-b512e1404c55>
+<https://w3id.org/sulo/schema-builder/clinical-health-record/MedicalProcedure_hasPerformer_domain>
     owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :MedicalProcedure [ a owl:Restriction ; owl:onProperty sulo:hasParticipant ; owl:someValuesFrom [ a owl:Class ; owl:intersectionOf ( :PerformerRole [ a owl:Restriction ; owl:onProperty sulo:isFeatureOf ; owl:someValuesFrom :Person ] ) ] ] ) ] .
 
-<https://w3id.org/sulo/schema/resource/ontology-class/9c59f80c-3456-418d-a847-57971ebbda77>
+<https://w3id.org/sulo/schema-builder/clinical-health-record/MedicalProcedure_hasPerformer_range>
     owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Person [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:isFeatureOf ] ; owl:someValuesFrom [ a owl:Class ; owl:intersectionOf ( :PerformerRole [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:hasParticipant ] ; owl:someValuesFrom :MedicalProcedure ] ) ] ] ) ] .
 
-<https://w3id.org/sulo/schema/resource/ontology-class/f8414006-9c5f-4274-9933-2a24ee04d668>
+<https://w3id.org/sulo/schema-builder/clinical-health-record/MedicalProcedure_hasPerformedDate_domain>
     owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :MedicalProcedure [ a owl:Restriction ; owl:onProperty sulo:atTime ; owl:someValuesFrom [ a owl:Class ; owl:intersectionOf ( sulo:TimeInstant [ a owl:Restriction ; owl:onProperty sulo:hasValue ; owl:someValuesFrom xsd:dateTime ] ) ] ] ) ] .
 
-<https://w3id.org/sulo/schema/resource/ontology-class/72f08911-eab1-4f63-9bac-a3e28a671f6a>
+<https://w3id.org/sulo/schema-builder/clinical-health-record/MedicalProcedure_hasStatus_domain>
     owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :MedicalProcedure [ a owl:Restriction ; owl:onProperty sulo:hasFeature ; owl:someValuesFrom :ProcessStatus ] ) ] .
 
-<https://w3id.org/sulo/schema/resource/ontology-class/66aa09a8-a45b-4f38-8b5b-646c7269e61f>
+<https://w3id.org/sulo/schema-builder/clinical-health-record/MedicalProcedure_hasStatus_range>
     owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :ProcessStatus [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:hasFeature ] ; owl:someValuesFrom :MedicalProcedure ] ) ] .
 
-<https://w3id.org/sulo/schema/resource/ontology-class/52b239b0-f783-47db-8f0c-8b6e07a05acc>
+<https://w3id.org/sulo/schema-builder/clinical-health-record/MeasurementProcess_hasDevice_domain>
     owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :MeasurementProcess [ a owl:Restriction ; owl:onProperty sulo:hasParticipant ; owl:someValuesFrom [ a owl:Class ; owl:intersectionOf ( :InstrumentRole [ a owl:Restriction ; owl:onProperty sulo:isFeatureOf ; owl:someValuesFrom :Device ] ) ] ] ) ] .
 
-<https://w3id.org/sulo/schema/resource/ontology-class/2b96177c-b069-4981-a9f9-60383e6c3124>
+<https://w3id.org/sulo/schema-builder/clinical-health-record/MeasurementProcess_hasDevice_range>
     owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Device [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:isFeatureOf ] ; owl:someValuesFrom [ a owl:Class ; owl:intersectionOf ( :InstrumentRole [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:hasParticipant ] ; owl:someValuesFrom :MeasurementProcess ] ) ] ] ) ] .
 
-<https://w3id.org/sulo/schema/resource/ontology-class/167d3a96-6d5b-412f-b56a-d6c9f460cdfa>
+<https://w3id.org/sulo/schema-builder/clinical-health-record/Measurement_hasMeasuredDate_domain>
     owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Measurement [ a owl:Restriction ; owl:onProperty sulo:atTime ; owl:someValuesFrom [ a owl:Class ; owl:intersectionOf ( sulo:TimeInstant [ a owl:Restriction ; owl:onProperty sulo:hasValue ; owl:someValuesFrom xsd:dateTime ] ) ] ] ) ] .
 
-<https://w3id.org/sulo/schema/resource/ontology-class/8e45d649-dabf-4d49-8b55-f1a4c8cf01a2>
+<https://w3id.org/sulo/schema-builder/clinical-health-record/Measurement_hasUnit_domain>
     owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Measurement [ a owl:Restriction ; owl:onProperty sulo:hasPart ; owl:someValuesFrom sulo:Unit ] ) ] .
 
-<https://w3id.org/sulo/schema/resource/ontology-class/5e96ad7c-cecd-47fc-9842-04b17a3a7165>
+<https://w3id.org/sulo/schema-builder/clinical-health-record/Measurement_hasQuantityValue_domain>
     owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Measurement [ a owl:Restriction ; owl:onProperty sulo:hasValue ; owl:someValuesFrom xsd:float ] ) ] .
 
-<https://w3id.org/sulo/schema/resource/ontology-class/a93e71c4-2d5b-4723-ac0a-7bb95a039568>
+<https://w3id.org/sulo/schema-builder/clinical-health-record/MeasurementProcess_hasResult_domain>
     owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :MeasurementProcess [ a owl:Restriction ; owl:onProperty sulo:hasParticipant ; owl:someValuesFrom [ a owl:Class ; owl:intersectionOf ( :OutputRole [ a owl:Restriction ; owl:onProperty sulo:isFeatureOf ; owl:someValuesFrom :Measurement ] ) ] ] ) ] .
 
-<https://w3id.org/sulo/schema/resource/ontology-class/4f88d263-5434-4f7f-81b2-f21b704e993b>
+<https://w3id.org/sulo/schema-builder/clinical-health-record/MeasurementProcess_hasResult_range>
     owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Measurement [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:isFeatureOf ] ; owl:someValuesFrom [ a owl:Class ; owl:intersectionOf ( :OutputRole [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:hasParticipant ] ; owl:someValuesFrom :MeasurementProcess ] ) ] ] ) ] .
 
-<https://w3id.org/sulo/schema/resource/ontology-class/d483dd3b-4e37-4d58-99fd-0f82dd268bd5>
+<https://w3id.org/sulo/schema-builder/clinical-health-record/ClinicalCondition_hasRecordDate_domain>
     owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :ClinicalCondition [ a owl:Restriction ; owl:onProperty sulo:atTime ; owl:someValuesFrom [ a owl:Class ; owl:intersectionOf ( sulo:TimeInstant [ a owl:Restriction ; owl:onProperty sulo:hasValue ; owl:someValuesFrom xsd:dateTime ] ) ] ] ) ] .
 
-<https://w3id.org/sulo/schema/resource/ontology-class/a101dab2-c06a-4940-beb8-73f4f6607ceb>
+<https://w3id.org/sulo/schema-builder/clinical-health-record/ClinicalCondition_hasConditionEndDate_domain>
     owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :ClinicalCondition [ a owl:Restriction ; owl:onProperty sulo:atTime ; owl:someValuesFrom [ a owl:Class ; owl:intersectionOf ( sulo:EndTime [ a owl:Restriction ; owl:onProperty sulo:hasValue ; owl:someValuesFrom xsd:dateTime ] ) ] ] ) ] .
 
-<https://w3id.org/sulo/schema/resource/ontology-class/9f65ad15-955e-4931-a1e7-130a0a883f4e>
+<https://w3id.org/sulo/schema-builder/clinical-health-record/ClinicalCondition_hasLocatedIn_domain>
     owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :ClinicalCondition [ a owl:Restriction ; owl:onProperty sulo:isIn ; owl:someValuesFrom :AnatomicalStructure ] ) ] .
 
-<https://w3id.org/sulo/schema/resource/ontology-class/09a9c249-9e14-41aa-bb25-a8627e7cea8c>
+<https://w3id.org/sulo/schema-builder/clinical-health-record/ClinicalCondition_hasLocatedIn_range>
     owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :AnatomicalStructure [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:isIn ] ; owl:someValuesFrom :ClinicalCondition ] ) ] .
 
-<https://w3id.org/sulo/schema/resource/ontology-class/b5b999e4-43c8-4b56-b8da-07a32ec9d05e>
+<https://w3id.org/sulo/schema-builder/clinical-health-record/ClinicalCondition_hasSeverity_domain>
     owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :ClinicalCondition [ a owl:Restriction ; owl:onProperty sulo:hasFeature ; owl:someValuesFrom :Severity ] ) ] .
 
-<https://w3id.org/sulo/schema/resource/ontology-class/48499661-7ca0-428f-b071-8fb5cdc92813>
+<https://w3id.org/sulo/schema-builder/clinical-health-record/ClinicalCondition_hasSeverity_range>
     owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Severity [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:hasFeature ] ; owl:someValuesFrom :ClinicalCondition ] ) ] .
 
-<https://w3id.org/sulo/schema/resource/ontology-class/7e9fb25e-8be0-41e7-8fd6-85ea3cf34a88>
+<https://w3id.org/sulo/schema-builder/clinical-health-record/CarePlan_hasMedicalProcedure_domain>
     owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :CarePlan [ a owl:Restriction ; owl:onProperty sulo:refersTo ; owl:someValuesFrom :MedicalProcedure ] ) ] .
 
-<https://w3id.org/sulo/schema/resource/ontology-class/22d43d73-2d99-4f76-b977-5e66b9682d81>
+<https://w3id.org/sulo/schema-builder/clinical-health-record/CarePlan_hasMedicalProcedure_range>
     owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :MedicalProcedure [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:refersTo ] ; owl:someValuesFrom :CarePlan ] ) ] .
 
-<https://w3id.org/sulo/schema/resource/ontology-class/6fc5ea90-4559-4725-816f-8d3cf0b05882>
+<https://w3id.org/sulo/schema-builder/clinical-health-record/EvaluationProcess_hasObservation_domain>
     owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :EvaluationProcess [ a owl:Restriction ; owl:onProperty sulo:hasParticipant ; owl:someValuesFrom [ a owl:Class ; owl:intersectionOf ( :OutputRole [ a owl:Restriction ; owl:onProperty sulo:isFeatureOf ; owl:someValuesFrom :DiagnosticStatement ] ) ] ] ) ] .
 
-<https://w3id.org/sulo/schema/resource/ontology-class/5a266bb0-a31f-4a46-9414-6d5275997f5d>
+<https://w3id.org/sulo/schema-builder/clinical-health-record/EvaluationProcess_hasObservation_range>
     owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :DiagnosticStatement [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:isFeatureOf ] ; owl:someValuesFrom [ a owl:Class ; owl:intersectionOf ( :OutputRole [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:hasParticipant ] ; owl:someValuesFrom :EvaluationProcess ] ) ] ] ) ] .
 
-<https://w3id.org/sulo/schema/resource/ontology-class/025c3897-a548-4404-8b6a-d78476875391>
+<https://w3id.org/sulo/schema-builder/clinical-health-record/PharmaceuticalProduct_hasDoseQuantity_domain>
     owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :PharmaceuticalProduct [ a owl:Restriction ; owl:onProperty sulo:hasFeature ; owl:someValuesFrom :PharmaceuticalDose ] ) ] .
 
-<https://w3id.org/sulo/schema/resource/ontology-class/eeeab1c0-40bf-451d-b004-4f1151cf73d6>
+<https://w3id.org/sulo/schema-builder/clinical-health-record/PharmaceuticalProduct_hasDoseQuantity_range>
     owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :PharmaceuticalDose [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:hasFeature ] ; owl:someValuesFrom :PharmaceuticalProduct ] ) ] .
 
-<https://w3id.org/sulo/schema/resource/ontology-class/28e1c56e-fb6c-49c7-a34c-710340bae92d>
+<https://w3id.org/sulo/schema-builder/clinical-health-record/PharmaceuticalProduct_hasDoseForm_domain>
     owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :PharmaceuticalProduct [ a owl:Restriction ; owl:onProperty sulo:hasFeature ; owl:someValuesFrom :PharmaceuticalDoseForm ] ) ] .
 
-<https://w3id.org/sulo/schema/resource/ontology-class/77759786-d369-469e-8dd3-0cad91883de8>
+<https://w3id.org/sulo/schema-builder/clinical-health-record/PharmaceuticalProduct_hasDoseForm_range>
     owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :PharmaceuticalDoseForm [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:hasFeature ] ; owl:someValuesFrom :PharmaceuticalProduct ] ) ] .
 
-<https://w3id.org/sulo/schema/resource/ontology-class/f3f9cfc6-cebc-4541-8409-d7b0d1fb3dbb>
+<https://w3id.org/sulo/schema-builder/clinical-health-record/MedicationAdministration_hasPharmaceuticalProduct_domain>
     owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :MedicationAdministration [ a owl:Restriction ; owl:onProperty sulo:hasParticipant ; owl:someValuesFrom :PharmaceuticalProduct ] ) ] .
 
-<https://w3id.org/sulo/schema/resource/ontology-class/ad4539df-00e0-4c91-b8bc-96f996a91e01>
+<https://w3id.org/sulo/schema-builder/clinical-health-record/MedicationAdministration_hasPharmaceuticalProduct_range>
     owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :PharmaceuticalProduct [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:hasParticipant ] ; owl:someValuesFrom :MedicationAdministration ] ) ] .
 
-<https://w3id.org/sulo/schema/resource/ontology-class/81a596a6-3794-4dce-8f8b-c19bf278fc9e>
+<https://w3id.org/sulo/schema-builder/clinical-health-record/Code_hasIdentifier_domain>
     owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Code [ a owl:Restriction ; owl:onProperty sulo:hasValue ; owl:someValuesFrom xsd:string ] ) ] .
 
-<https://w3id.org/sulo/schema/resource/ontology-class/271894f0-c200-45c9-a0a0-a7c86c16a59c>
+<https://w3id.org/sulo/schema-builder/clinical-health-record/Code_hasCodingSystemAndVersion_domain>
     owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Code [ a owl:Restriction ; owl:onProperty sulo:hasLabel ; owl:someValuesFrom xsd:string ] ) ] .
 
-<https://w3id.org/sulo/schema/resource/ontology-class/a4639b5a-4ffa-441e-a261-cc0731062d91>
+<https://w3id.org/sulo/schema-builder/clinical-health-record/Code_hasName_domain>
     owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Code [ a owl:Restriction ; owl:onProperty sulo:hasLabel ; owl:someValuesFrom xsd:string ] ) ] .
 
-<https://w3id.org/sulo/schema/resource/ontology-class/1cd5befd-26e6-4760-b5b8-02d9830e12ab>
+<https://w3id.org/sulo/schema-builder/clinical-health-record/ClinicalCondition_hasCode_domain>
     owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :ClinicalCondition [ a owl:Restriction ; owl:onProperty sulo:hasFeature ; owl:someValuesFrom :Code ] ) ] .
 
-<https://w3id.org/sulo/schema/resource/ontology-class/79196644-ded8-486a-90fe-107b8402447e>
+<https://w3id.org/sulo/schema-builder/clinical-health-record/ClinicalCondition_hasCode_range>
     owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Code [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:hasFeature ] ; owl:someValuesFrom :ClinicalCondition ] ) ] .
 
-<https://w3id.org/sulo/schema/resource/ontology-class/791f7892-d694-42a9-990a-da238e5cdd91>
+<https://w3id.org/sulo/schema-builder/clinical-health-record/ClinicalVisit_hasCode_domain>
     owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :ClinicalVisit [ a owl:Restriction ; owl:onProperty sulo:hasFeature ; owl:someValuesFrom :Code ] ) ] .
 
-<https://w3id.org/sulo/schema/resource/ontology-class/0f25a230-6f4a-4fef-a4af-e1b1a138c26d>
+<https://w3id.org/sulo/schema-builder/clinical-health-record/ClinicalVisit_hasCode_range>
     owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Code [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:hasFeature ] ; owl:someValuesFrom :ClinicalVisit ] ) ] .
 
-<https://w3id.org/sulo/schema/resource/ontology-class/adf4c4a5-fd90-468a-b9c4-5c3d7db2d3fc>
+<https://w3id.org/sulo/schema-builder/clinical-health-record/MedicalProcedure_hasCode_domain>
     owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :MedicalProcedure [ a owl:Restriction ; owl:onProperty sulo:hasFeature ; owl:someValuesFrom :Code ] ) ] .
 
-<https://w3id.org/sulo/schema/resource/ontology-class/543a0d83-abab-409a-82d9-85e7d8eeca70>
+<https://w3id.org/sulo/schema-builder/clinical-health-record/Measurement_hasCode_domain>
     owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Measurement [ a owl:Restriction ; owl:onProperty sulo:hasFeature ; owl:someValuesFrom :Code ] ) ] .
 
-<https://w3id.org/sulo/schema/resource/ontology-class/45c7c5a6-a5bd-4465-b2b3-018579c1e425>
+<https://w3id.org/sulo/schema-builder/clinical-health-record/MedicationAdministration_hasCode_domain>
     owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :MedicationAdministration [ a owl:Restriction ; owl:onProperty sulo:hasFeature ; owl:someValuesFrom :Code ] ) ] .
 
-<https://w3id.org/sulo/schema/resource/ontology-class/a38c6117-39d7-44f4-864c-f37bf9a997b7>
+<https://w3id.org/sulo/schema-builder/clinical-health-record/MedicationAdministration_hasCode_range>
     owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Code [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:hasFeature ] ; owl:someValuesFrom :MedicationAdministration ] ) ] .
 
-<https://w3id.org/sulo/schema/resource/ontology-class/fabbd4d8-495e-495a-be96-e5383963c941>
+<https://w3id.org/sulo/schema-builder/clinical-health-record/AnatomicalStructure_hasCode_domain>
     owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :AnatomicalStructure [ a owl:Restriction ; owl:onProperty sulo:hasFeature ; owl:someValuesFrom :Code ] ) ] .
 
-<https://w3id.org/sulo/schema/resource/ontology-class/c52fc027-681f-420f-aa1e-227d6c93fc99>
+<https://w3id.org/sulo/schema-builder/clinical-health-record/AnatomicalStructure_hasCode_range>
     owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Code [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:hasFeature ] ; owl:someValuesFrom :AnatomicalStructure ] ) ] .
 
-<https://w3id.org/sulo/schema/resource/ontology-class/2a4bd9a8-0067-4e67-b7d1-9eba18771ac4>
+<https://w3id.org/sulo/schema-builder/clinical-health-record/Severity_hasCode_domain>
     owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Severity [ a owl:Restriction ; owl:onProperty sulo:hasFeature ; owl:someValuesFrom :Code ] ) ] .
 
-<https://w3id.org/sulo/schema/resource/ontology-class/371fb5d8-4102-4bfa-9805-7e0159ecf262>
+<https://w3id.org/sulo/schema-builder/clinical-health-record/Severity_hasCode_range>
     owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Code [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:hasFeature ] ; owl:someValuesFrom :Severity ] ) ] .
 
-<https://w3id.org/sulo/schema/resource/ontology-class/45ddcd7a-6aed-4c2f-9224-681a0c2d5a83>
+<https://w3id.org/sulo/schema-builder/clinical-health-record/PharmaceuticalProduct_hasCode_domain>
     owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :PharmaceuticalProduct [ a owl:Restriction ; owl:onProperty sulo:hasFeature ; owl:someValuesFrom :Code ] ) ] .
 
-<https://w3id.org/sulo/schema/resource/ontology-class/65f8da2e-c1a5-40ac-b9dc-fd6f96633a55>
+<https://w3id.org/sulo/schema-builder/clinical-health-record/PharmaceuticalProduct_hasCode_range>
     owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Code [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:hasFeature ] ; owl:someValuesFrom :PharmaceuticalProduct ] ) ] .
 
-<https://w3id.org/sulo/schema/resource/ontology-class/ad178120-769d-4c25-8da9-a06d5ec98334>
+<https://w3id.org/sulo/schema-builder/clinical-health-record/ClinicalVisit_hasAdministrativeCase_domain>
     owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :ClinicalVisit [ a owl:Restriction ; owl:onProperty sulo:isPartOf ; owl:someValuesFrom :AdministrativeCase ] ) ] .
 
-<https://w3id.org/sulo/schema/resource/ontology-class/be8b0b6d-ddc1-4c11-bca4-f604b91e7d5a>
+<https://w3id.org/sulo/schema-builder/clinical-health-record/ClinicalVisit_hasAdministrativeCase_range>
     owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :AdministrativeCase [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:isPartOf ] ; owl:someValuesFrom :ClinicalVisit ] ) ] .
 
-<https://w3id.org/sulo/schema/resource/ontology-class/9ea1d443-b0a8-4cc0-a5ac-812dd80a68af>
+<https://w3id.org/sulo/schema-builder/clinical-health-record/AdministrativeCase_hasPatient_domain>
     owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :AdministrativeCase [ a owl:Restriction ; owl:onProperty sulo:hasParticipant ; owl:someValuesFrom [ a owl:Class ; owl:intersectionOf ( :SubjectOfCareRole [ a owl:Restriction ; owl:onProperty sulo:isFeatureOf ; owl:someValuesFrom :Person ] ) ] ] ) ] .
 
-<https://w3id.org/sulo/schema/resource/ontology-class/0b7809e6-18de-4da9-b611-d2b7db6dab22>
+<https://w3id.org/sulo/schema-builder/clinical-health-record/AdministrativeCase_hasPatient_range>
     owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Person [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:isFeatureOf ] ; owl:someValuesFrom [ a owl:Class ; owl:intersectionOf ( :SubjectOfCareRole [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:hasParticipant ] ; owl:someValuesFrom :AdministrativeCase ] ) ] ] ) ] .
 
-<https://w3id.org/sulo/schema/resource/ontology-class/f91a44a9-27b7-4311-83bb-c9a3828971db>
+<https://w3id.org/sulo/schema-builder/clinical-health-record/MeasurementProcess_hasSample_domain>
     owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :MeasurementProcess [ a owl:Restriction ; owl:onProperty sulo:hasParticipant ; owl:someValuesFrom :Sample ] ) ] .
 
-<https://w3id.org/sulo/schema/resource/ontology-class/60c31bbd-20eb-4d32-bcb9-a634ad6b7306>
+<https://w3id.org/sulo/schema-builder/clinical-health-record/MeasurementProcess_hasSample_range>
     owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Sample [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:hasParticipant ] ; owl:someValuesFrom :MeasurementProcess ] ) ] .
 
-<https://w3id.org/sulo/schema/resource/ontology-class/2ceb1bb1-56b6-4502-8014-5bf6cce6008d>
+<https://w3id.org/sulo/schema-builder/clinical-health-record/Sample_collectedFrom_domain>
     owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Sample [ a owl:Restriction ; owl:onProperty sulo:isPartOf ; owl:someValuesFrom :Person ] ) ] .
 
-<https://w3id.org/sulo/schema/resource/ontology-class/1bbc2af6-0c0f-42e6-8958-220dc0b04ccc>
+<https://w3id.org/sulo/schema-builder/clinical-health-record/Sample_collectedFrom_range>
     owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Person [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:isPartOf ] ; owl:someValuesFrom :Sample ] ) ] .
 
-<https://w3id.org/sulo/schema/resource/ontology-class/e197f8a6-4004-43fd-b819-6d3921b7cc7c>
+<https://w3id.org/sulo/schema-builder/clinical-health-record/PharmaceuticalProduct_hasSubstance_domain>
     owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :PharmaceuticalProduct [ a owl:Restriction ; owl:onProperty sulo:hasPart ; owl:someValuesFrom :Substance ] ) ] .
 
-<https://w3id.org/sulo/schema/resource/ontology-class/2680d69b-3471-47bd-a177-92c8b5e8a300>
+<https://w3id.org/sulo/schema-builder/clinical-health-record/PharmaceuticalProduct_hasSubstance_range>
     owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Substance [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:hasPart ] ; owl:someValuesFrom :PharmaceuticalProduct ] ) ] .
 
-<https://w3id.org/sulo/schema/resource/ontology-class/c6a5e26d-ec54-4046-bd87-e77df6b9f3ea>
+<https://w3id.org/sulo/schema-builder/clinical-health-record/DrugPrescription_prescribesDrug_domain>
     owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :DrugPrescription [ a owl:Restriction ; owl:onProperty sulo:refersTo ; owl:someValuesFrom :PharmaceuticalProduct ] ) ] .
 
-<https://w3id.org/sulo/schema/resource/ontology-class/44e2e666-f8eb-4aa8-aceb-d1b6b40d25cb>
+<https://w3id.org/sulo/schema-builder/clinical-health-record/DrugPrescription_prescribesDrug_range>
     owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :PharmaceuticalProduct [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:refersTo ] ; owl:someValuesFrom :DrugPrescription ] ) ] .
 
-<https://w3id.org/sulo/schema/resource/ontology-class/4badcd5b-0b9e-4da8-abe8-1e807ef40286>
+<https://w3id.org/sulo/schema-builder/clinical-health-record/DrugPrescription_hasSubject_domain>
     owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :DrugPrescription [ a owl:Restriction ; owl:onProperty sulo:isFeatureOf ; owl:someValuesFrom :Person ] ) ] .
 
-<https://w3id.org/sulo/schema/resource/ontology-class/2e3e38a9-df94-4dbe-81f4-46ef269ad954>
+<https://w3id.org/sulo/schema-builder/clinical-health-record/DrugPrescription_hasSubject_range>
     owl:equivalentClass [ a owl:Class ; owl:intersectionOf ( :Person [ a owl:Restriction ; owl:onProperty [ owl:inverseOf sulo:isFeatureOf ] ; owl:someValuesFrom :DrugPrescription ] ) ] .

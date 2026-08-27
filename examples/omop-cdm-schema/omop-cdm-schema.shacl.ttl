@@ -1,0 +1,655 @@
+@prefix : <https://w3id.org/sulo/schema-builder/omop-cdm-schema/> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+:VisitOccurrenceShape
+    a sh:NodeShape, owl:Class ;
+    sh:targetClass :VisitOccurrence ;
+    rdfs:label "Visit Occurrence" ;
+    sh:property [
+        sh:path :person_id ;
+        sh:name "Person ID" ;
+        sh:class :Person ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :provider_id ;
+        sh:name "Provider ID" ;
+        sh:class :Provider ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :care_site_id ;
+        sh:name "Care Site ID" ;
+        sh:class :CareSite ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :visit_concept_id ;
+        sh:name "Visit Concept ID" ;
+        sh:class :Concept ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :visit_start_datetime ;
+        sh:name "Visit Start Datetime" ;
+        sh:datatype xsd:dateTime ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :visit_end_datetime ;
+        sh:name "Visit End Datetime" ;
+        sh:datatype xsd:dateTime ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :admitting_source_concept_id ;
+        sh:name "Admitting Source Concept ID" ;
+        sh:class :Concept ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :discharge_to_concept_id ;
+        sh:name "Discharge To Concept ID" ;
+        sh:class :Concept ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :preceding_visit_occurrence_id ;
+        sh:name "Preceding Visit Occurrence ID" ;
+        sh:class :VisitOccurrence ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :visit_type_concept_id ;
+        sh:name "Type Concept ID" ;
+        sh:class :Concept ;
+        sh:minCount 1 ;
+    ] ;
+    sh:property [
+        sh:path :visit_source_concept_id ;
+        sh:name "Source Concept ID" ;
+        sh:class :Concept ;
+        sh:minCount 0 ;
+    ] .
+
+:ConditionOccurrenceShape
+    a sh:NodeShape, owl:Class ;
+    sh:targetClass :ConditionOccurrence ;
+    rdfs:label "Condition Occurrence" ;
+    sh:property [
+        sh:path :person_id ;
+        sh:name "Person ID" ;
+        sh:class :Person ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :condition_concept_id ;
+        sh:name "Condition Concept ID" ;
+        sh:class :Concept ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :visit_occurrence_id ;
+        sh:name "Visit Occurrence ID" ;
+        sh:class :VisitOccurrence ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :condition_start_datetime ;
+        sh:name "Condition Start Datetime" ;
+        sh:datatype xsd:dateTime ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :condition_end_datetime ;
+        sh:name "Condition End Datetime" ;
+        sh:datatype xsd:dateTime ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :condition_status_concept_id ;
+        sh:name "Condition Status Concept ID" ;
+        sh:class :Concept ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :stop_reason ;
+        sh:name "Stop Reason" ;
+        sh:datatype xsd:string ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :condition_type_concept_id ;
+        sh:name "Type Concept ID" ;
+        sh:class :Concept ;
+        sh:minCount 1 ;
+    ] ;
+    sh:property [
+        sh:path :condition_source_concept_id ;
+        sh:name "Source Concept ID" ;
+        sh:class :Concept ;
+        sh:minCount 0 ;
+    ] .
+
+:DrugExposureShape
+    a sh:NodeShape, owl:Class ;
+    sh:targetClass :DrugExposure ;
+    rdfs:label "Drug Exposure" ;
+    sh:property [
+        sh:path :person_id ;
+        sh:name "Person ID" ;
+        sh:class :Person ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :provider_id ;
+        sh:name "Provider ID" ;
+        sh:class :Provider ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :drug_concept_id ;
+        sh:name "Drug Concept ID" ;
+        sh:class :Concept ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :hasDrugProduct ;
+        sh:name "Has Drug Product" ;
+        sh:class :DrugProduct ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :hasDoseQuantity ;
+        sh:name "Has Dose Quantity" ;
+        sh:class :DoseQuantity ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :visit_occurrence_id ;
+        sh:name "Visit Occurrence ID" ;
+        sh:class :VisitOccurrence ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :drug_exposure_start_datetime ;
+        sh:name "Drug Exposure Start Datetime" ;
+        sh:datatype xsd:dateTime ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :drug_exposure_end_datetime ;
+        sh:name "Drug Exposure End Datetime" ;
+        sh:datatype xsd:dateTime ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :stop_reason ;
+        sh:name "Stop Reason" ;
+        sh:datatype xsd:string ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :quantity ;
+        sh:name "Quantity" ;
+        sh:datatype xsd:decimal ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :days_supply ;
+        sh:name "Days Supply" ;
+        sh:datatype xsd:integer ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :refills ;
+        sh:name "Refills" ;
+        sh:datatype xsd:integer ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :drug_type_concept_id ;
+        sh:name "Type Concept ID" ;
+        sh:class :Concept ;
+        sh:minCount 1 ;
+    ] ;
+    sh:property [
+        sh:path :drug_source_concept_id ;
+        sh:name "Source Concept ID" ;
+        sh:class :Concept ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :route_concept_id ;
+        sh:name "Route Concept ID" ;
+        sh:class :Concept ;
+        sh:minCount 0 ;
+    ] .
+
+:MeasurementShape
+    a sh:NodeShape, owl:Class ;
+    sh:targetClass :Measurement ;
+    rdfs:label "Measurement" ;
+    sh:property [
+        sh:path :person_id ;
+        sh:name "Person ID" ;
+        sh:class :Person ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :provider_id ;
+        sh:name "Provider ID" ;
+        sh:class :Provider ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :hasMeasurementResult ;
+        sh:name "Has Measurement Result" ;
+        sh:class :MeasurementValue ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :measurement_concept_id ;
+        sh:name "Measurement Concept ID" ;
+        sh:class :Concept ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :value_as_number ;
+        sh:name "Value As Number" ;
+        sh:datatype xsd:float ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :unit_concept_id ;
+        sh:name "Unit Concept ID" ;
+        sh:class :Unit ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :visit_occurrence_id ;
+        sh:name "Visit Occurrence ID" ;
+        sh:class :VisitOccurrence ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :measurement_datetime ;
+        sh:name "Measurement Datetime" ;
+        sh:datatype xsd:dateTime ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :operator_concept_id ;
+        sh:name "Operator Concept ID" ;
+        sh:class :Concept ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :range_low ;
+        sh:name "Range Low" ;
+        sh:datatype xsd:decimal ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :range_high ;
+        sh:name "Range High" ;
+        sh:datatype xsd:decimal ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :measurement_type_concept_id ;
+        sh:name "Type Concept ID" ;
+        sh:class :Concept ;
+        sh:minCount 1 ;
+    ] ;
+    sh:property [
+        sh:path :measurement_source_concept_id ;
+        sh:name "Source Concept ID" ;
+        sh:class :Concept ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :value_as_concept_id ;
+        sh:name "Value As Concept ID" ;
+        sh:class :Concept ;
+        sh:minCount 0 ;
+    ] .
+
+:ProcedureOccurrenceShape
+    a sh:NodeShape, owl:Class ;
+    sh:targetClass :ProcedureOccurrence ;
+    rdfs:label "Procedure Occurrence" ;
+    sh:property [
+        sh:path :person_id ;
+        sh:name "Person ID" ;
+        sh:class :Person ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :provider_id ;
+        sh:name "Provider ID" ;
+        sh:class :Provider ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :procedure_concept_id ;
+        sh:name "Procedure Concept ID" ;
+        sh:class :Concept ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :visit_occurrence_id ;
+        sh:name "Visit Occurrence ID" ;
+        sh:class :VisitOccurrence ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :procedure_datetime ;
+        sh:name "Procedure Datetime" ;
+        sh:datatype xsd:dateTime ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :procedure_end_datetime ;
+        sh:name "Procedure End Datetime" ;
+        sh:datatype xsd:dateTime ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :procedure_type_concept_id ;
+        sh:name "Type Concept ID" ;
+        sh:class :Concept ;
+        sh:minCount 1 ;
+    ] ;
+    sh:property [
+        sh:path :procedure_source_concept_id ;
+        sh:name "Source Concept ID" ;
+        sh:class :Concept ;
+        sh:minCount 0 ;
+    ] .
+
+:ObservationShape
+    a sh:NodeShape, owl:Class ;
+    sh:targetClass :Observation ;
+    rdfs:label "Observation" ;
+    sh:property [
+        sh:path :person_id ;
+        sh:name "Person ID" ;
+        sh:class :Person ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :observation_concept_id ;
+        sh:name "Observation Concept ID" ;
+        sh:class :Concept ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :value_as_string ;
+        sh:name "Value As String" ;
+        sh:datatype xsd:string ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :visit_occurrence_id ;
+        sh:name "Visit Occurrence ID" ;
+        sh:class :VisitOccurrence ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :observation_datetime ;
+        sh:name "Observation Datetime" ;
+        sh:datatype xsd:dateTime ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :value_as_number ;
+        sh:name "Value As Number" ;
+        sh:datatype xsd:decimal ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :value_as_concept_id ;
+        sh:name "Value As Concept ID" ;
+        sh:class :Concept ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :unit_concept_id ;
+        sh:name "Unit Concept ID" ;
+        sh:class :Unit ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :qualifier_concept_id ;
+        sh:name "Qualifier Concept ID" ;
+        sh:class :Concept ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :provider_id ;
+        sh:name "Provider ID" ;
+        sh:class :Provider ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :observation_type_concept_id ;
+        sh:name "Type Concept ID" ;
+        sh:class :Concept ;
+        sh:minCount 1 ;
+    ] ;
+    sh:property [
+        sh:path :observation_source_concept_id ;
+        sh:name "Source Concept ID" ;
+        sh:class :Concept ;
+        sh:minCount 0 ;
+    ] .
+
+:DeviceExposureShape
+    a sh:NodeShape, owl:Class ;
+    sh:targetClass :DeviceExposure ;
+    rdfs:label "Device Exposure" ;
+    sh:property [
+        sh:path :person_id ;
+        sh:name "Person ID" ;
+        sh:class :Person ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :provider_id ;
+        sh:name "Provider ID" ;
+        sh:class :Provider ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :device_concept_id ;
+        sh:name "Device Concept ID" ;
+        sh:class :Concept ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :hasDevice ;
+        sh:name "Has Device" ;
+        sh:class :Device ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :visit_occurrence_id ;
+        sh:name "Visit Occurrence ID" ;
+        sh:class :VisitOccurrence ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :device_exposure_start_datetime ;
+        sh:name "Device Exposure Start Datetime" ;
+        sh:datatype xsd:dateTime ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :device_exposure_end_datetime ;
+        sh:name "Device Exposure End Datetime" ;
+        sh:datatype xsd:dateTime ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :device_type_concept_id ;
+        sh:name "Type Concept ID" ;
+        sh:class :Concept ;
+        sh:minCount 1 ;
+    ] ;
+    sh:property [
+        sh:path :device_source_concept_id ;
+        sh:name "Source Concept ID" ;
+        sh:class :Concept ;
+        sh:minCount 0 ;
+    ] .
+
+:PersonShape
+    a sh:NodeShape, owl:Class ;
+    sh:targetClass :Person ;
+    rdfs:label "Person" .
+
+:ProviderShape
+    a sh:NodeShape, owl:Class ;
+    sh:targetClass :Provider ;
+    rdfs:label "Provider" .
+
+:CareSiteShape
+    a sh:NodeShape, owl:Class ;
+    sh:targetClass :CareSite ;
+    rdfs:label "Care Site" ;
+    sh:property [
+        sh:path :location_id ;
+        sh:name "Location ID" ;
+        sh:class :Location ;
+        sh:minCount 0 ;
+    ] .
+
+:LocationShape
+    a sh:NodeShape, owl:Class ;
+    sh:targetClass :Location ;
+    rdfs:label "Location" .
+
+:ConceptShape
+    a sh:NodeShape, owl:Class ;
+    sh:targetClass :Concept ;
+    rdfs:label "Concept" ;
+    sh:property [
+        sh:path :concept_id ;
+        sh:name "Concept ID" ;
+        sh:datatype xsd:integer ;
+        sh:minCount 1 ;
+    ] ;
+    sh:property [
+        sh:path :concept_name ;
+        sh:name "Concept Name" ;
+        sh:datatype xsd:string ;
+        sh:minCount 1 ;
+    ] .
+
+:DrugProductShape
+    a sh:NodeShape, owl:Class ;
+    sh:targetClass :DrugProduct ;
+    rdfs:label "Drug Product" .
+
+:DeviceShape
+    a sh:NodeShape, owl:Class ;
+    sh:targetClass :Device ;
+    rdfs:label "Device" .
+
+:SpecimenShape
+    a sh:NodeShape, owl:Class ;
+    sh:targetClass :Specimen ;
+    rdfs:label "Specimen" ;
+    sh:property [
+        sh:path :specimen_type_concept_id ;
+        sh:name "Type Concept ID" ;
+        sh:class :Concept ;
+        sh:minCount 1 ;
+    ] ;
+    sh:property [
+        sh:path :person_id ;
+        sh:name "Person ID" ;
+        sh:class :Person ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :specimen_concept_id ;
+        sh:name "Specimen Concept ID" ;
+        sh:class :Concept ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :anatomic_site_concept_id ;
+        sh:name "Anatomic Site Concept ID" ;
+        sh:class :Concept ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :specimen_datetime ;
+        sh:name "Specimen Datetime" ;
+        sh:datatype xsd:dateTime ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :specimen_source_concept_id ;
+        sh:name "Specimen Source Concept ID" ;
+        sh:class :Concept ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :quantity ;
+        sh:name "Quantity" ;
+        sh:datatype xsd:decimal ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :unit_concept_id ;
+        sh:name "Unit Concept ID" ;
+        sh:class :Unit ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path :disease_status_concept_id ;
+        sh:name "Disease Status Concept ID" ;
+        sh:class :Concept ;
+        sh:minCount 0 ;
+    ] .
+
+:PatientRoleShape
+    a sh:NodeShape, owl:Class ;
+    sh:targetClass :PatientRole ;
+    rdfs:label "Patient Role" .
+
+:ProviderRoleShape
+    a sh:NodeShape, owl:Class ;
+    sh:targetClass :ProviderRole ;
+    rdfs:label "Provider Role" .
+
+:OutputRoleShape
+    a sh:NodeShape, owl:Class ;
+    sh:targetClass :OutputRole ;
+    rdfs:label "Output Role" .
+
+:InstrumentRoleShape
+    a sh:NodeShape, owl:Class ;
+    sh:targetClass :InstrumentRole ;
+    rdfs:label "Instrument Role" .
+
+:MeasurementValueShape
+    a sh:NodeShape, owl:Class ;
+    sh:targetClass :MeasurementValue ;
+    rdfs:label "Measurement Value" .
+
+:UnitShape
+    a sh:NodeShape, owl:Class ;
+    sh:targetClass :Unit ;
+    rdfs:label "Unit" .
+
+:DoseQuantityShape
+    a sh:NodeShape, owl:Class ;
+    sh:targetClass :DoseQuantity ;
+    rdfs:label "Dose Quantity" .
