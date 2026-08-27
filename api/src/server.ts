@@ -29,7 +29,7 @@ export async function createServer() {
   });
 
   await server.register(corsPlugin);
-  await server.register(helmetPlugin);
+  await server.register(helmetPlugin, { auth: config.auth });
   await server.register(sensiblePlugin);
   // After sensible (it uses reply.badRequest) and before any route, so both
   // storage modes and the reason routes share it.
