@@ -5,12 +5,6 @@
     <title>silent-check-sso</title>
   </head>
   <body>
-    <script>
-      // Standard keycloak-js silent-check-sso page: this loads in a hidden
-      // iframe during Keycloak.init({ onLoad: 'check-sso' }) so the SPA can
-      // learn whether the visitor already has an SSO session, without
-      // redirecting them to the login page first.
-      parent.postMessage(location.href, location.origin);
-    </script>
+    <script src="/silent-check-sso.js"></script>
   </body>
 </html>

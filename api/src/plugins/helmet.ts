@@ -25,6 +25,22 @@
 //     look like the desktop build with no visible error anywhere. Caught by
 //     actually driving a sign-in through a browser against this exact CSP,
 //     not by reasoning about the policy in the abstract.
+//
+// `upgradeInsecureRequests` is deliberately OMITTED (it's in @fastify/
+// helmet's own defaults). This app is served plain HTTP directly to the
+// browser in every environment that has actually been tested (local
+// docker-compose, CI), and CSP's 'self' is scheme-sensitive to whatever the
+// browser's address bar shows. With the directive present, Chrome silently
+// rewrites the silent-check-sso iframe's http:// redirect target to https://
+// before checking it against frame-src — which then matches neither 'self'
+// (wrong scheme) nor the Keycloak origin (wrong scheme AND host), and the
+// navigation is blocked with net::ERR_BLOCKED_BY_CSP. keycloak.init() then
+// hangs forever, identical symptom to the missing-frame-src bug above. Since
+// this SPA never hardcodes an absolute http:// URL for its own resources
+// (Vite emits same-origin relative paths), the directive's actual
+// mixed-content protection here is negligible — not worth reintroducing this
+// failure mode for a deployment that terminates TLS at a reverse proxy in
+// front of a plain-HTTP origin.
 import fp from 'fastify-plugin';
 import helmet from '@fastify/helmet';
 import type { AuthConfig } from '../config/auth.js';
@@ -56,7 +72,11 @@ export default fp<HelmetPluginOptions>(async (fastify, opts) => {
         scriptSrc: ["'self'"],
         scriptSrcAttr: ["'none'"],
         styleSrc: ["'self'", 'https:', "'unsafe-inline'"],
-        upgradeInsecureRequests: [],
+        // Omitting this key would NOT remove it — @fastify/helmet merges
+        // unspecified directives with its own defaults, which include this
+        // one. `null` is the explicit opt-out (this package's types don't
+        // accept `false` here, unlike plain `helmet`).
+        upgradeInsecureRequests: null,
       },
     },
   });

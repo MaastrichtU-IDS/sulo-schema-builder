@@ -269,7 +269,20 @@ to the `jose`-signed unit tests):
   exactly what a from-scratch CSP forgets first) makes `check-sso` fail
   closed to `'disabled'` rather than error loudly — check the browser
   console and confirm `frontend/public/silent-check-sso.html` made it into
-  the build.
+  the build. Two more CSP-shaped ways this hangs instead of failing loudly
+  (both caught only by actually driving a sign-in through a real browser,
+  not by reading the policy): Keycloak's *own* realm-level
+  `browserSecurityHeaders` defaults to `frame-ancestors 'self'`, which
+  refuses to let Keycloak's pages be framed by the SPA's origin at all —
+  `docker/keycloak/realm-sulo.json`'s `browserSecurityHeaders.
+  contentSecurityPolicy` overrides this to include the SPA's origins. And
+  `upgradeInsecureRequests` in the SPA's own CSP silently rewrites the
+  iframe's `http://` redirect target to `https://` before checking it
+  against `frame-src`, which then matches neither `'self'` (wrong scheme)
+  nor the Keycloak origin — blocked with `net::ERR_BLOCKED_BY_CSP` on a
+  plain-HTTP deployment (local, CI, or a proxy that doesn't front this app
+  over TLS); `api/src/plugins/helmet.ts` omits the directive entirely for
+  that reason.
 - **`VERIFY_PROFILE` required action blocking a seeded user** — the realm
   requires email verification and email-as-username. A user created without
   `emailVerified`, `firstName` and `lastName` gets stuck behind Keycloak's
