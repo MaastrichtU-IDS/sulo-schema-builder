@@ -3,7 +3,7 @@
 // see the comment there for why they cannot live in this directory.
 
 import { serverConfig, storage } from './server.js';
-import { dbConfig, postgresConfig } from './db.js';
+import { dbConfig, resolvePostgresConfig } from './db.js';
 import { rdfConfig } from './rdf.js';
 import { reasonerConfig } from './reasoner.js';
 import { resolveAuthConfig } from './auth.js';
@@ -13,7 +13,7 @@ import { eventsConfig } from './events.js';
 export const config = {
   ...serverConfig,
   db: dbConfig,
-  postgres: postgresConfig,
+  postgres: resolvePostgresConfig(process.env, storage),
   rdf: rdfConfig,
   reasoner: reasonerConfig,
   auth: resolveAuthConfig(process.env, storage),

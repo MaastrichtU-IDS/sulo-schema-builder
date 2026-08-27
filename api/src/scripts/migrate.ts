@@ -19,13 +19,19 @@ import { runMigrations } from '../db/migrate.js';
 // opened a connection, which took the whole stack down with it (the api
 // service depends on migrate completing). Applying DDL needs a database URL
 // and nothing else; the server keeps validating everything it needs.
-import { postgresConfig } from '../config/db.js';
+//
+// Passed 'postgres' unconditionally, not this process's own SCHEMA_STORAGE:
+// this script only ever runs migrations against Postgres, and requiring
+// DATABASE_URL here is exactly the fail-fast a migration entry point wants —
+// applying DDL against the packaged-in localhost default because the real
+// URL was never passed is a worse outcome than refusing to start.
+import { resolvePostgresConfig } from '../config/db.js';
 
 // api/src/scripts/ and api/dist/scripts/ are both two levels under api/, so
 // this resolves to api/migrations from either the tsx or the compiled run.
 const migrationsDir = resolve(import.meta.dirname, '..', '..', 'migrations');
 
-const pool = new Pool({ connectionString: postgresConfig.url });
+const pool = new Pool({ connectionString: resolvePostgresConfig(process.env, 'postgres').url });
 try {
   const applied = await runMigrations(pool, migrationsDir);
   console.log(applied.length ? `applied: ${applied.join(', ')}` : 'already up to date');

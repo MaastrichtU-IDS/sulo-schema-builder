@@ -12,7 +12,7 @@ import { describe, it, expect, afterEach, vi } from 'vitest';
 import Fastify from 'fastify';
 import fastifySensible from '@fastify/sensible';
 
-const AUTH_ENV_KEYS = ['SCHEMA_STORAGE', 'AUTH_ISSUER', 'AUTH_AUDIENCE', 'AUTH_REQUIRE_JWKS_AT_BOOT'] as const;
+const AUTH_ENV_KEYS = ['SCHEMA_STORAGE', 'DATABASE_URL', 'AUTH_ISSUER', 'AUTH_AUDIENCE', 'AUTH_REQUIRE_JWKS_AT_BOOT'] as const;
 const savedEnv: Record<string, string | undefined> = {};
 for (const key of AUTH_ENV_KEYS) savedEnv[key] = process.env[key];
 
@@ -27,10 +27,12 @@ async function buildApp(storage: 'postgres' | 'sqlite') {
   vi.resetModules();
   process.env.SCHEMA_STORAGE = storage;
   if (storage === 'postgres') {
-    // config/index.ts resolves the auth config eagerly at import time
-    // regardless of whether plugins/auth.ts is ever registered — these are
-    // dummy values so that resolution does not throw; requireJwksAtBoot is
-    // only consulted by the plugin itself, which this test never loads.
+    // config/index.ts resolves the auth and postgres config eagerly at
+    // import time regardless of whether plugins/auth.ts or a real pool is
+    // ever used — these are dummy values so that resolution does not throw;
+    // requireJwksAtBoot is only consulted by the plugin itself, which this
+    // test never loads, and no query is ever run against DATABASE_URL.
+    process.env.DATABASE_URL = 'postgres://test:test@localhost:5432/test';
     process.env.AUTH_ISSUER = 'http://localhost:8088/realms/test';
     process.env.AUTH_AUDIENCE = 'sulo-spa';
     process.env.AUTH_REQUIRE_JWKS_AT_BOOT = 'false';
