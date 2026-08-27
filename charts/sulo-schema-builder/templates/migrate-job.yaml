@@ -1,0 +1,45 @@
+{{- if .Values.migrate.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  # Fixed name (not release-revision-suffixed): the delete-before-create
+  # policy below needs a stable name to find and remove the previous run's
+  # Job before creating this one — Jobs are immutable, so re-running one in
+  # place isn't an option.
+  name: {{ include "sulo-schema-builder.fullname" . }}-migrate
+  labels:
+    {{- include "sulo-schema-builder.labels" . | nindent 4 }}
+  annotations:
+    # Runs to completion before any new api Pod starts, on both install and
+    # upgrade — mirrors docker-compose.yml's `migrate` service ("N replicas
+    # must never race applying the same migration"). ArgoCD translates these
+    # annotations into its own sync-wave hooks automatically.
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: {{ .Values.migrate.backoffLimit }}
+  activeDeadlineSeconds: {{ .Values.migrate.activeDeadlineSeconds }}
+  template:
+    metadata:
+      labels:
+        {{- include "sulo-schema-builder.selectorLabels" . | nindent 8 }}
+    spec:
+      restartPolicy: Never
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "sulo-schema-builder.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: migrate
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: {{ include "sulo-schema-builder.migrateImage" . | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["node", "api/dist/scripts/migrate.js"]
+          env:
+            {{- include "sulo-schema-builder.commonEnv" . | nindent 12 }}
+{{- end }}

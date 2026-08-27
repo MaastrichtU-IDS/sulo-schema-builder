@@ -1,0 +1,14 @@
+apiVersion: v2
+name: sulo-schema-builder
+description: >-
+  SULO Schema Builder API — a Fastify service that also serves the built
+  React SPA. Expects Postgres and Keycloak as pre-existing, externally
+  managed services (see README.md in this chart); it does not deploy either.
+type: application
+version: 0.1.0
+appVersion: "0.1.1"
+home: https://github.com/MaastrichtU-IDS/sulo-schema-builder
+sources:
+  - https://github.com/MaastrichtU-IDS/sulo-schema-builder
+maintainers:
+  - name: MaastrichtU-IDS

@@ -88,6 +88,12 @@ not in that list, regardless of what `AUTH_ISSUER`/`KC_HOSTNAME` say. Add your
 real origin(s) to all three before importing the realm against a non-localhost
 deployment.
 
+**Deploying to Kubernetes:** `charts/sulo-schema-builder` is a Helm chart for
+the `api` service (Deployment, Service, Ingress, a migration Job run as a
+pre-install/pre-upgrade hook). It expects Postgres and Keycloak as
+pre-existing, externally managed services — see the chart's own README for
+what to fill in.
+
 ## Authentication
 
 Identity is delegated to [Keycloak](https://www.keycloak.org/), run as a
