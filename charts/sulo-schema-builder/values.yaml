@@ -5,12 +5,16 @@
 replicaCount: 2
 
 image:
-  # No image is published by this repo's CI yet (docker/api/Dockerfile,
-  # `target: production`, is built and smoke-tested in CI but not pushed
-  # anywhere) — this MUST be set to wherever you build/push it.
-  repository: ""
+  # .github/workflows/docker-publish.yml builds docker/api/Dockerfile's
+  # production target and pushes it here on every `v*` tag push — set this
+  # once your registry/package visibility is settled (a new GHCR package
+  # defaults to private; either make it public or set imagePullSecrets
+  # below).
+  repository: ghcr.io/maastrichtu-ids/sulo-schema-builder/api
   pullPolicy: IfNotPresent
-  # Defaults to .Chart.AppVersion when empty.
+  # Defaults to .Chart.AppVersion when empty. That tracks Chart.yaml, not
+  # necessarily the latest published tag — pin explicitly for anything but
+  # quick testing.
   tag: ""
 
 imagePullSecrets: []
