@@ -108,11 +108,23 @@ export function useOntologySchemas(scope?: backend.SchemaScope, enabled = true) 
   });
 }
 
-export function useOntologySchema(id: string) {
+/**
+ * `enabled` defaults to true (desktop/SQLite has no auth-loading phase to
+ * wait out), but a web caller MUST pass `authStatus !== 'loading'` — same
+ * reasoning as useOntologySchemas below. Skipping that gate means this
+ * query can fire before keycloak-js's silent check-sso resolves, going out
+ * with no bearer token; a public/unlisted schema still answers 200
+ * (anonymous-level access), and nothing re-fires this query once the real
+ * token becomes available, permanently caching an anonymous-level
+ * `accessLevel` for what should be an authenticated response — including
+ * the caller's own private schemas answering `accessLevel: 'view'` (or a
+ * bare private schema 404ing) instead of `'own'`.
+ */
+export function useOntologySchema(id: string, enabled = true) {
   return useQuery<OntologySchema>({
     queryKey: ['ontology-schema', id],
     queryFn: () => backend.getSchema(id),
-    enabled: !!id,
+    enabled: !!id && enabled,
   });
 }
 

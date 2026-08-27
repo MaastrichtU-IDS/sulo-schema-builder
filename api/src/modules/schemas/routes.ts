@@ -155,8 +155,15 @@ const schemasRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.code(201).send(created);
   });
 
-  fastify.get('/:id', { preHandler: requireAccess('view') }, async (request) =>
-    service.schemaWithChildren(fastify.pg, schemaAccess(request).schema));
+  fastify.get('/:id', { preHandler: requireAccess('view') }, async (request) => {
+    const { schema, level } = schemaAccess(request);
+    // The frontend has no other way to know whether it may show edit/delete
+    // controls for this schema's classes/properties — schemaRowToSummary
+    // deliberately omits owner_id (see its own comment), so `level` (already
+    // computed by the requireAccess guard above) is the one thing that can
+    // safely stand in for it without leaking who the owner actually is.
+    return { ...(await service.schemaWithChildren(fastify.pg, schema)), accessLevel: level };
+  });
 
   fastify.patch('/:id', { preHandler: requireAccess('edit') }, async (request, reply) => {
     const data = UpdateOntologySchemaBody.parse(request.body);

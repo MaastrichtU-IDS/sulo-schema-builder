@@ -260,4 +260,34 @@ describe('schema routes under authentication', () => {
     });
     expect(res.statusCode).toBe(404);
   });
+
+  // The frontend has no other way to decide whether to show edit/delete
+  // controls for a schema's classes/properties (schemaRowToSummary never
+  // exposes owner_id — see its own comment) — accessLevel on GET /:id is
+  // that answer. One request per level, over the same public schema, so a
+  // wrong value can't hide behind a visibility difference.
+  it("GET /:id reports the caller's own resolved accessLevel", async () => {
+    const id = await schemaOwnedBy('kc-alice', 'public', 'Shared with Bob');
+    const bob = await harness.issuer.sign({ sub: 'kc-bob' }, { expiresIn: '2h' });
+    await harness.app.inject({ method: 'GET', url: '/ontology-schemas', headers: harness.bearer(bob) });
+    await t.pool.query(
+      `insert into schema_grants (schema_id, grantee_id, role)
+       select $1, id, 'editor' from users where subject = $2`,
+      [id, 'kc-bob'],
+    );
+    const carol = await harness.issuer.sign({ sub: 'kc-carol' }, { expiresIn: '2h' });
+
+    const alice = await harness.issuer.sign({ sub: 'kc-alice' }, { expiresIn: '2h' });
+    const asOwner = await harness.app.inject({ method: 'GET', url: `/ontology-schemas/${id}`, headers: harness.bearer(alice) });
+    expect(asOwner.json().accessLevel).toBe('own');
+
+    const asEditor = await harness.app.inject({ method: 'GET', url: `/ontology-schemas/${id}`, headers: harness.bearer(bob) });
+    expect(asEditor.json().accessLevel).toBe('edit');
+
+    const asViewer = await harness.app.inject({ method: 'GET', url: `/ontology-schemas/${id}`, headers: harness.bearer(carol) });
+    expect(asViewer.json().accessLevel).toBe('view');
+
+    const asAnonymous = await harness.app.inject({ method: 'GET', url: `/ontology-schemas/${id}` });
+    expect(asAnonymous.json().accessLevel).toBe('view');
+  });
 });
